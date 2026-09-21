@@ -7,8 +7,9 @@ import Workout from './screens/Workout.jsx';
 import History from './screens/History.jsx';
 import Templates from './screens/Templates.jsx';
 import Settings from './screens/Settings.jsx';
+import Analytics from './screens/Analytics.jsx';
 
-const SCREENS = { home: Home, workout: Workout, history: History, templates: Templates, settings: Settings };
+const SCREENS = { home: Home, workout: Workout, history: History, templates: Templates, settings: Settings, stats: Analytics };
 
 function Shell() {
   const { user, active, toast } = useStore();
@@ -23,19 +24,17 @@ function Shell() {
     window.scrollTo({ top: 0 });
   };
   return (
-    <>
-      <Screen go={go} />
+    <div className="shell">
+      <main className="main"><Screen go={go} /></main>
       {toast && <div className="toast" role="status" key={toast.id}>{toast.msg}</div>}
       <BottomNav tab={tab} go={go} live={Boolean(active)} />
-    </>
+    </div>
   );
 }
 
 export default function App() {
   return (
     <StoreProvider>
-      <div className="orb orb-a" aria-hidden="true" />
-      <div className="orb orb-b" aria-hidden="true" />
       <Shell />
     </StoreProvider>
   );
