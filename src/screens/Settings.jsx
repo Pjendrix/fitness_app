@@ -1,4 +1,5 @@
 import { useStore } from '../lib/store.jsx';
+import ViewToggle from '../components/ViewToggle.jsx';
 
 export default function Settings() {
   const { user, mode, workouts, prs, templates, signOut, notify } = useStore();
@@ -27,6 +28,7 @@ export default function Settings() {
 
       <section className="card list">
         <div className="row"><span>Úložiště</span><span className="muted">{mode === 'firebase' ? 'Cloud Firestore' : 'Lokální (demo)'}</span></div>
+        <div className="row"><span>Zobrazení</span><ViewToggle full /></div>
         <div className="row"><span>Jednotky</span><span className="muted">kg</span></div>
         <div className="row"><span>Odcvičených tréninků</span><span className="muted">{workouts.length}</span></div>
       </section>

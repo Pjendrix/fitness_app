@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
+import ViewToggle from '../components/ViewToggle.jsx';
 import { GROUP_ORDER, GROUPS } from '../data/defaultTemplates.js';
 import { fmtDate, fmtNum, fmtSet, startOfWeek, workoutVolume } from '../lib/util.js';
 
 export default function Home({ go }) {
-  const { user, workouts, prs, templates, active, startWorkout } = useStore();
+  const { user, workouts, prs, templates, active, startWorkout, startEmptyWorkout } = useStore();
   const [variant, setVariant] = useState('Normal');
 
   // Další v rotaci PUSH → PULL → LEGS podle posledního tréninku
@@ -37,7 +38,7 @@ export default function Home({ go }) {
   return (
     <div className="screen">
       <header className="screen-head">
-        <p className="muted">{first ? `Ahoj, ${first}` : 'Ahoj'}</p>
+        <div className="row-between"><p className="muted">{first ? `Ahoj, ${first}` : 'Ahoj'}</p><ViewToggle /></div>
         <h1>Co dnes potrénujeme?</h1>
       </header>
 
@@ -71,6 +72,12 @@ export default function Home({ go }) {
         <div className="card stat"><span className="num">{week.volume ? fmtNum(Math.round(week.volume / 100) / 10) : 0}<small> t</small></span><span className="muted small">objem tento týden</span></div>
         <div className="card stat"><span className="num">{workouts.length}</span><span className="muted small">tréninků celkem</span></div>
       </section>
+
+      {!active && (
+        <button className="btn btn-primary btn-block btn-lg" onClick={() => { startEmptyWorkout(); go('workout'); }}>
+          Zahájit rychlý trénink
+        </button>
+      )}
 
       <section>
         <div className="row-between"><h3 className="section-title">Nedávné rekordy</h3><button className="link" onClick={() => go('stats')}>Všechny statistiky</button></div>

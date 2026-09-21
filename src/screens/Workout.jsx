@@ -7,7 +7,7 @@ import ExercisePicker from '../components/ExercisePicker.jsx';
 export default function Workout({ go }) {
   const { active, patchActive, prs, finishWorkout, discardWorkout, notify, addExerciseToActive } = useStore();
   const [now, setNow] = useState(Date.now());
-  const [picking, setPicking] = useState(false);
+  const [picking, setPicking] = useState(() => Boolean(active && !active.exercises.length));
 
   useEffect(() => {
     if (!active) return;
@@ -133,7 +133,8 @@ export default function Workout({ go }) {
         );
       })}
 
-      <button className="btn btn-ghost btn-block" onClick={() => setPicking(true)}><PlusIcon width={16} height={16} /> Přidat cvičení</button>
+      {!active.exercises.length && <p className="empty">Přidej první cvičení.</p>}
+      <button className={'btn btn-block ' + (active.exercises.length ? 'btn-ghost' : 'btn-primary')} onClick={() => setPicking(true)}><PlusIcon width={16} height={16} /> Přidat cvičení</button>
       <button className="btn btn-danger btn-block" onClick={() => window.confirm('Zahodit rozdělaný trénink?') && discardWorkout()}>Zahodit trénink</button>
 
       {picking && (

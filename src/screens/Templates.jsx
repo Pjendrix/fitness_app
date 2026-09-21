@@ -35,6 +35,13 @@ function TemplateCard({ tpl, onStart, onEdit, onDelete }) {
   );
 }
 
+// Opakování: číslo, rozsah (8-10) nebo „max“. Text patří do poznámky.
+const cleanReps = (v) => {
+  const t = v.toLowerCase().replace(/\s/g, '').replace(/[–—]/g, '-');
+  if ('max'.startsWith(t) && t) return t;
+  return t.replace(/[^0-9-]/g, '').replace(/-+/g, '-').replace(/^-/, '').slice(0, 5);
+};
+
 function Editor({ initial, onSave, onClose }) {
   const [name, setName] = useState(initial.name);
   const [items, setItems] = useState(initial.exercises);
@@ -48,9 +55,10 @@ function Editor({ initial, onSave, onClose }) {
         <div className="edit-ex" key={i}>
           <div className="edit-ex-name">{e.name}</div>
           <label className="mini"><span className="label">Série</span><input className="input" inputMode="numeric" value={e.sets} onChange={(ev) => upd(i, { sets: Math.max(1, Math.min(20, +ev.target.value || 1)) })} /></label>
-          <label className="mini"><span className="label">Opak.</span><input className="input" value={e.reps} placeholder="8-10" onChange={(ev) => upd(i, { reps: ev.target.value })} /></label>
+          <label className="mini"><span className="label">Opak.</span><input className="input" inputMode="text" value={e.reps} placeholder="8-10" onChange={(ev) => upd(i, { reps: cleanReps(ev.target.value) })} /></label>
           <label className="mini"><span className="label">kg</span><input className="input" inputMode="decimal" value={e.weight ?? ''} placeholder="–" onChange={(ev) => upd(i, { weight: ev.target.value })} /></label>
           <button className="icon-btn" aria-label="Odebrat" onClick={() => setItems((l) => l.filter((_, j) => j !== i))}><XIcon width={16} height={16} /></button>
+          <input className="input edit-note" value={e.note || ''} placeholder="Poznámka (např. drop-set, do selhání)" onChange={(ev) => upd(i, { note: ev.target.value })} />
         </div>
       ))}
       <button className="btn btn-ghost btn-sm" onClick={() => setPicking(true)}><PlusIcon width={16} height={16} /> Přidat cvičení</button>
