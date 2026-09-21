@@ -1,26 +1,39 @@
 import { useEffect, useState } from 'react';
 import { exKey } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
+import { useStore } from '../lib/store.jsx';
+import { DB_IMG, loadDb } from '../lib/exerciseDb.js';
 
 // Instructions + photos from free-exercise-db (github.com/yuhonas/free-exercise-db, public domain).
-const IMG = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
+const IMG = DB_IMG;
 let cache = null;
 const loadInfo = () => (cache ||= import('../data/exerciseInfo.json').then((m) => m.default));
 
+// Shows ⓘ for curated / database exercises, a CUSTOM tag for user-made ones.
 export function InfoButton({ name }) {
   const [open, setOpen] = useState(false);
+  const { infoOf } = useStore();
+  const src = infoOf(name);
+  if (!src) return <span className="custom-tag">{t('info.custom')}</span>;
   return (
     <>
       <button type="button" className="info-btn" aria-label={t('info.open', { name })} title={t('info.title')} onClick={(e) => { e.stopPropagation(); setOpen(true); }}>i</button>
-      {open && <InfoSheet name={name} onClose={() => setOpen(false)} />}
+      {open && <InfoSheet name={name} db={src.db} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-function InfoSheet({ name, onClose }) {
+function InfoSheet({ name, db, onClose }) {
   const [info, setInfo] = useState(undefined);
   const [frame, setFrame] = useState(0);
-  useEffect(() => { loadInfo().then((all) => setInfo(all[exKey(name)] || null)).catch(() => setInfo(null)); }, [name]);
+  useEffect(() => {
+    const fromCurated = () => loadInfo().then((all) => all[exKey(name)] || null);
+    const fromDb = () => loadDb().then((all) => {
+      const x = all.find((e) => e.id === db);
+      return x ? { src: x.name, level: x.level, equipment: x.equipment, muscles: x.primaryMuscles, steps: x.instructions, images: x.images } : null;
+    });
+    (db ? fromDb() : fromCurated()).then(setInfo).catch(() => setInfo(null));
+  }, [name, db]);
   // Alternate start/end photo → simple motion preview
   useEffect(() => {
     if (!info?.images?.length) return;

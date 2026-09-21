@@ -4,7 +4,7 @@ import { CATEGORIES, normCat } from '../data/exercises.js';
 import { download, parseCsv, toCsv } from '../lib/csv.js';
 import { exKey, fmtSet } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
-import { norm, TypeTag } from '../components/ExercisePicker.jsx';
+import ExercisePicker, { norm, TypeTag } from '../components/ExercisePicker.jsx';
 import { PlusIcon, TrashIcon } from '../components/Icons.jsx';
 import { InfoButton } from '../components/ExerciseInfo.jsx';
 
@@ -14,6 +14,7 @@ export default function Exercises() {
   const [name, setName] = useState('');
   const [cat, setCat] = useState(CATEGORIES[0]);
   const [type, setType] = useState('reps');
+  const [browsing, setBrowsing] = useState(false);
   const file = useRef(null);
 
   const counts = useMemo(() => {
@@ -35,7 +36,7 @@ export default function Exercises() {
     setName('');
   };
 
-  const exportCsv = () => download('forge-exercises.csv', toCsv([['name', 'category', 'type'], ...library.map((e) => [e.name, e.cat, e.type === 'time' ? 'time' : 'reps'])]));
+  const exportCsv = () => download('forge-exercises.csv', toCsv([['name', 'category', 'type', 'db'], ...library.map((e) => [e.name, e.cat, e.type === 'time' ? 'time' : 'reps', e.db || ''])]));
 
   const importCsv = async (ev) => {
     const f = ev.target.files?.[0];
@@ -47,7 +48,7 @@ export default function Exercises() {
     const seen = new Set();
     const list = body
       .filter((r) => r[0])
-      .map((r) => { const cat = normCat(r[1]); const time = /^(time|cas|čas)$/i.test(r[2] || '') || (!r[2] && cat === 'cardio'); return time ? { name: r[0], cat, type: 'time' } : { name: r[0], cat }; })
+      .map((r) => { const cat = normCat(r[1]); const time = /^(time|cas|čas)$/i.test(r[2] || '') || (!r[2] && cat === 'cardio'); const db = r[3] ? { db: r[3] } : {}; return time ? { name: r[0], cat, type: 'time', ...db } : { name: r[0], cat, ...db }; })
       .filter((e) => !seen.has(exKey(e.name)) && seen.add(exKey(e.name)));
     if (!list.length) return notify(t('ex.importFail'));
     if (window.confirm(t('ex.importMode'))) {
@@ -65,15 +66,18 @@ export default function Exercises() {
 
   return (
     <div className="screen screen-wide">
+      {browsing && <ExercisePicker mode="db" onClose={() => setBrowsing(false)} onPick={(ex) => notify(t('ex.added', { name: ex.name }))} />}
       <header className="screen-head row-between">
         <div><h1>{t('ex.title')}</h1><p className="label" style={{ marginTop: 6 }}>{t('ex.count', { n: library.length })}</p></div>
         <div className="row-actions">
+          <button className="btn btn-primary btn-sm" onClick={() => setBrowsing(true)}>{t('ex.browse')}</button>
           <button className="btn btn-ghost btn-sm" onClick={exportCsv}>{t('ex.export')}</button>
           <button className="btn btn-ghost btn-sm" onClick={() => file.current?.click()}>{t('ex.import')}</button>
           <input ref={file} type="file" accept=".csv,text/csv" hidden onChange={importCsv} />
         </div>
       </header>
 
+      <p className="label" style={{ margin: '6px 0 -4px' }}>{t('ex.customTitle')}</p>
       <div className="card ex-add">
         <input className="input" placeholder={t('ex.namePh')} value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
         <select className="input" value={cat} onChange={(e) => { setCat(e.target.value); if (e.target.value === 'cardio') setType('time'); }} aria-label={t('pick.category')}>
@@ -97,7 +101,7 @@ export default function Exercises() {
               return (
                 <div className="lib-row" key={e.name}>
                   <div className="lib-main">
-                    <span>{e.name} <InfoButton name={e.name} /> <button className="type-toggle" title={t('type.label')} onClick={() => saveLibrary(library.map((x) => (x === e ? (e.type === 'time' ? { name: x.name, cat: x.cat } : { ...x, type: 'time' }) : x)))}><TypeTag type={e.type} /></button></span>
+                    <span>{e.name} <InfoButton name={e.name} /> <button className="type-toggle" title={t('type.label')} onClick={() => saveLibrary(library.map((x) => (x === e ? (e.type === 'time' ? (({ type, ...rest }) => rest)(x) : { ...x, type: 'time' }) : x)))}><TypeTag type={e.type} /></button></span>
                     <span className="label">{[prs[k] && `PB ${fmtSet(prs[k].weight, prs[k].reps, prs[k].time)}`, counts[k] && t('ex.sessions', { n: counts[k] })].filter(Boolean).join(' · ')}</span>
                   </div>
                   <select className="lib-cat" value={e.cat} onChange={(ev) => recat(e, ev.target.value)} aria-label={t('pick.category')}>

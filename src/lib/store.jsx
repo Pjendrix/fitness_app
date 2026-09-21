@@ -4,6 +4,7 @@ import { profileOf } from '../data/defaultTemplates.js';
 import { defaultTypeOf, EXERCISES, modernName, normCat } from '../data/exercises.js';
 import { better, exKey, firstNum, isDone, num, planLabel, uid } from './util.js';
 import { t } from './i18n.js';
+import { INFO_KEYS } from '../data/infoKeys.js';
 
 const Ctx = createContext(null);
 export const useStore = () => useContext(Ctx);
@@ -35,7 +36,7 @@ const migratePrs = (prs) => {
 const migrateTemplate = (tpl) => ({ ...tpl, exercises: tpl.exercises.map((e) => ({ ...e, name: modernName(e.name) })) });
 const loadLibrary = (doc) => {
   if (!doc) return EXERCISES;
-  const list = (doc.list || []).map((e) => ({ name: modernName(e.name), cat: normCat(e.cat), ...(e.type === 'time' ? { type: 'time' } : {}) }));
+  const list = (doc.list || []).map((e) => ({ name: modernName(e.name), cat: normCat(e.cat), ...(e.type === 'time' ? { type: 'time' } : {}), ...(e.db ? { db: e.db } : {}) }));
   if (doc.v === 2) return list;
   // legacy: list = custom additions on top of defaults
   const have = new Set(EXERCISES.map((e) => exKey(e.name)));
@@ -275,12 +276,19 @@ export function StoreProvider({ children }) {
   const addToLibrary = useCallback((ex) => {
     remember('undo.library');
     setLibrary((lib) => {
-      const next = [...lib.filter((x) => exKey(x.name) !== exKey(ex.name)), { name: ex.name, cat: normCat(ex.cat), ...(ex.type === 'time' || (!ex.type && normCat(ex.cat) === 'cardio') ? { type: 'time' } : {}) }];
+      const next = [...lib.filter((x) => exKey(x.name) !== exKey(ex.name)), { name: ex.name, cat: normCat(ex.cat), ...(ex.type === 'time' || (!ex.type && normCat(ex.cat) === 'cardio') ? { type: 'time' } : {}), ...(ex.db ? { db: ex.db } : {}) }];
       api.saveExercises(next).catch(fail('err.save'));
       return next;
     });
   }, [api, fail, remember]);
   const resetLibrary = useCallback(() => saveLibrary(EXERCISES), [saveLibrary]);
+  // Guide source: bundled guide, linked DB entry, or null (= custom exercise)
+  const infoOf = useCallback((name) => {
+    const k = exKey(name);
+    const e = library.find((x) => exKey(x.name) === k);
+    if (e?.db) return { db: e.db };
+    return INFO_KEYS.has(k) ? { curated: true } : null;
+  }, [library]);
   const catOf = useCallback((name) => library.find((e) => exKey(e.name) === exKey(name))?.cat || null, [library]);
 
   const patchActive = useCallback((fn) => setActive((a) => (a ? fn(a) : a)), []);
@@ -302,7 +310,7 @@ export function StoreProvider({ children }) {
     },
     templates, workouts, prs, active, setActive, patchActive,
     startWorkout, startEmptyWorkout, discardWorkout, finishWorkout, deleteWorkout, saveTemplate, deleteTemplate, addExerciseToActive,
-    library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf,
+    library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf,
     profile, prof, setProfile, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, resetMain,
     undoStack, undo,
     toast, notify,

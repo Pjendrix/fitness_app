@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { fromDb, loadDb } from '../lib/exerciseDb.js';
 import { CATEGORIES } from '../data/exercises.js';
 import { useStore } from '../lib/store.jsx';
 import { exKey } from '../lib/util.js';
@@ -13,18 +14,34 @@ export function TypeTag({ type }) {
   return <span className={'type-tag' + (type === 'time' ? ' is-time' : '')}>{type === 'time' ? '⏱ ' + t('type.time') : t('type.reps')}</span>;
 }
 
-export default function ExercisePicker({ onPick, onClose, exclude = [] }) {
-  const { library, addToLibrary, prs, typeOf } = useStore();
+// mode 'db' = browse the exercise database only (Exercises tab)
+export default function ExercisePicker({ onPick, onClose, exclude = [], mode }) {
+  const { library, addToLibrary, prs, typeOf, infoOf } = useStore();
+  const [db, setDb] = useState(null);
+  const [dbErr, setDbErr] = useState(false);
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('all');
   const [newCat, setNewCat] = useState(CATEGORIES[0]);
   const [newType, setNewType] = useState('reps');
 
   const query = norm(q.trim());
-  const list = library
+  const dbOnly = mode === 'db';
+  const wantDb = dbOnly || query.length >= 2;
+  useEffect(() => {
+    if (!wantDb || db) return;
+    loadDb().then(setDb).catch(() => setDbErr(true));
+  }, [wantDb, db]);
+  const inLib = new Set(library.map((e) => exKey(e.name)));
+  const dbList = !db || !wantDb ? [] : db
+    .map(fromDb)
+    .filter((e) => !inLib.has(exKey(e.name)) && (cat === 'all' || e.cat === cat) && norm(e.name).includes(query))
+    .slice(0, 60);
+  const pickDb = (ex) => { addToLibrary(ex); onPick(ex); };
+
+  const list = dbOnly ? [] : library
     .filter((e) => (cat === 'all' || e.cat === cat) && norm(e.name).includes(query))
     .sort((a, b) => a.name.localeCompare(b.name));
-  const exact = library.some((e) => norm(e.name) === query);
+  const exact = library.some((e) => norm(e.name) === query) || dbList.some((e) => norm(e.name) === query);
   const skip = new Set(exclude);
 
   const createCustom = () => {
@@ -38,7 +55,7 @@ export default function ExercisePicker({ onPick, onClose, exclude = [] }) {
       <div className="sheet" role="dialog" aria-label={t('pick.title')} onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grip" />
         <div className="sheet-head">
-          <h2>{t('pick.title')}</h2>
+          <h2>{dbOnly ? t('ex.browse') : t('pick.title')}</h2>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>{t('pick.close')}</button>
         </div>
         <input className="input" autoFocus placeholder={t('pick.search')} value={q} onChange={(e) => setQ(e.target.value)} />
@@ -48,6 +65,7 @@ export default function ExercisePicker({ onPick, onClose, exclude = [] }) {
           ))}
         </div>
         <div className="sheet-list">
+          {!dbOnly && wantDb && list.length > 0 && <p className="label pick-section">{t('pick.mine')}</p>}
           {list.map((e) => {
             const key = exKey(e.name);
             const pb = prs[key];
@@ -56,13 +74,28 @@ export default function ExercisePicker({ onPick, onClose, exclude = [] }) {
                 <span>{e.name}</span>
                 <span className="pick-meta">
                   <span className="label">{skip.has(key) ? t('pick.inWorkout') : pb ? `PB ${pb.weight || 'BW'}×${pb.reps}` : t('cat.' + e.cat)}</span>
+                  {!infoOf(e.name) && <span className="custom-tag">{t('info.custom')}</span>}
                   <TypeTag type={typeOf(e.name)} />
                 </span>
               </button>
             );
           })}
-          {!list.length && !query && <p className="empty">{t('pick.none')}</p>}
-          {query && !exact && (
+          {!dbOnly && !wantDb && <p className="muted small pick-hint">{t('pick.dbHint')}</p>}
+          {wantDb && (dbList.length > 0 || dbErr || !db) && <p className="label pick-section">{t('pick.db')}</p>}
+          {wantDb && !db && !dbErr && <p className="empty">{t('hist.loading')}</p>}
+          {dbErr && <p className="empty">{t('pick.dbFail')}</p>}
+          {dbList.map((e) => (
+            <button key={e.db} className="pick" onClick={() => pickDb(e)}>
+              <span>{e.name}</span>
+              <span className="pick-meta">
+                <span className="label">{t('cat.' + e.cat)}</span>
+                <TypeTag type={e.type || 'reps'} />
+                <span className="add-chip">+ {t('pick.dbAdd')}</span>
+              </span>
+            </button>
+          ))}
+          {!dbOnly && !list.length && !query && <p className="empty">{t('pick.none')}</p>}
+          {!dbOnly && query && !exact && (
             <div className="custom-ex">
               <p>{t('pick.create', { name: q.trim() })}</p>
               <div className="row-actions">
