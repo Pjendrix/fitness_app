@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import ViewToggle from '../components/ViewToggle.jsx';
 import ProfileBadge from '../components/ProfileBadge.jsx';
-import { PROFILES } from '../data/defaultTemplates.js';
+import { colorHex, PROFILES } from '../data/defaultTemplates.js';
 import { fmtDate, fmtNum, fmtSet, startOfWeek, workoutVolume } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
 
@@ -11,6 +11,8 @@ export default function Home({ go }) {
   // Groups that have at least one template
   const G = main.groups.map((g) => g.id).filter((id) => main.templates.some((x) => x.group === id));
   const [pickedVariant, setVariant] = useState(null);
+  const [pickMine, setPickMine] = useState(false);
+  const mine = templates.filter((x) => !x.builtin);
 
   // Next in the PUSH → PULL → LEGS rotation based on the last workout
   const next = useMemo(() => {
@@ -83,7 +85,33 @@ export default function Home({ go }) {
       </section>
 
       {!active && (
-        <button className="btn btn-primary btn-block btn-lg" onClick={() => { startEmptyWorkout(); go('workout'); }}>{t('home.empty')}</button>
+        <>
+          <button className="btn btn-primary btn-block btn-lg" onClick={() => { startEmptyWorkout(); go('workout'); }}>{t('home.empty')}</button>
+          <button className="btn btn-ghost btn-block btn-lg" onClick={() => (mine.length ? setPickMine(true) : go('templates'))}>{t('home.mine')}</button>
+        </>
+      )}
+
+      {pickMine && (
+        <div className="sheet-backdrop" onClick={() => setPickMine(false)}>
+          <div className="sheet sheet-short" role="dialog" aria-label={t('home.mine')} onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-grip" />
+            <div className="sheet-head">
+              <h2>{t('home.mine')}</h2>
+              <button className="btn btn-ghost btn-sm" onClick={() => setPickMine(false)}>{t('pick.close')}</button>
+            </div>
+            <div className="sheet-list">
+              {mine.map((x) => {
+                const hex = colorHex(x.color);
+                return (
+                  <button key={x.id} className="pick mine-pick" onClick={() => { startWorkout(x); setPickMine(false); go('workout'); }}>
+                    <span className="mine-name">{hex && <i className="dot" style={{ background: hex }} />}{x.name}</span>
+                    <span className="label">{t('count.exercises', { n: x.exercises.length })} · {t('count.sets', { n: x.exercises.reduce((n, e) => n + e.sets, 0) })}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
 
       <section>

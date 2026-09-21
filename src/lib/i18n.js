@@ -26,7 +26,7 @@ const D = {
     // home
     'home.hi': 'Hi', 'home.hiName': 'Hi, {name}', 'home.title': 'What are we training today?',
     'home.unfinished': 'Unfinished workout', 'home.continue': 'Continue', 'home.quickStart': 'Quick start', 'home.upNext': 'up next',
-    'home.start': 'Start {name}', 'home.empty': 'Start empty workout',
+    'home.start': 'Start {name}', 'home.empty': 'Start empty workout', 'home.mine': 'Start my template',
     'home.weekWorkouts': 'workouts this week', 'home.weekVolume': 'volume this week', 'home.total': 'workouts total',
     'home.recentPrs': 'Recent records', 'home.allStats': 'All analytics', 'home.noPrs': 'Records appear after your first finished workout.',
     'home.openStats': 'Open analytics',
@@ -102,7 +102,7 @@ const D = {
     'login.demoNote': 'Firebase není nastavený. Data se ukládají jen v tomto prohlížeči (viz README).',
     'home.hi': 'Ahoj', 'home.hiName': 'Ahoj, {name}', 'home.title': 'Co dnes potrénujeme?',
     'home.unfinished': 'Rozdělaný trénink', 'home.continue': 'Pokračovat', 'home.quickStart': 'Rychlý start', 'home.upNext': 'na řadě',
-    'home.start': 'Začít {name}', 'home.empty': 'Zahájit rychlý trénink',
+    'home.start': 'Začít {name}', 'home.empty': 'Zahájit rychlý trénink', 'home.mine': 'Spustit moji šablonu',
     'home.weekWorkouts': 'tréninků tento týden', 'home.weekVolume': 'objem tento týden', 'home.total': 'tréninků celkem',
     'home.recentPrs': 'Nedávné rekordy', 'home.allStats': 'Všechny statistiky', 'home.noPrs': 'Rekordy se objeví po prvním dokončeném tréninku.',
     'home.openStats': 'Otevřít statistiky',
