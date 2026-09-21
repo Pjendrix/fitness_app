@@ -341,3 +341,27 @@ html.desktop .mobile-badge { display: none; }
 .editor-names > .input { flex: 1; }
 .editor-names .mini { width: 90px; flex: none; }
 .tpl-grid .tpl + .tpl { margin-top: 0; }
+
+/* Set row steppers */
+.set-cols, .set { grid-template-columns: 22px 1fr 1fr 40px 26px; gap: 6px; }
+.numfield { display: grid; grid-template-columns: 26px 1fr 26px; align-items: center; height: 44px; border-radius: var(--r); box-shadow: 0 0 0 1px var(--hairline); background: var(--white); overflow: hidden; }
+.numfield:focus-within { box-shadow: 0 0 0 1px var(--ink), 0 0 0 4px rgba(0, 0, 0, 0.06); }
+.numfield button { height: 100%; border: 0; background: none; color: var(--smoke); font-size: 17px; line-height: 1; padding: 0; }
+.numfield button:active:not(:disabled) { background: var(--paper); color: var(--ink); }
+.numfield button:disabled { opacity: 0.25; }
+.set .numfield input { box-shadow: none; padding: 10px 0; min-width: 0; border-radius: 0; background: transparent; }
+.set .numfield input:focus { box-shadow: none; }
+.set.is-done .numfield { background: var(--paper); }
+.set .check { width: 40px; height: 40px; }
+.set .icon-btn { width: 26px; }
+html.desktop .set-cols, html.desktop .set { grid-template-columns: 28px 1fr 1fr 44px 32px; gap: 8px; }
+html.desktop .numfield { grid-template-columns: 36px 1fr 36px; }
+.new-pb { right: 72px; }
+
+.type-tag { display: inline-block; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--stone); box-shadow: 0 0 0 1px var(--hairline); border-radius: 4px; padding: 1px 5px; white-space: nowrap; vertical-align: 1px; }
+.type-tag.is-time { color: var(--ink); background: var(--paper); box-shadow: 0 0 0 1px var(--ash); }
+.pick-meta { display: flex; align-items: center; gap: 8px; flex: none; }
+.type-toggle { border: 0; background: none; padding: 0; margin-left: 4px; cursor: pointer; }
+.custom-ex .row-actions { flex-wrap: wrap; }
+.custom-ex .row-actions .input { flex: 1; min-width: 130px; }
+html.desktop .ex-add { grid-template-columns: 1fr 160px 170px auto; }

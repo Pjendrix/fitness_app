@@ -5,6 +5,29 @@ import { CheckIcon, PlusIcon, TrashIcon, XIcon } from '../components/Icons.jsx';
 import ExercisePicker from '../components/ExercisePicker.jsx';
 import { t } from '../lib/i18n.js';
 
+// Smart weight step: small dumbbells 0.5 kg, mid 1 kg, barbell range 2.5 kg.
+const weightStep = (w, dir) => {
+  const x = dir < 0 ? w - 0.001 : w;
+  return x < 10 ? 0.5 : x < 40 ? 1 : 2.5;
+};
+const fmtV = (n) => String(Math.round(n * 100) / 100);
+
+// Number input with minimal − / + buttons; still typeable.
+function NumField({ label, value, onChange, step, placeholder, mode }) {
+  const bump = (dir) => {
+    const cur = num(value);
+    const next = Math.max(0, cur + dir * step(cur, dir));
+    onChange(next ? fmtV(next) : '');
+  };
+  return (
+    <div className="numfield">
+      <button type="button" tabIndex={-1} aria-label="−" onClick={() => bump(-1)} disabled={!(num(value) > 0)}>−</button>
+      <input aria-label={label} inputMode={mode} placeholder={placeholder} value={value} onFocus={(ev) => ev.target.select()} onChange={(ev) => onChange(ev.target.value)} />
+      <button type="button" tabIndex={-1} aria-label="+" onClick={() => bump(1)}>+</button>
+    </div>
+  );
+}
+
 export default function Workout({ go }) {
   const { active, patchActive, prs, finishWorkout, discardWorkout, notify, addExerciseToActive } = useStore();
   const [now, setNow] = useState(Date.now());
@@ -115,10 +138,10 @@ export default function Workout({ go }) {
               return (
                 <div className={'set' + (s.done ? ' is-done' : '')} key={si}>
                   <span className="set-n">{si + 1}</span>
-                  <input aria-label={t('wo.weight', { n: si + 1 })} inputMode="decimal" placeholder="BW" value={s.weight} onFocus={(ev) => ev.target.select()} onChange={(ev) => patchSet(ei, si, { weight: ev.target.value })} />
+                  <NumField label={t('wo.weight', { n: si + 1 })} placeholder="BW" mode="decimal" value={s.weight} step={weightStep} onChange={(v) => patchSet(ei, si, { weight: v })} />
                   {timed
-                    ? <input aria-label={t('wo.col.min')} inputMode="decimal" placeholder="0" value={s.time || ''} onFocus={(ev) => ev.target.select()} onChange={(ev) => patchSet(ei, si, { time: ev.target.value })} />
-                    : <input aria-label={t('wo.reps', { n: si + 1 })} inputMode="numeric" placeholder="0" value={s.reps} onFocus={(ev) => ev.target.select()} onChange={(ev) => patchSet(ei, si, { reps: ev.target.value })} />}
+                    ? <NumField label={t('wo.col.min')} placeholder="0" mode="decimal" value={s.time || ''} step={() => 1} onChange={(v) => patchSet(ei, si, { time: v })} />
+                    : <NumField label={t('wo.reps', { n: si + 1 })} placeholder="0" mode="numeric" value={s.reps} step={() => 1} onChange={(v) => patchSet(ei, si, { reps: v })} />}
                   <button className="check" aria-label={s.done ? t('wo.uncheck') : t('wo.check')} aria-pressed={s.done} onClick={() => toggle(ei, si)}>
                     <CheckIcon width={18} height={18} />
                   </button>

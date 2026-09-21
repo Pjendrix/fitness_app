@@ -8,11 +8,17 @@ import { PlusIcon } from './Icons.jsx';
 export const norm = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
 // Bottom sheet: search + muscle-group filter. Can create a new exercise (saved to the library).
+// Small tag: weight × reps vs. timed
+export function TypeTag({ type }) {
+  return <span className={'type-tag' + (type === 'time' ? ' is-time' : '')}>{type === 'time' ? '⏱ ' + t('type.time') : t('type.reps')}</span>;
+}
+
 export default function ExercisePicker({ onPick, onClose, exclude = [] }) {
-  const { library, addToLibrary, prs } = useStore();
+  const { library, addToLibrary, prs, typeOf } = useStore();
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('all');
   const [newCat, setNewCat] = useState(CATEGORIES[0]);
+  const [newType, setNewType] = useState('reps');
 
   const query = norm(q.trim());
   const list = library
@@ -22,7 +28,7 @@ export default function ExercisePicker({ onPick, onClose, exclude = [] }) {
   const skip = new Set(exclude);
 
   const createCustom = () => {
-    const ex = { name: q.trim(), cat: newCat };
+    const ex = { name: q.trim(), cat: newCat, type: newType };
     addToLibrary(ex);
     onPick(ex);
   };
@@ -48,7 +54,10 @@ export default function ExercisePicker({ onPick, onClose, exclude = [] }) {
             return (
               <button key={e.name} className="pick" disabled={skip.has(key)} onClick={() => onPick(e)}>
                 <span>{e.name}</span>
-                <span className="label">{skip.has(key) ? t('pick.inWorkout') : pb ? `PB ${pb.weight || 'BW'}×${pb.reps}` : t('cat.' + e.cat)}</span>
+                <span className="pick-meta">
+                  <span className="label">{skip.has(key) ? t('pick.inWorkout') : pb ? `PB ${pb.weight || 'BW'}×${pb.reps}` : t('cat.' + e.cat)}</span>
+                  <TypeTag type={typeOf(e.name)} />
+                </span>
               </button>
             );
           })}
@@ -57,8 +66,12 @@ export default function ExercisePicker({ onPick, onClose, exclude = [] }) {
             <div className="custom-ex">
               <p>{t('pick.create', { name: q.trim() })}</p>
               <div className="row-actions">
-                <select className="input" value={newCat} onChange={(e) => setNewCat(e.target.value)} aria-label={t('pick.category')}>
+                <select className="input" value={newCat} onChange={(e) => { setNewCat(e.target.value); if (e.target.value === 'cardio') setNewType('time'); }} aria-label={t('pick.category')}>
                   {CATEGORIES.map((c) => <option key={c} value={c}>{t('cat.' + c)}</option>)}
+                </select>
+                <select className="input" value={newType} onChange={(e) => setNewType(e.target.value)} aria-label={t('type.label')}>
+                  <option value="reps">{t('type.repsLong')}</option>
+                  <option value="time">{t('type.timeLong')}</option>
                 </select>
                 <button className="btn btn-primary btn-sm" onClick={createCustom}><PlusIcon width={16} height={16} /> {t('pick.createBtn')}</button>
               </div>

@@ -4,7 +4,7 @@ import { CATEGORIES, normCat } from '../data/exercises.js';
 import { download, parseCsv, toCsv } from '../lib/csv.js';
 import { exKey, fmtSet } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
-import { norm } from '../components/ExercisePicker.jsx';
+import { norm, TypeTag } from '../components/ExercisePicker.jsx';
 import { PlusIcon, TrashIcon } from '../components/Icons.jsx';
 
 export default function Exercises() {
@@ -12,6 +12,7 @@ export default function Exercises() {
   const [q, setQ] = useState('');
   const [name, setName] = useState('');
   const [cat, setCat] = useState(CATEGORIES[0]);
+  const [type, setType] = useState('reps');
   const file = useRef(null);
 
   const counts = useMemo(() => {
@@ -29,7 +30,7 @@ export default function Exercises() {
     const n = name.trim();
     if (!n) return;
     if (library.some((e) => exKey(e.name) === exKey(n))) return notify(t('ex.exists'));
-    addToLibrary({ name: n, cat });
+    addToLibrary({ name: n, cat, type });
     setName('');
   };
 
@@ -74,8 +75,12 @@ export default function Exercises() {
 
       <div className="card ex-add">
         <input className="input" placeholder={t('ex.namePh')} value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
-        <select className="input" value={cat} onChange={(e) => setCat(e.target.value)} aria-label={t('pick.category')}>
+        <select className="input" value={cat} onChange={(e) => { setCat(e.target.value); if (e.target.value === 'cardio') setType('time'); }} aria-label={t('pick.category')}>
           {CATEGORIES.map((c) => <option key={c} value={c}>{t('cat.' + c)}</option>)}
+        </select>
+        <select className="input" value={type} onChange={(e) => setType(e.target.value)} aria-label={t('type.label')}>
+          <option value="reps">{t('type.repsLong')}</option>
+          <option value="time">{t('type.timeLong')}</option>
         </select>
         <button className="btn btn-primary" onClick={add}><PlusIcon width={16} height={16} /> {t('ex.add')}</button>
       </div>
@@ -91,8 +96,8 @@ export default function Exercises() {
               return (
                 <div className="lib-row" key={e.name}>
                   <div className="lib-main">
-                    <span>{e.name}</span>
-                    <span className="label">{[e.type === 'time' && t('ex.timed'), prs[k] && `PB ${fmtSet(prs[k].weight, prs[k].reps, prs[k].time)}`, counts[k] && t('ex.sessions', { n: counts[k] })].filter(Boolean).join(' · ')}</span>
+                    <span>{e.name} <button className="type-toggle" title={t('type.label')} onClick={() => saveLibrary(library.map((x) => (x === e ? (e.type === 'time' ? { name: x.name, cat: x.cat } : { ...x, type: 'time' }) : x)))}><TypeTag type={e.type} /></button></span>
+                    <span className="label">{[prs[k] && `PB ${fmtSet(prs[k].weight, prs[k].reps, prs[k].time)}`, counts[k] && t('ex.sessions', { n: counts[k] })].filter(Boolean).join(' · ')}</span>
                   </div>
                   <select className="lib-cat" value={e.cat} onChange={(ev) => recat(e, ev.target.value)} aria-label={t('pick.category')}>
                     {[...CATEGORIES, 'other'].map((x) => <option key={x} value={x}>{t('cat.' + x)}</option>)}
