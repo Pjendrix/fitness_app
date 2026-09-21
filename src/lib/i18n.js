@@ -82,6 +82,11 @@ const D = {
     'cat.legs': 'Legs', 'cat.glutes': 'Glutes', 'cat.abs': 'Abs', 'cat.cardio': 'Cardio', 'cat.other': 'Other',
     'prof.title': 'Training profile', 'prof.pick': 'Who is training on this account?', 'prof.pickSub': 'Loads your own split and templates. You can change it later in Settings.', 'prof.saved': 'Profile set to {name}',
     'wo.col.min': 'Min', 'tpl.min': 'Min', 'an.maxTime': 'Longest (min)', 'ex.timed': 'timed',
+    'undo.btn': 'Undo', 'undo.title': 'Undo: {what} ({n} left)', 'undo.done': 'Undone: {what}', 'undo.tpl': 'template change', 'undo.tplDel': 'template deleted',
+    'undo.group': 'group rename', 'undo.reset': 'templates reset', 'undo.library': 'exercise library change', 'undo.workout': 'workout deleted',
+    'tpl.main': 'Main templates', 'tpl.variant': 'Variant', 'tpl.addVariant': 'Add variant', 'tpl.duplicate': 'Copy to My templates',
+    'tpl.renameGroup': 'Rename group', 'tpl.groupName': 'Group name', 'tpl.groupSub': 'Description (optional)', 'tpl.lastInGroup': 'Keep at least one template in the group',
+    'set.resetTpl': 'Reset templates', 'set.confirmResetTpl': 'Restore the default main templates for this profile? My templates stay untouched.', 'set.resetTplDone': 'Main templates restored',
     // errors
     'err.load': 'Loading data failed: {m}', 'err.save': 'Saving failed: {m}', 'err.delete': 'Deleting failed: {m}', 'err.login': 'Sign-in failed: {m}',
   },
@@ -142,6 +147,11 @@ const D = {
     'cat.legs': 'Nohy', 'cat.glutes': 'Hýždě', 'cat.abs': 'Břicho', 'cat.cardio': 'Kardio', 'cat.other': 'Ostatní',
     'prof.title': 'Tréninkový profil', 'prof.pick': 'Kdo na tomhle účtu trénuje?', 'prof.pickSub': 'Načte tvůj split a šablony. Změnit to jde později v Nastavení.', 'prof.saved': 'Profil nastaven: {name}',
     'wo.col.min': 'Min', 'tpl.min': 'Min', 'an.maxTime': 'Nejdelší (min)', 'ex.timed': 'na čas',
+    'undo.btn': 'Zpět', 'undo.title': 'Vrátit: {what} (zbývá {n})', 'undo.done': 'Vráceno: {what}', 'undo.tpl': 'úprava šablony', 'undo.tplDel': 'smazání šablony',
+    'undo.group': 'přejmenování skupiny', 'undo.reset': 'reset šablon', 'undo.library': 'úprava knihovny cvičení', 'undo.workout': 'smazání tréninku',
+    'tpl.main': 'Hlavní šablony', 'tpl.variant': 'Varianta', 'tpl.addVariant': 'Přidat variantu', 'tpl.duplicate': 'Kopírovat do Mých šablon',
+    'tpl.renameGroup': 'Přejmenovat skupinu', 'tpl.groupName': 'Název skupiny', 'tpl.groupSub': 'Popis (volitelné)', 'tpl.lastInGroup': 'Ve skupině musí zůstat aspoň jedna šablona',
+    'set.resetTpl': 'Obnovit šablony', 'set.confirmResetTpl': 'Obnovit výchozí hlavní šablony tohoto profilu? Moje šablony zůstanou.', 'set.resetTplDone': 'Hlavní šablony obnoveny',
     'err.load': 'Načtení dat selhalo: {m}', 'err.save': 'Uložení selhalo: {m}', 'err.delete': 'Smazání selhalo: {m}', 'err.login': 'Přihlášení selhalo: {m}',
   },
 };

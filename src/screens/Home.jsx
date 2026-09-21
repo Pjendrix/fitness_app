@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import ViewToggle from '../components/ViewToggle.jsx';
+import ProfileBadge from '../components/ProfileBadge.jsx';
 import { PROFILES } from '../data/defaultTemplates.js';
 import { fmtDate, fmtNum, fmtSet, startOfWeek, workoutVolume } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
 
 export default function Home({ go }) {
-  const { user, workouts, prs, templates, active, startWorkout, startEmptyWorkout, profile, prof, setProfile, loading } = useStore();
-  const G = prof.groups;
+  const { user, workouts, prs, templates, active, startWorkout, startEmptyWorkout, profile, setProfile, loading, main, groupLabel, groupSub } = useStore();
+  // Groups that have at least one template
+  const G = main.groups.map((g) => g.id).filter((id) => main.templates.some((x) => x.group === id));
   const [pickedVariant, setVariant] = useState(null);
 
   // Next in the PUSH → PULL → LEGS rotation based on the last workout
@@ -17,7 +19,8 @@ export default function Home({ go }) {
   }, [workouts, G]);
   const [picked, setGroup] = useState(null);
   const group = picked && G.includes(picked) ? picked : next;
-  const variants = prof.variants[group];
+  const inGroup = main.templates.filter((x) => x.group === group);
+  const variants = inGroup.map((x) => x.id);
   const variant = variants.includes(pickedVariant) ? pickedVariant : variants[0];
 
   const week = useMemo(() => {
@@ -28,13 +31,13 @@ export default function Home({ go }) {
 
   const recentPrs = useMemo(() => Object.values(prs).sort((a, b) => b.date - a.date).slice(0, 3), [prs]);
 
-  const tpl = templates.find((x) => x.builtin && x.group === group && x.variant === variant);
+  const tpl = inGroup.find((x) => x.id === variant);
   const first = (user?.name || '').split(' ')[0];
 
   return (
     <div className="screen">
       <header className="screen-head">
-        <div className="row-between"><p className="muted">{first ? t('home.hiName', { name: first }) : t('home.hi')}</p><ViewToggle /></div>
+        <div className="row-between home-top"><p className="muted hi"><span className="mobile-badge"><ProfileBadge /></span>{first ? t('home.hiName', { name: first }) : t('home.hi')}</p><ViewToggle /></div>
         <h1>{t('home.title')}</h1>
       </header>
 
@@ -54,18 +57,18 @@ export default function Home({ go }) {
           <h2 className="big">{active.name}</h2>
           <button className="btn btn-primary btn-block" onClick={() => go('workout')}>{t('home.continue')}</button>
         </section>
-      ) : (
+      ) : tpl && (
         <section className="card card-hero">
           <p className="label">{t('home.quickStart')}{group === next ? ` · ${t('home.upNext')}` : ''}</p>
           <div className="seg" role="tablist">
             {G.map((g) => (
-              <button key={g} role="tab" aria-selected={group === g} className={group === g ? 'is-on' : ''} onClick={() => setGroup(g)}>{g}</button>
+              <button key={g} role="tab" aria-selected={group === g} className={group === g ? 'is-on' : ''} onClick={() => setGroup(g)}>{groupLabel(g)}</button>
             ))}
           </div>
-          <p className="group-sub">{t('groups.' + group)}</p>
+          <p className="group-sub">{groupSub(group)}</p>
           {variants.length > 1 && <div className="seg seg-sm" role="tablist">
             {variants.map((v) => (
-              <button key={v} role="tab" aria-selected={variant === v} className={variant === v ? 'is-on' : ''} onClick={() => setVariant(v)}>{v}</button>
+              <button key={v} role="tab" aria-selected={variant === v} className={variant === v ? 'is-on' : ''} onClick={() => setVariant(v)}>{inGroup.find((x) => x.id === v).variant || '•'}</button>
             ))}
           </div>}
           <p className="label">{t('count.exercises', { n: tpl.exercises.length })} · {t('count.sets', { n: tpl.exercises.reduce((s, e) => s + e.sets, 0) })}</p>

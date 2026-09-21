@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StoreProvider, useStore } from './lib/store.jsx';
 import BottomNav from './components/BottomNav.jsx';
+import UndoButton from './components/UndoButton.jsx';
 import Login from './screens/Login.jsx';
 import Home from './screens/Home.jsx';
 import Workout from './screens/Workout.jsx';
@@ -30,6 +31,7 @@ function Shell() {
     <div className="shell">
       <main className="main"><Screen go={go} /></main>
       {toast && <div className="toast" role="status" key={toast.id}>{toast.msg}</div>}
+      <UndoButton />
       <BottomNav tab={tab} go={go} live={Boolean(active)} />
     </div>
   );

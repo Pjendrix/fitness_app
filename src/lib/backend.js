@@ -4,6 +4,7 @@
 //   users/{uid}/templates/{id}   vlastní šablony
 //   users/{uid}/workouts/{id}    odcvičené tréninky (exercises[].sets[] = {weight, reps})
 //   users/{uid}/prs/{exerciseKey} osobní rekord: {name, weight, reps, date}
+//   users/{uid}/meta/main         edited main templates: {[profileId]: {groups, templates}}
 //   users/{uid}/meta/profile      training profile: {id: 'krystof' | 'chiara'}
 //   users/{uid}/meta/exercises    exercise library: {list: [{name, cat}], v: 2}  (without v = legacy custom additions)
 import { isFirebaseConfigured, auth, db, provider } from './firebase.js';
@@ -46,16 +47,17 @@ const firebaseBackend = {
       async loadAll() {
         const { getDocs, query, orderBy, limit } = await fs;
         const { getDoc } = await fs;
-        const [t, w, p, ex, pr] = await Promise.all([
+        const [t, w, p, ex, pr, mn] = await Promise.all([
           getDocs(await col('templates')),
           getDocs(query(await col('workouts'), orderBy('startedAt', 'desc'), limit(500))),
           getDocs(await col('prs')),
           getDoc(await ref('meta', 'exercises')),
           getDoc(await ref('meta', 'profile')),
+          getDoc(await ref('meta', 'main')),
         ]);
         const prs = {};
         p.forEach((d) => (prs[d.id] = d.data()));
-        return { templates: t.docs.map((d) => d.data()), workouts: w.docs.map((d) => d.data()), prs, library: ex.exists() ? ex.data() : null, profile: pr.exists() ? pr.data().id : null };
+        return { templates: t.docs.map((d) => d.data()), workouts: w.docs.map((d) => d.data()), prs, library: ex.exists() ? ex.data() : null, profile: pr.exists() ? pr.data().id : null, main: mn.exists() ? mn.data() : {} };
       },
       async saveTemplate(tpl) {
         const { setDoc } = await fs;
@@ -83,6 +85,11 @@ const firebaseBackend = {
       async saveProfile(id) {
         const { setDoc } = await fs;
         await setDoc(await ref('meta', 'profile'), { id });
+      },
+      // Edited main templates per profile; null = back to defaults
+      async saveMain(profileId, cfg) {
+        const { setDoc, deleteField } = await fs;
+        await setDoc(await ref('meta', 'main'), { [profileId]: cfg ? clean(cfg) : deleteField() }, { merge: true });
       },
     };
   },
@@ -117,7 +124,7 @@ const demoBackend = {
     return {
       async loadAll() {
         const d = readLS();
-        return { ...d, profile: d.profile || null, library: d.library || (d.exercises?.length ? { list: d.exercises } : null), workouts: [...d.workouts].sort((a, b) => b.startedAt - a.startedAt) };
+        return { ...d, main: d.main || {}, profile: d.profile || null, library: d.library || (d.exercises?.length ? { list: d.exercises } : null), workouts: [...d.workouts].sort((a, b) => b.startedAt - a.startedAt) };
       },
       async saveTemplate(t) {
         const d = readLS();
@@ -148,6 +155,12 @@ const demoBackend = {
       async saveProfile(id) {
         const d = readLS();
         d.profile = id;
+        writeLS(d);
+      },
+      async saveMain(profileId, cfg) {
+        const d = readLS();
+        d.main = { ...(d.main || {}) };
+        if (cfg) d.main[profileId] = cfg; else delete d.main[profileId];
         writeLS(d);
       },
     };

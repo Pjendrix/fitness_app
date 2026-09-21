@@ -5,7 +5,7 @@ import { PROFILES } from '../data/defaultTemplates.js';
 import { t, useLang } from '../lib/i18n.js';
 
 export default function Settings({ go }) {
-  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, notify, profile, setProfile } = useStore();
+  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, notify, profile, setProfile, resetMain } = useStore();
   const { lang, setLang } = useLang();
 
   const exportData = () => {
@@ -52,6 +52,7 @@ export default function Settings({ go }) {
         <div className="row row-btns">
           <button className="btn btn-ghost btn-sm" onClick={() => go('exercises')}>{t('set.openLibrary')}</button>
           <button className="btn btn-ghost btn-sm" onClick={reset}>{t('set.reset')}</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => { if (window.confirm(t('set.confirmResetTpl'))) { resetMain(); notify(t('set.resetTplDone')); } }}>{t('set.resetTpl')}</button>
         </div>
       </section>
 

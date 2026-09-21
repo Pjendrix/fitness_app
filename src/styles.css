@@ -319,3 +319,25 @@ html.desktop .ex-columns { grid-template-columns: repeat(auto-fill, minmax(340px
 
 .profile-pick { display: flex; flex-direction: column; gap: 10px; box-shadow: 0 0 0 1px var(--ink); }
 .seg-inline button { padding-left: 10px; padding-right: 10px; }
+
+/* Undo + profile badge */
+.undo-btn { position: fixed; z-index: 35; top: calc(env(safe-area-inset-top) + 14px); right: 14px; display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 10px 0 9px; border: 0; border-radius: 9999px; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); box-shadow: 0 0 0 1px var(--hairline), 0 2px 8px rgba(0, 0, 0, 0.05); color: var(--charcoal); font-family: var(--mono); font-size: 11px; animation: fade 0.15s; }
+.undo-btn:hover { color: var(--ink); box-shadow: 0 0 0 1px var(--ash); }
+html.desktop .undo-btn { top: 20px; right: 24px; }
+body:has(.undo-btn) .home-top { padding-right: 60px; }
+html.desktop body:has(.undo-btn) .home-top { padding-right: 70px; }
+.prof-badge { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--ink); color: var(--white); font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0; vertical-align: middle; }
+.nav-brand .prof-badge { margin-left: 4px; }
+.hi { display: flex; align-items: center; gap: 8px; }
+html.desktop .mobile-badge { display: none; }
+
+/* Main vs My templates */
+.tpl-section { font-size: 18px; font-weight: 500; letter-spacing: -0.02em; margin: 18px 0 2px; }
+.group-head .icon-sm { width: 26px; height: 26px; margin-left: auto; }
+.add-variant { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 64px; border: 1px dashed var(--ash); border-radius: var(--r); background: transparent; color: var(--stone); font-size: 13px; }
+.add-variant:hover { border-color: var(--ink); color: var(--ink); background: var(--white); }
+.tpl-grid .tpl + .add-variant { margin-top: 0; }
+.editor-names { display: flex; gap: 8px; align-items: flex-end; flex: 1; }
+.editor-names > .input { flex: 1; }
+.editor-names .mini { width: 90px; flex: none; }
+.tpl-grid .tpl + .tpl { margin-top: 0; }

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { backend } from './backend.js';
 import { profileOf } from '../data/defaultTemplates.js';
 import { defaultTypeOf, EXERCISES, modernName, normCat } from '../data/exercises.js';
@@ -50,6 +50,8 @@ export function StoreProvider({ children }) {
   const [prs, setPrs] = useState({});
   const [library, setLibrary] = useState(EXERCISES);
   const [profile, setProfileState] = useState(null);
+  const [mainStore, setMainStore] = useState({}); // { [profileId]: {groups, templates} } – user-edited main templates
+  const [undoStack, setUndoStack] = useState([]);
   const [active, setActive] = useState(loadDraft);
   const [toast, setToast] = useState(null);
 
@@ -80,6 +82,7 @@ export function StoreProvider({ children }) {
         setPrs(migratePrs(d.prs));
         setLibrary(loadLibrary(d.library));
         setProfileState(d.profile || null);
+        setMainStore(d.main || {});
       })
       .catch(fail('err.load'))
       .finally(() => !cancelled && setLoading(false));
@@ -94,7 +97,77 @@ export function StoreProvider({ children }) {
   }, [active]);
 
   const prof = profileOf(profile);
-  const templates = useMemo(() => [...prof.templates, ...custom], [prof, custom]);
+  // Main templates: user-edited version for this profile, or defaults
+  const main = useMemo(() => {
+    const m = mainStore[prof.id];
+    if (m) return { groups: m.groups, templates: m.templates.map((x) => ({ ...migrateTemplate(x), builtin: true })) };
+    return { groups: prof.groups.map((id) => ({ id, label: id, sub: '' })), templates: prof.templates };
+  }, [mainStore, prof]);
+  const templates = useMemo(() => [...main.templates, ...custom], [main, custom]);
+
+  // ——— Undo (last 5 changes to templates, main templates, library, history) ———
+  const snap = useRef({});
+  snap.current = { custom, library, mainStore, workouts };
+  const remember = useCallback((label) => {
+    const { custom: c, library: l, mainStore: m, workouts: w } = snap.current;
+    setUndoStack((st) => [...st.slice(-4), { label, custom: c, library: l, mainStore: m, workouts: w }]);
+  }, []);
+  const stackRef = useRef(undoStack);
+  stackRef.current = undoStack;
+  const undo = useCallback(() => {
+    {
+      const st = stackRef.current;
+      const last = st[st.length - 1];
+      if (!last) return;
+      setUndoStack(st.slice(0, -1));
+      const now = snap.current;
+      // templates: delete added, re-save changed/removed
+      const before = new Map(last.custom.map((x) => [x.id, x]));
+      for (const x of now.custom) if (!before.has(x.id)) api.deleteTemplate(x.id).catch(fail('err.delete'));
+      for (const x of last.custom) if (JSON.stringify(x) !== JSON.stringify(now.custom.find((y) => y.id === x.id))) api.saveTemplate(x).catch(fail('err.save'));
+      setCustom(last.custom);
+      if (last.library !== now.library) { setLibrary(last.library); api.saveExercises(last.library).catch(fail('err.save')); }
+      if (last.mainStore !== now.mainStore) {
+        setMainStore(last.mainStore);
+        for (const id of new Set([...Object.keys(last.mainStore), ...Object.keys(now.mainStore)])) {
+          if (last.mainStore[id] !== now.mainStore[id]) api.saveMain(id, last.mainStore[id] || null).catch(fail('err.save'));
+        }
+      }
+      if (last.workouts !== now.workouts) {
+        const ids = new Set(now.workouts.map((w) => w.id));
+        for (const w of last.workouts) if (!ids.has(w.id)) api.saveWorkout(w, {}).catch(fail('err.save'));
+        setWorkouts(last.workouts);
+      }
+      notify(t('undo.done', { what: t(last.label) }));
+    }
+  }, [api, fail, notify]);
+
+  // Main template edits (whole config per profile is stored)
+  const writeMain = useCallback((cfg) => {
+    setMainStore((ms) => ({ ...ms, [prof.id]: cfg }));
+    api.saveMain(prof.id, cfg).catch(fail('err.save'));
+  }, [api, fail, prof.id]);
+  const cleanMainTpl = (x) => { const { builtin, ...rest } = x; return rest; };
+  const saveMainTemplate = useCallback((tpl) => {
+    remember('undo.tpl');
+    const list = main.templates.some((x) => x.id === tpl.id) ? main.templates.map((x) => (x.id === tpl.id ? tpl : x)) : [...main.templates, tpl];
+    writeMain({ groups: main.groups, templates: list.map(cleanMainTpl) });
+  }, [main, writeMain, remember]);
+  const deleteMainTemplate = useCallback((id) => {
+    remember('undo.tplDel');
+    writeMain({ groups: main.groups, templates: main.templates.filter((x) => x.id !== id).map(cleanMainTpl) });
+  }, [main, writeMain, remember]);
+  const renameGroup = useCallback((id, label, sub) => {
+    remember('undo.group');
+    writeMain({ groups: main.groups.map((g) => (g.id === id ? { ...g, label, sub } : g)), templates: main.templates.map(cleanMainTpl) });
+  }, [main, writeMain, remember]);
+  const resetMain = useCallback(() => {
+    remember('undo.reset');
+    setMainStore((ms) => { const n = { ...ms }; delete n[prof.id]; return n; });
+    api.saveMain(prof.id, null).catch(fail('err.save'));
+  }, [api, fail, prof.id, remember]);
+  const groupLabel = useCallback((id) => main.groups.find((g) => g.id === id)?.label || id, [main]);
+  const groupSub = useCallback((id) => { const g = main.groups.find((x) => x.id === id); return g?.sub || t('groups.' + id); }, [main]);
   const setProfile = useCallback((id) => {
     setProfileState(id);
     api.saveProfile(id).catch(fail('err.save'));
@@ -176,32 +249,37 @@ export function StoreProvider({ children }) {
   }, [active, prs, api, fail]);
 
   const deleteWorkout = useCallback((id) => {
+    remember('undo.workout');
     setWorkouts((w) => w.filter((x) => x.id !== id));
     api.deleteWorkout(id).catch(fail('err.delete'));
-  }, [api, fail]);
+  }, [api, fail, remember]);
 
   const saveTemplate = useCallback((tpl) => {
+    remember('undo.tpl');
     setCustom((c) => [...c.filter((x) => x.id !== tpl.id), tpl]);
     api.saveTemplate(tpl).catch(fail('err.save'));
-  }, [api, fail]);
+  }, [api, fail, remember]);
 
   const deleteTemplate = useCallback((id) => {
+    remember('undo.tplDel');
     setCustom((c) => c.filter((x) => x.id !== id));
     api.deleteTemplate(id).catch(fail('err.delete'));
-  }, [api, fail]);
+  }, [api, fail, remember]);
 
   // Exercise library
   const saveLibrary = useCallback((list) => {
+    remember('undo.library');
     setLibrary(list);
     api.saveExercises(list).catch(fail('err.save'));
-  }, [api, fail]);
+  }, [api, fail, remember]);
   const addToLibrary = useCallback((ex) => {
+    remember('undo.library');
     setLibrary((lib) => {
       const next = [...lib.filter((x) => exKey(x.name) !== exKey(ex.name)), { name: ex.name, cat: normCat(ex.cat), ...(ex.type === 'time' || (!ex.type && normCat(ex.cat) === 'cardio') ? { type: 'time' } : {}) }];
       api.saveExercises(next).catch(fail('err.save'));
       return next;
     });
-  }, [api, fail]);
+  }, [api, fail, remember]);
   const resetLibrary = useCallback(() => saveLibrary(EXERCISES), [saveLibrary]);
   const catOf = useCallback((name) => library.find((e) => exKey(e.name) === exKey(name))?.cat || null, [library]);
 
@@ -220,12 +298,13 @@ export function StoreProvider({ children }) {
     signIn: () => backend.signIn().catch(fail('err.login')),
     signOut: async () => {
       await backend.signOut();
-      setCustom([]); setWorkouts([]); setPrs({}); setLibrary(EXERCISES); setProfileState(null);
+      setCustom([]); setWorkouts([]); setPrs({}); setLibrary(EXERCISES); setProfileState(null); setMainStore({}); setUndoStack([]);
     },
     templates, workouts, prs, active, setActive, patchActive,
     startWorkout, startEmptyWorkout, discardWorkout, finishWorkout, deleteWorkout, saveTemplate, deleteTemplate, addExerciseToActive,
     library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf,
-    profile, prof, setProfile,
+    profile, prof, setProfile, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, resetMain,
+    undoStack, undo,
     toast, notify,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -19,3 +19,6 @@ export const XIcon = I(<path d="M6 6l12 12M18 6L6 18" />);
 export const ChartIcon = I(<><path d="M4 20V4" /><path d="M4 20h16" /><path d="M8 16l4-5 3 3 5-7" /></>);
 export const ListIcon = I(<><path d="M9 6h11M9 12h11M9 18h11" /><circle cx="4.5" cy="6" r="1" /><circle cx="4.5" cy="12" r="1" /><circle cx="4.5" cy="18" r="1" /></>);
 export const ArrowIcon = I(<path d="M15 6l-6 6 6 6" />);
+export const CopyIcon = I(<><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" /></>);
+export const PencilIcon = I(<path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4" />);
+export const UndoIcon = I(<><path d="M9 14L4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-3" /></>);
