@@ -257,3 +257,14 @@ html.desktop .toast { bottom: 32px; }
 .nav-foot { display: none; }
 html.desktop .nav-foot { display: block; margin-top: auto; padding: 10px; }
 .edit-note { grid-column: 1 / -1; font-size: 14px; padding: 9px 12px; }
+
+/* Stepper (šablony) */
+.stepper { display: grid; grid-template-columns: 32px 1fr 32px; align-items: center; height: 40px; border-radius: var(--r); box-shadow: 0 0 0 1px var(--hairline); background: var(--white); overflow: hidden; }
+.stepper button { height: 100%; border: 0; background: none; color: var(--stone); font-size: 18px; line-height: 1; }
+.stepper button:hover:not(:disabled) { background: var(--paper); color: var(--ink); }
+.stepper button:active:not(:disabled) { background: var(--hairline); }
+.stepper-val { text-align: center; font-family: var(--mono); font-size: 16px; }
+.stepper-max { display: flex; justify-content: center; font-family: var(--mono); font-size: 12px; color: var(--stone); }
+.reps-label { display: flex; align-items: center; justify-content: space-between; }
+.max-chip { border: 0; background: none; box-shadow: 0 0 0 1px var(--hairline); border-radius: 9999px; padding: 0 6px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.05em; color: var(--smoke); text-transform: uppercase; line-height: 16px; }
+.max-chip.is-on { background: var(--ink); color: var(--white); box-shadow: none; }

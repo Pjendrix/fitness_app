@@ -35,16 +35,22 @@ function TemplateCard({ tpl, onStart, onEdit, onDelete }) {
   );
 }
 
-// Opakování: číslo, rozsah (8-10) nebo „max“. Text patří do poznámky.
-const cleanReps = (v) => {
-  const t = v.toLowerCase().replace(/\s/g, '').replace(/[–—]/g, '-');
-  if ('max'.startsWith(t) && t) return t;
-  return t.replace(/[^0-9-]/g, '').replace(/-+/g, '-').replace(/^-/, '').slice(0, 5);
-};
+function Stepper({ value, min, max, onChange }) {
+  const set = (v) => onChange(Math.max(min, Math.min(max, v)));
+  return (
+    <div className="stepper">
+      <button type="button" aria-label="Méně" disabled={value <= min} onClick={() => set(value - 1)}>−</button>
+      <span className="stepper-val">{value}</span>
+      <button type="button" aria-label="Více" disabled={value >= max} onClick={() => set(value + 1)}>+</button>
+    </div>
+  );
+}
 
 function Editor({ initial, onSave, onClose }) {
   const [name, setName] = useState(initial.name);
-  const [items, setItems] = useState(initial.exercises);
+  const [items, setItems] = useState(() =>
+    initial.exercises.map((e) => ({ ...e, reps: e.reps === 'max' ? 'max' : String(parseInt(e.reps, 10) || 8) }))
+  );
   const [picking, setPicking] = useState(false);
   const upd = (i, patch) => setItems((l) => l.map((x, j) => (j === i ? { ...x, ...patch } : x)));
 
@@ -54,8 +60,15 @@ function Editor({ initial, onSave, onClose }) {
       {items.map((e, i) => (
         <div className="edit-ex" key={i}>
           <div className="edit-ex-name">{e.name}</div>
-          <label className="mini"><span className="label">Série</span><input className="input" inputMode="numeric" value={e.sets} onChange={(ev) => upd(i, { sets: Math.max(1, Math.min(20, +ev.target.value || 1)) })} /></label>
-          <label className="mini"><span className="label">Opak.</span><input className="input" inputMode="text" value={e.reps} placeholder="8-10" onChange={(ev) => upd(i, { reps: cleanReps(ev.target.value) })} /></label>
+          <div className="mini"><span className="label">Série</span><Stepper value={e.sets} min={1} max={20} onChange={(v) => upd(i, { sets: v })} /></div>
+          <div className="mini">
+            <span className="label reps-label">Opak.
+              <button type="button" className={'max-chip' + (e.reps === 'max' ? ' is-on' : '')} onClick={() => upd(i, { reps: e.reps === 'max' ? '8' : 'max' })}>max</button>
+            </span>
+            {e.reps === 'max'
+              ? <div className="stepper stepper-max">do selhání</div>
+              : <Stepper value={parseInt(e.reps, 10) || 8} min={1} max={50} onChange={(v) => upd(i, { reps: String(v) })} />}
+          </div>
           <label className="mini"><span className="label">kg</span><input className="input" inputMode="decimal" value={e.weight ?? ''} placeholder="–" onChange={(ev) => upd(i, { weight: ev.target.value })} /></label>
           <button className="icon-btn" aria-label="Odebrat" onClick={() => setItems((l) => l.filter((_, j) => j !== i))}><XIcon width={16} height={16} /></button>
           <input className="input edit-note" value={e.note || ''} placeholder="Poznámka (např. drop-set, do selhání)" onChange={(ev) => upd(i, { note: ev.target.value })} />
@@ -70,7 +83,7 @@ function Editor({ initial, onSave, onClose }) {
         <ExercisePicker
           exclude={items.map((x) => exKey(x.name))}
           onClose={() => setPicking(false)}
-          onPick={(ex) => { setItems((l) => [...l, { name: ex.name, sets: 3, reps: '8-10', weight: '', hint: '', note: '' }]); setPicking(false); }}
+          onPick={(ex) => { setItems((l) => [...l, { name: ex.name, sets: 3, reps: '8', weight: '', hint: '', note: '' }]); setPicking(false); }}
         />
       )}
     </div>
