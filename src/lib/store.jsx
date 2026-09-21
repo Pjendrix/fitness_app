@@ -109,6 +109,10 @@ export function StoreProvider({ children }) {
     [lastSets]
   );
 
+  const startEmptyWorkout = useCallback(() => {
+    setActive({ id: uid(), templateId: '', name: 'Rychlý trénink', group: '', variant: '', startedAt: Date.now(), exercises: [] });
+  }, []);
+
   const discardWorkout = useCallback(() => setActive(null), []);
 
   const finishWorkout = useCallback(async () => {
@@ -201,7 +205,7 @@ export function StoreProvider({ children }) {
       setCustom([]); setWorkouts([]); setPrs({}); setCustomExercises([]);
     },
     templates, workouts, prs, active, setActive,
-    startWorkout, discardWorkout, finishWorkout, deleteWorkout, saveTemplate, deleteTemplate,
+    startWorkout, startEmptyWorkout, discardWorkout, finishWorkout, deleteWorkout, saveTemplate, deleteTemplate,
     toast, notify,
     customExercises, addCustomExercise, patchActive, addExerciseToActive,
   };
