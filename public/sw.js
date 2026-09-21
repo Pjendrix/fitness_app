@@ -1,5 +1,5 @@
 // Minimální service worker: app shell offline (stale-while-revalidate). Firestore má vlastní offline cache.
-const CACHE = 'forge-v1';
+const CACHE = 'forge-v2';
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => {
   e.waitUntil(
