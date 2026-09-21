@@ -1,24 +1,18 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { GROUP_ORDER, GROUPS } from '../data/defaultTemplates.js';
-import { planLabel, uid } from '../lib/util.js';
-import { ChevronIcon, PlusIcon, TrashIcon } from '../components/Icons.jsx';
+import { exKey, planLabel, uid } from '../lib/util.js';
+import { ChevronIcon, PlusIcon, TrashIcon, XIcon } from '../components/Icons.jsx';
+import ExercisePicker from '../components/ExercisePicker.jsx';
 
-// "Bench Press – 4× 6-8" → {name, sets, reps}
-const parseLine = (line) => {
-  const m = line.match(/^(.*?)\s*[–—-]\s*(\d+)\s*[×x]\s*(.*)$/i);
-  if (m) return { name: m[1].trim(), sets: Math.min(20, +m[2]), reps: m[3].trim(), note: '' };
-  return { name: line.trim(), sets: 3, reps: '', note: '' };
-};
-
-function TemplateCard({ tpl, onStart, onDelete }) {
+function TemplateCard({ tpl, onStart, onEdit, onDelete }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className={'glass tpl' + (tpl.variant === 'Hardcore' ? ' is-hard' : '')}>
+    <div className={'card tpl' + (tpl.variant === 'Hardcore' ? ' is-hard' : '')}>
       <button className="tpl-head" onClick={() => setOpen(!open)} aria-expanded={open}>
         <div>
           <h3>{tpl.variant || tpl.name}</h3>
-          <p className="muted small">{tpl.exercises.length} cvičení</p>
+          <p className="label">{tpl.exercises.length} cvičení · {tpl.exercises.reduce((s, e) => s + e.sets, 0)} sérií</p>
         </div>
         <ChevronIcon className={'chev' + (open ? ' is-open' : '')} />
       </button>
@@ -34,29 +28,65 @@ function TemplateCard({ tpl, onStart, onDelete }) {
       )}
       <div className="tpl-actions">
         <button className="btn btn-primary btn-sm" onClick={() => onStart(tpl)}>Spustit</button>
-        {onDelete && <button className="btn btn-danger-ghost btn-sm" onClick={() => window.confirm('Smazat šablonu?') && onDelete(tpl.id)}><TrashIcon width={16} height={16} /></button>}
+        <button className="btn btn-ghost btn-sm" onClick={() => onEdit(tpl)}>{tpl.builtin ? 'Upravit kopii' : 'Upravit'}</button>
+        {onDelete && <button className="icon-btn danger" aria-label="Smazat šablonu" onClick={() => window.confirm('Smazat šablonu?') && onDelete(tpl.id)}><TrashIcon width={17} height={17} /></button>}
       </div>
     </div>
   );
 }
 
+function Editor({ initial, onSave, onClose }) {
+  const [name, setName] = useState(initial.name);
+  const [items, setItems] = useState(initial.exercises);
+  const [picking, setPicking] = useState(false);
+  const upd = (i, patch) => setItems((l) => l.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+
+  return (
+    <div className="card form">
+      <input className="input" placeholder="Název šablony" value={name} onChange={(e) => setName(e.target.value)} />
+      {items.map((e, i) => (
+        <div className="edit-ex" key={i}>
+          <div className="edit-ex-name">{e.name}</div>
+          <label className="mini"><span className="label">Série</span><input className="input" inputMode="numeric" value={e.sets} onChange={(ev) => upd(i, { sets: Math.max(1, Math.min(20, +ev.target.value || 1)) })} /></label>
+          <label className="mini"><span className="label">Opak.</span><input className="input" value={e.reps} placeholder="8-10" onChange={(ev) => upd(i, { reps: ev.target.value })} /></label>
+          <label className="mini"><span className="label">kg</span><input className="input" inputMode="decimal" value={e.weight ?? ''} placeholder="–" onChange={(ev) => upd(i, { weight: ev.target.value })} /></label>
+          <button className="icon-btn" aria-label="Odebrat" onClick={() => setItems((l) => l.filter((_, j) => j !== i))}><XIcon width={16} height={16} /></button>
+        </div>
+      ))}
+      <button className="btn btn-ghost btn-sm" onClick={() => setPicking(true)}><PlusIcon width={16} height={16} /> Přidat cvičení</button>
+      <div className="row-actions">
+        <button className="btn btn-primary btn-sm" onClick={() => onSave({ ...initial, name: name.trim(), exercises: items })} disabled={!name.trim() || !items.length}>Uložit šablonu</button>
+        <button className="btn btn-ghost btn-sm" onClick={onClose}>Zrušit</button>
+      </div>
+      {picking && (
+        <ExercisePicker
+          exclude={items.map((x) => exKey(x.name))}
+          onClose={() => setPicking(false)}
+          onPick={(ex) => { setItems((l) => [...l, { name: ex.name, sets: 3, reps: '8-10', weight: '', hint: '', note: '' }]); setPicking(false); }}
+        />
+      )}
+    </div>
+  );
+}
+
 export default function Templates({ go }) {
-  const { templates, active, startWorkout, saveTemplate, deleteTemplate, notify } = useStore();
-  const [creating, setCreating] = useState(false);
-  const [name, setName] = useState('');
-  const [lines, setLines] = useState('');
+  const { templates, active, startWorkout, saveTemplate, deleteTemplate } = useStore();
+  const [editing, setEditing] = useState(null);
 
   const start = (tpl) => {
     if (active && !window.confirm('Rozdělaný trénink bude nahrazen. Pokračovat?')) return;
     startWorkout(tpl);
     go('workout');
   };
-
-  const save = () => {
-    const exercises = lines.split('\n').map((l) => l.trim()).filter(Boolean).map(parseLine);
-    if (!name.trim() || !exercises.length) return notify('Zadej název a aspoň jedno cvičení');
-    saveTemplate({ id: uid(), name: name.trim(), group: '', variant: '', exercises });
-    setName(''); setLines(''); setCreating(false);
+  const edit = (tpl) => {
+    setEditing(tpl.builtin
+      ? { ...tpl, id: uid(), builtin: false, name: `${tpl.name} (moje)`, group: tpl.group, variant: '' }
+      : tpl);
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  };
+  const save = (tpl) => {
+    saveTemplate({ ...tpl, exercises: tpl.exercises.map((e) => ({ ...e, weight: e.weight === '' ? '' : Number(String(e.weight).replace(',', '.')) || '' })) });
+    setEditing(null);
   };
 
   const mine = templates.filter((t) => !t.builtin);
@@ -65,29 +95,28 @@ export default function Templates({ go }) {
     <div className="screen">
       <header className="screen-head"><h1>Šablony</h1></header>
 
-      {GROUP_ORDER.map((g) => (
-        <section key={g}>
-          <div className="group-head"><h2>{GROUPS[g].label}</h2><span className="muted small">{GROUPS[g].sub}</span></div>
-          <div className="tpl-grid">
-            {templates.filter((t) => t.builtin && t.group === g).map((t) => <TemplateCard key={t.id} tpl={t} onStart={start} />)}
-          </div>
-        </section>
-      ))}
+      <div className="tpl-columns">
+        {GROUP_ORDER.map((g) => (
+          <section key={g}>
+            <div className="group-head"><h2>{GROUPS[g].label}</h2><span className="muted small">{GROUPS[g].sub}</span></div>
+            <div className="tpl-grid">
+              {templates.filter((t) => t.builtin && t.group === g).map((t) => <TemplateCard key={t.id} tpl={t} onStart={start} onEdit={edit} />)}
+            </div>
+          </section>
+        ))}
+      </div>
 
       <section>
         <div className="group-head"><h2>Moje šablony</h2></div>
-        {mine.map((t) => <TemplateCard key={t.id} tpl={t} onStart={start} onDelete={deleteTemplate} />)}
-        {creating ? (
-          <div className="glass form">
-            <input placeholder="Název šablony" value={name} onChange={(e) => setName(e.target.value)} />
-            <textarea rows={6} placeholder={'Jedno cvičení na řádek, např.\nBench Press – 4× 6-8\nDips – 3× max'} value={lines} onChange={(e) => setLines(e.target.value)} />
-            <div className="row-actions">
-              <button className="btn btn-primary btn-sm" onClick={save}>Uložit šablonu</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => setCreating(false)}>Zrušit</button>
-            </div>
-          </div>
+        <div className="tpl-grid">
+          {mine.map((t) => <TemplateCard key={t.id} tpl={t} onStart={start} onEdit={edit} onDelete={deleteTemplate} />)}
+        </div>
+        {editing ? (
+          <Editor key={editing.id} initial={editing} onSave={save} onClose={() => setEditing(null)} />
         ) : (
-          <button className="btn btn-ghost btn-block" onClick={() => setCreating(true)}><PlusIcon width={16} height={16} /> Nová šablona</button>
+          <button className="btn btn-ghost btn-block" style={{ marginTop: 10 }} onClick={() => setEditing({ id: uid(), name: '', group: '', variant: '', exercises: [] })}>
+            <PlusIcon width={16} height={16} /> Nová šablona
+          </button>
         )}
       </section>
     </div>

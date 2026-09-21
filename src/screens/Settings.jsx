@@ -17,7 +17,7 @@ export default function Settings() {
     <div className="screen">
       <header className="screen-head"><h1>Nastavení</h1></header>
 
-      <section className="glass profile">
+      <section className="card profile">
         {user.photo ? <img src={user.photo} alt="" referrerPolicy="no-referrer" className="avatar" /> : <div className="avatar avatar-fallback">{(user.name || '?')[0]}</div>}
         <div>
           <div>{user.name || 'Uživatel'}</div>
@@ -25,7 +25,7 @@ export default function Settings() {
         </div>
       </section>
 
-      <section className="glass list">
+      <section className="card list">
         <div className="row"><span>Úložiště</span><span className="muted">{mode === 'firebase' ? 'Cloud Firestore' : 'Lokální (demo)'}</span></div>
         <div className="row"><span>Jednotky</span><span className="muted">kg</span></div>
         <div className="row"><span>Odcvičených tréninků</span><span className="muted">{workouts.length}</span></div>
