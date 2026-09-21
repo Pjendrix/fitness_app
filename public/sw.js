@@ -1,5 +1,5 @@
 // Minimální service worker: app shell offline (stale-while-revalidate). Firestore má vlastní offline cache.
-const CACHE = 'forge-v2';
+const CACHE = 'forge-v3';
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => {
   e.waitUntil(
@@ -13,6 +13,7 @@ self.addEventListener('fetch', (e) => {
   const sameOrigin = url.origin === self.location.origin;
   const isFont = url.host.includes('fonts.g');
   if (!sameOrigin && !isFont) return; // Firebase/API volání necháme bez zásahu
+  if (url.pathname.startsWith('/__/')) return; // Firebase auth handler nikdy necachovat
   e.respondWith(
     caches.open(CACHE).then(async (cache) => {
       const cached = await cache.match(req);
