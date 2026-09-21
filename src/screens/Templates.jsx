@@ -64,7 +64,7 @@ function ColorPicker({ value, onChange }) {
   );
 }
 
-function Editor({ initial, onSave, onClose, typeOf, isMain }) {
+function Editor({ initial, onSave, onClose, typeOf, isMain, groupLabel }) {
   const [name, setName] = useState(initial.name);
   const [variant, setVariant] = useState(initial.variant || '');
   const [color, setColor] = useState(initial.color || '');
@@ -79,8 +79,14 @@ function Editor({ initial, onSave, onClose, typeOf, isMain }) {
     <div className="card form tinted" style={hex ? { '--tint': hex } : undefined}>
       <div className="editor-top">
         <div className="editor-names">
-          <input className="input" placeholder={t('tpl.name')} value={name} onChange={(e) => setName(e.target.value)} />
-          {isMain && <label className="mini"><span className="label">{t('tpl.variant')}</span><input className="input" value={variant} onChange={(e) => setVariant(e.target.value)} /></label>}
+          {isMain ? (
+            <label className="mini variant-field">
+              <span className="label">{t('tpl.variant')}</span>
+              <span className="variant-input"><span className="group-fixed">{groupLabel}</span><input className="input" autoFocus value={variant} placeholder="A" onChange={(e) => setVariant(e.target.value)} /></span>
+            </label>
+          ) : (
+            <input className="input" placeholder={t('tpl.name')} value={name} onChange={(e) => setName(e.target.value)} />
+          )}
         </div>
         <div className="editor-color"><span className="label">{t('tpl.color')}</span><ColorPicker value={color} onChange={setColor} /></div>
       </div>
@@ -107,7 +113,7 @@ function Editor({ initial, onSave, onClose, typeOf, isMain }) {
       ))}
       <button className="btn btn-ghost btn-sm" onClick={() => setPicking(true)}><PlusIcon width={16} height={16} /> {t('wo.addEx')}</button>
       <div className="row-actions">
-        <button className="btn btn-primary btn-sm" onClick={() => onSave({ ...initial, name: name.trim(), ...(isMain ? { variant: variant.trim() || 'A' } : {}), color, exercises: items })} disabled={!name.trim() || !items.length}>{t('tpl.save')}</button>
+        <button className="btn btn-primary btn-sm" onClick={() => onSave({ ...initial, ...(isMain ? { variant: variant.trim() || 'A' } : { name: name.trim() }), color, exercises: items })} disabled={(isMain ? !variant.trim() : !name.trim()) || !items.length}>{t('tpl.save')}</button>
         <button className="btn btn-ghost btn-sm" onClick={onClose}>{t('tpl.cancel')}</button>
       </div>
       {picking && (
@@ -122,7 +128,7 @@ function Editor({ initial, onSave, onClose, typeOf, isMain }) {
 }
 
 export default function Templates({ go }) {
-  const { templates, active, startWorkout, saveTemplate, deleteTemplate, typeOf, main, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, notify } = useStore();
+  const { templates, active, startWorkout, saveTemplate, deleteTemplate, typeOf, main, groupSub, groupLabel, saveMainTemplate, deleteMainTemplate, renameGroup, notify } = useStore();
   const [editing, setEditing] = useState(null); // {tpl, main: bool}
 
   const start = (tpl) => {
@@ -136,7 +142,7 @@ export default function Templates({ go }) {
   };
   const normalise = (tpl) => ({ ...tpl, exercises: tpl.exercises.map((e) => ({ ...e, weight: e.weight === '' || e.weight == null ? '' : Number(String(e.weight).replace(',', '.')) || '' })) });
   const save = (tpl) => {
-    if (editing.main) { const { builtin, ...rest } = normalise(tpl); saveMainTemplate(rest); }
+    if (editing.main) { const { builtin, name, ...rest } = normalise(tpl); saveMainTemplate(rest); }
     else saveTemplate(normalise(tpl));
     setEditing(null);
   };
@@ -148,7 +154,7 @@ export default function Templates({ go }) {
     const inGroup = main.templates.filter((x) => x.group === g.id);
     const letters = 'ABCDEFGH';
     const variant = [...letters].find((l) => !inGroup.some((x) => x.variant === l)) || String(inGroup.length + 1);
-    openEditor({ id: `m-${uid()}`, name: `${g.label} ${variant}`, group: g.id, variant, color: '', exercises: [] }, true);
+    openEditor({ id: `m-${uid()}`, group: g.id, variant, color: '', exercises: [] }, true);
   };
   const rename = (g) => {
     const label = window.prompt(t('tpl.groupName'), g.label);
@@ -163,7 +169,7 @@ export default function Templates({ go }) {
 
   const mine = templates.filter((x) => !x.builtin);
   const editor = (isMain) => editing && editing.main === isMain && (
-    <Editor key={editing.tpl.id} initial={editing.tpl} isMain={isMain} onSave={save} onClose={() => setEditing(null)} typeOf={typeOf} />
+    <Editor key={editing.tpl.id} initial={editing.tpl} isMain={isMain} groupLabel={isMain ? groupLabel(editing.tpl.group) : ''} onSave={save} onClose={() => setEditing(null)} typeOf={typeOf} />
   );
 
   return (

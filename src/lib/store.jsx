@@ -101,8 +101,11 @@ export function StoreProvider({ children }) {
   // Main templates: user-edited version for this profile, or defaults
   const main = useMemo(() => {
     const m = mainStore[prof.id];
-    if (m) return { groups: m.groups, templates: m.templates.map((x) => ({ ...migrateTemplate(x), builtin: true })) };
-    return { groups: prof.groups.map((id) => ({ id, label: id, sub: '' })), templates: prof.templates };
+    const groups = m ? m.groups : prof.groups.map((id) => ({ id, label: id, sub: '' }));
+    const list = m ? m.templates.map((x) => ({ ...migrateTemplate(x), builtin: true })) : prof.templates;
+    // Main template name is always "<group> <variant>" – group name is fixed, only the variant is named
+    const label = (id) => groups.find((g) => g.id === id)?.label || id;
+    return { groups, templates: list.map((x) => ({ ...x, name: `${label(x.group)} ${x.variant || ''}`.trim() })) };
   }, [mainStore, prof]);
   const templates = useMemo(() => [...main.templates, ...custom], [main, custom]);
 
