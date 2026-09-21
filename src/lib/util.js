@@ -1,8 +1,10 @@
+import { locale, t } from './i18n.js';
+
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 
-// Klíč cvičení: stejné jméno => sdílená historie a PB napříč šablonami.
+// Exercise key: same name => shared history and PB across templates.
 export const exKey = (name) =>
-  name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'cviceni';
+  name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'exercise';
 
 export const num = (v) => {
   const n = parseFloat(String(v ?? '').replace(',', '.'));
@@ -11,16 +13,23 @@ export const num = (v) => {
 export const firstNum = (s) => (String(s || '').match(/\d+/) || [''])[0];
 
 export const fmtNum = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, ''));
-export const fmtSet = (weight, reps) => `${weight > 0 ? fmtNum(weight) + ' kg' : 'BW'} × ${reps}`;
+export const fmtSet = (weight, reps, time) =>
+  time > 0 ? `${weight > 0 ? fmtNum(weight) + ' kg · ' : ''}${fmtNum(time)} min` : `${weight > 0 ? fmtNum(weight) + ' kg' : 'BW'} × ${reps}`;
+export const fmtS = (s) => fmtSet(s.weight, s.reps, s.time);
 
-// Je série „lepší" než dosavadní PB? Rozhoduje váha, při shodě opakování.
+// Is a set better than the current PB? Weight wins, reps break ties.
+// Timed sets: longer time wins, weight breaks ties.
 export const better = (a, b) => {
+  if (a.time > 0) {
+    if (!b) return true;
+    return (a.time || 0) > (b.time || 0) || ((a.time || 0) === (b.time || 0) && a.weight > b.weight);
+  }
   if (!(a.reps > 0)) return false;
   if (!b) return true;
   return a.weight > b.weight || (a.weight === b.weight && a.reps > b.reps);
 };
 
-export const isDone = (s) => s.done && num(s.reps) > 0;
+export const isDone = (s) => s.done && (num(s.reps) > 0 || num(s.time) > 0);
 
 export const fmtDuration = (ms) => {
   const m = Math.max(0, Math.round(ms / 60000));
@@ -33,20 +42,20 @@ export const fmtClock = (ms) => {
   return h ? `${h}:${p(m)}:${p(r)}` : `${p(m)}:${p(r)}`;
 };
 export const fmtDate = (ms) =>
-  new Date(ms).toLocaleDateString('cs-CZ', { weekday: 'short', day: 'numeric', month: 'numeric' });
+  new Date(ms).toLocaleDateString(locale(), { weekday: 'short', day: 'numeric', month: 'numeric' });
 
 export const workoutVolume = (w) =>
   w.exercises.reduce((sum, e) => sum + e.sets.reduce((s, x) => s + num(x.weight) * num(x.reps), 0), 0);
 
 export const startOfWeek = () => {
   const d = new Date();
-  const day = (d.getDay() + 6) % 7; // pondělí = 0
+  const day = (d.getDay() + 6) % 7; // Monday = 0
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() - day);
   return d.getTime();
 };
 
-export const clean = (o) => JSON.parse(JSON.stringify(o)); // Firestore nesnáší undefined
+export const clean = (o) => JSON.parse(JSON.stringify(o)); // Firestore rejects undefined
 
 export const planLabel = (e) =>
-  !e.reps ? `${e.sets} sérií` : /^\d/.test(e.reps) ? `${e.sets}× ${e.reps}` : e.reps === 'max' ? `${e.sets}× max` : `${e.sets} sérií · ${e.reps}`;
+  !e.reps || !/^(\d|max)/.test(e.reps) ? t('count.sets', { n: e.sets }) : `${e.sets}× ${e.reps}`;

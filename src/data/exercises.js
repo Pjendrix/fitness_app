@@ -1,9 +1,9 @@
 // Default exercise library. `cat` = muscle group key (translated via i18n `cat.*`).
 import { exKey } from '../lib/util.js';
 
-export const CATEGORIES = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'legs', 'glutes', 'abs'];
+export const CATEGORIES = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'legs', 'glutes', 'abs', 'cardio'];
 
-const L = (cat, names) => names.map((name) => ({ name, cat }));
+const L = (cat, names, type) => names.map((name) => (type ? { name, cat, type } : { name, cat }));
 
 export const EXERCISES = [
   ...L('chest', [
@@ -11,7 +11,7 @@ export const EXERCISES = [
     'Chest Fly', 'Cable Crossover', 'Pec Deck (Machine)', 'Chest Press (Machine)', 'Dips', 'Push-up',
   ]),
   ...L('back', [
-    'Deadlift', 'Lat Pulldown', 'One-Arm Lat Pulldown', 'Pull-up', 'Weighted Pull-up', 'Chin-up',
+    'Deadlift', 'Lat Pulldown', 'One-Arm Lat Pulldown', 'Pull-up', 'Weighted Pull-up', 'Assisted Pull-up', 'Chin-up',
     'Seated Row (Machine)', 'Seated Cable Row', 'Barbell Row', 'One-Arm Dumbbell Row', 'T-Bar Row', 'Straight-Arm Pulldown', 'Back Extension',
   ]),
   ...L('shoulders', [
@@ -25,10 +25,12 @@ export const EXERCISES = [
   ]),
   ...L('legs', [
     'Squat', 'Front Squat', 'Leg Press', 'Hack Squat', 'Leg Extension', 'Leg Curl',
-    'Bulgarian Split Squat', 'Lunges', 'Pistol Squat', 'Romanian Deadlift', 'Goblet Squat', 'Calf Raise',
+    'Bulgarian Split Squat', 'Lunges', 'Elevated Lunges', 'Pistol Squat', 'Romanian Deadlift', 'Cable RDL', 'Goblet Squat', 'Calf Raise',
   ]),
   ...L('glutes', ['Hip Thrust', 'Glute Bridge', 'Cable Kickback', 'Hip Abduction (Machine)', 'Step-up']),
-  ...L('abs', ['Abs Circuit', 'Crunch', 'Cable Crunch', 'Hanging Leg Raise', 'Plank', 'Russian Twist', 'Ab Wheel', 'Lying Leg Raise']),
+  ...L('abs', ['Abs Circuit', 'Crunch', 'Weighted Crunch', 'Weighted Sit-up', 'Cable Crunch', 'Hanging Leg Raise', 'Side Plank', 'Russian Twist', 'Ab Wheel', 'Lying Leg Raise']),
+  ...L('abs', ['Plank'], 'time'),
+  ...L('cardio', ['Stairmaster', 'Treadmill', 'Stationary Bike', 'Rowing Machine', 'Cross Trainer', 'Jump Rope'], 'time'),
 ];
 
 // Old (Czech-era) names → new English names, so existing history and PBs keep linking.
@@ -55,5 +57,9 @@ export const normCat = (c) => {
   if (LEGACY_CATS[k]) return LEGACY_CATS[k];
   if (k === 'shoulder') return 'shoulders';
   if (k === 'leg') return 'legs';
+  if (k === 'kardio') return 'cardio';
   return 'other';
 };
+
+const TYPE_BY_KEY = Object.fromEntries(EXERCISES.filter((e) => e.type).map((e) => [exKey(e.name), e.type]));
+export const defaultTypeOf = (name) => TYPE_BY_KEY[exKey(name)] || 'reps';

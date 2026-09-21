@@ -4,7 +4,8 @@
 //   users/{uid}/templates/{id}   vlastní šablony
 //   users/{uid}/workouts/{id}    odcvičené tréninky (exercises[].sets[] = {weight, reps})
 //   users/{uid}/prs/{exerciseKey} osobní rekord: {name, weight, reps, date}
-//   users/{uid}/meta/exercises    vlastní cvičení v knihovně: {list: [{name, cat}]}
+//   users/{uid}/meta/profile      training profile: {id: 'krystof' | 'chiara'}
+//   users/{uid}/meta/exercises    exercise library: {list: [{name, cat}], v: 2}  (without v = legacy custom additions)
 import { isFirebaseConfigured, auth, db, provider } from './firebase.js';
 import { clean } from './util.js';
 
@@ -45,15 +46,16 @@ const firebaseBackend = {
       async loadAll() {
         const { getDocs, query, orderBy, limit } = await fs;
         const { getDoc } = await fs;
-        const [t, w, p, ex] = await Promise.all([
+        const [t, w, p, ex, pr] = await Promise.all([
           getDocs(await col('templates')),
           getDocs(query(await col('workouts'), orderBy('startedAt', 'desc'), limit(500))),
           getDocs(await col('prs')),
           getDoc(await ref('meta', 'exercises')),
+          getDoc(await ref('meta', 'profile')),
         ]);
         const prs = {};
         p.forEach((d) => (prs[d.id] = d.data()));
-        return { templates: t.docs.map((d) => d.data()), workouts: w.docs.map((d) => d.data()), prs, exercises: ex.exists() ? ex.data().list || [] : [] };
+        return { templates: t.docs.map((d) => d.data()), workouts: w.docs.map((d) => d.data()), prs, library: ex.exists() ? ex.data() : null, profile: pr.exists() ? pr.data().id : null };
       },
       async saveTemplate(tpl) {
         const { setDoc } = await fs;
@@ -76,7 +78,11 @@ const firebaseBackend = {
       },
       async saveExercises(list) {
         const { setDoc } = await fs;
-        await setDoc(await ref('meta', 'exercises'), { list: clean(list) });
+        await setDoc(await ref('meta', 'exercises'), { list: clean(list), v: 2 });
+      },
+      async saveProfile(id) {
+        const { setDoc } = await fs;
+        await setDoc(await ref('meta', 'profile'), { id });
       },
     };
   },
@@ -111,7 +117,7 @@ const demoBackend = {
     return {
       async loadAll() {
         const d = readLS();
-        return { ...d, exercises: d.exercises || [], workouts: [...d.workouts].sort((a, b) => b.startedAt - a.startedAt) };
+        return { ...d, profile: d.profile || null, library: d.library || (d.exercises?.length ? { list: d.exercises } : null), workouts: [...d.workouts].sort((a, b) => b.startedAt - a.startedAt) };
       },
       async saveTemplate(t) {
         const d = readLS();
@@ -136,7 +142,12 @@ const demoBackend = {
       },
       async saveExercises(list) {
         const d = readLS();
-        d.exercises = list;
+        d.library = { list, v: 2 };
+        writeLS(d);
+      },
+      async saveProfile(id) {
+        const d = readLS();
+        d.profile = id;
         writeLS(d);
       },
     };

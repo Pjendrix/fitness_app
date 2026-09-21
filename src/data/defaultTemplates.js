@@ -1,19 +1,22 @@
-// Default templates (from Workout_Split.docx).
+// Default templates per training profile (Kryštof from Workout_Split.docx, Chiara from her logs).
 // sets   = number of sets      reps  = target reps (number or 'max'; prefilled when there is no history)
 // weight = default kg (prefilled only until the exercise has history; '' = bodyweight)
 // hint   = suggested weight shown on the exercise
-// plan   = optional weight/reps per set (pyramid, burnout)
+// plan   = optional weight/reps per set (pyramid, ascending); time exercises use {w, t: minutes}
+// type   = 'time' for timed exercises (plank, cardio)
 const ex = (name, sets, reps = '', o = {}) => ({ name, sets, reps, weight: '', hint: '', note: '', ...o });
 
-export const GROUP_ORDER = ['PUSH', 'PULL', 'LEGS'];
+// Plan helper: ascending sets, e.g. up([30, 35, 40, 45], 10) → 30×10, 35×10, 40×10, 45×10
+const up = (weights, reps) => weights.map((w, i) => ({ w, r: Array.isArray(reps) ? reps[i] : reps }));
 
-const t = (group, variant, exercises) => ({
+const t = (group, variant, exercises, name) => ({
   id: `${group.toLowerCase()}-${variant.toLowerCase()}`,
-  name: `${group} ${variant}`,
+  name: name || `${group} ${variant}`,
   group, variant, builtin: true, exercises,
 });
 
-export const DEFAULT_TEMPLATES = [
+// ——— Kryštof: PUSH / PULL / LEGS, Normal + Hardcore ———
+const KRYSTOF = [
   t('PUSH', 'Normal', [
     ex('Bench Press (Barbell)', 4, '6', { weight: 80, hint: '80 kg', note: 'Warm-up 20–60 kg' }),
     ex('Incline Dumbbell Bench Press', 3, '8', { weight: 25, hint: '25–30 kg dumbbells' }),
@@ -66,6 +69,52 @@ export const DEFAULT_TEMPLATES = [
     ex('Pistol Squat', 3, 'max', { note: 'Finisher, to exhaustion' }),
   ]),
 ];
+
+// ——— Chiara: Upper A/B, Lower A/B, Abs & Cardio (from her logs; ascending weights) ———
+const c = (group, variant, exercises, name) => ({ ...t(group, variant, exercises, name), id: `c-${group.toLowerCase()}-${variant.toLowerCase()}` });
+const CHIARA = [
+  c('UPPER', 'A', [
+    ex('Lat Pulldown', 4, '10', { note: 'Warm-up first · bar or handles', plan: up([30, 35, 40, 45], 10) }),
+    ex('Seated Row (Machine)', 3, '10', { plan: up([25, 30, 35], 10) }),
+    ex('Dumbbell Shoulder Press', 3, '8', { plan: up([6, 8, 10], [10, 10, 5]) }),
+    ex('Lateral Raise (Dumbbell)', 2, '15', { weight: 3, hint: '3 kg' }),
+    ex('Push-up', 2, 'max'),
+  ], 'Upper A'),
+  c('UPPER', 'B', [
+    ex('Assisted Pull-up', 3, 'max', { note: 'Warm-up first · cable assisted' }),
+    ex('Lat Pulldown', 3, '10', { note: 'Grip handle', plan: up([25, 25, 30], 10) }),
+    ex('Seated Cable Row', 4, '10', { plan: up([25, 25, 30, 35], [10, 10, 8, 8]) }),
+    ex('Dumbbell Shoulder Press', 3, '8', { plan: up([6, 6, 8], [8, 8, 6]) }),
+    ex('Lateral Raise (Dumbbell)', 2, '15', { weight: 3, hint: '3 kg' }),
+  ], 'Upper B'),
+  c('LOWER', 'A', [
+    ex('Hip Thrust', 4, '8', { note: 'Warm-up first (airplanes)', plan: up([20, 20, 25, 30], [10, 10, 7, 5]) }),
+    ex('Cable RDL', 4, '10', { plan: up([35, 50, 55, 60], 10) }),
+    ex('Leg Extension', 3, '10', { plan: up([20, 25, 30], 10) }),
+    ex('Elevated Lunges', 3, '10', { plan: up([15, 20, 25], 10) }),
+    ex('Hip Abduction (Machine)', 3, '10', { plan: up([35, 40, 45], [10, 10, 8]) }),
+  ], 'Lower A'),
+  c('LOWER', 'B', [
+    ex('Cable RDL', 4, '10', { note: 'Warm-up first', plan: up([30, 40, 50, 55], 10) }),
+    ex('Leg Press', 4, '10', { plan: up([61, 77, 82, 93], [10, 10, 10, 8]) }),
+    ex('Leg Extension', 3, '10', { plan: up([20, 25, 30], [10, 10, 8]) }),
+  ], 'Lower B'),
+  c('ABS', 'Core', [
+    ex('Weighted Crunch', 3, '15', { weight: 4, hint: '4 kg' }),
+    ex('Weighted Sit-up', 3, '10', { weight: 4, hint: '4 kg' }),
+    ex('Plank', 3, '', { type: 'time', plan: [{ w: 0, t: 1 }, { w: 5, t: 1 }, { w: 5, t: 1 }] }),
+    ex('Side Plank', 3, '10', { note: 'Gluteus medius' }),
+    ex('Stairmaster', 1, '', { type: 'time', note: 'Intervals: 3 min easy / 5 min harder', plan: [{ w: 0, t: 20 }] }),
+  ], 'Abs & Cardio'),
+];
+
+// Training profiles: which built-in templates, groups (quick start) and variants.
+export const PROFILES = {
+  krystof: { id: 'krystof', name: 'Kryštof', groups: ['PUSH', 'PULL', 'LEGS'], variants: { PUSH: ['Normal', 'Hardcore'], PULL: ['Normal', 'Hardcore'], LEGS: ['Normal', 'Hardcore'] }, templates: KRYSTOF },
+  chiara: { id: 'chiara', name: 'Chiara', groups: ['UPPER', 'LOWER', 'ABS'], variants: { UPPER: ['A', 'B'], LOWER: ['A', 'B'], ABS: ['Core'] }, templates: CHIARA },
+};
+export const profileOf = (id) => PROFILES[id] || PROFILES.krystof;
+export const ALL_BUILTIN = [...KRYSTOF, ...CHIARA];
 
 // Matte template colours (tint applied at low opacity).
 export const TEMPLATE_COLORS = [

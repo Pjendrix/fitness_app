@@ -1,21 +1,24 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import ViewToggle from '../components/ViewToggle.jsx';
-import { GROUP_ORDER } from '../data/defaultTemplates.js';
+import { PROFILES } from '../data/defaultTemplates.js';
 import { fmtDate, fmtNum, fmtSet, startOfWeek, workoutVolume } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
 
 export default function Home({ go }) {
-  const { user, workouts, prs, templates, active, startWorkout, startEmptyWorkout } = useStore();
-  const [variant, setVariant] = useState('Normal');
+  const { user, workouts, prs, templates, active, startWorkout, startEmptyWorkout, profile, prof, setProfile, loading } = useStore();
+  const G = prof.groups;
+  const [pickedVariant, setVariant] = useState(null);
 
   // Next in the PUSH → PULL → LEGS rotation based on the last workout
   const next = useMemo(() => {
-    const last = workouts.find((w) => GROUP_ORDER.includes(w.group));
-    return last ? GROUP_ORDER[(GROUP_ORDER.indexOf(last.group) + 1) % 3] : 'PUSH';
-  }, [workouts]);
+    const last = workouts.find((w) => G.includes(w.group));
+    return last ? G[(G.indexOf(last.group) + 1) % G.length] : G[0];
+  }, [workouts, G]);
   const [picked, setGroup] = useState(null);
-  const group = picked ?? next;
+  const group = picked && G.includes(picked) ? picked : next;
+  const variants = prof.variants[group];
+  const variant = variants.includes(pickedVariant) ? pickedVariant : variants[0];
 
   const week = useMemo(() => {
     const from = startOfWeek();
@@ -25,7 +28,7 @@ export default function Home({ go }) {
 
   const recentPrs = useMemo(() => Object.values(prs).sort((a, b) => b.date - a.date).slice(0, 3), [prs]);
 
-  const tpl = templates.find((x) => x.group === group && x.variant === variant);
+  const tpl = templates.find((x) => x.builtin && x.group === group && x.variant === variant);
   const first = (user?.name || '').split(' ')[0];
 
   return (
@@ -34,6 +37,16 @@ export default function Home({ go }) {
         <div className="row-between"><p className="muted">{first ? t('home.hiName', { name: first }) : t('home.hi')}</p><ViewToggle /></div>
         <h1>{t('home.title')}</h1>
       </header>
+
+      {!profile && !loading && (
+        <section className="card profile-pick">
+          <h2>{t('prof.pick')}</h2>
+          <p className="muted small">{t('prof.pickSub')}</p>
+          <div className="row-actions">
+            {Object.values(PROFILES).map((p) => <button key={p.id} className="btn btn-primary" onClick={() => setProfile(p.id)}>{p.name}</button>)}
+          </div>
+        </section>
+      )}
 
       {active ? (
         <section className="card card-hero">
@@ -45,16 +58,16 @@ export default function Home({ go }) {
         <section className="card card-hero">
           <p className="label">{t('home.quickStart')}{group === next ? ` · ${t('home.upNext')}` : ''}</p>
           <div className="seg" role="tablist">
-            {GROUP_ORDER.map((g) => (
+            {G.map((g) => (
               <button key={g} role="tab" aria-selected={group === g} className={group === g ? 'is-on' : ''} onClick={() => setGroup(g)}>{g}</button>
             ))}
           </div>
           <p className="group-sub">{t('groups.' + group)}</p>
-          <div className="seg seg-sm" role="tablist">
-            {['Normal', 'Hardcore'].map((v) => (
+          {variants.length > 1 && <div className="seg seg-sm" role="tablist">
+            {variants.map((v) => (
               <button key={v} role="tab" aria-selected={variant === v} className={variant === v ? 'is-on' : ''} onClick={() => setVariant(v)}>{v}</button>
             ))}
-          </div>
+          </div>}
           <p className="label">{t('count.exercises', { n: tpl.exercises.length })} · {t('count.sets', { n: tpl.exercises.reduce((s, e) => s + e.sets, 0) })}</p>
           <button className="btn btn-primary btn-block" onClick={() => { startWorkout(tpl); go('workout'); }}>{t('home.start', { name: tpl.name })}</button>
         </section>
@@ -77,7 +90,7 @@ export default function Home({ go }) {
             {recentPrs.map((p) => (
               <div className="row" key={p.name}>
                 <div><div>{p.name}</div><div className="muted small">{fmtDate(p.date)}</div></div>
-                <span className="pb">{fmtSet(p.weight, p.reps)}</span>
+                <span className="pb">{fmtSet(p.weight, p.reps, p.time)}</span>
               </div>
             ))}
           </div>

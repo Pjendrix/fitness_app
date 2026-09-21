@@ -43,7 +43,8 @@ export default function Workout({ go }) {
 
   const toggle = (ei, si) => {
     const s = active.exercises[ei].sets[si];
-    if (!s.done && !(num(s.reps) > 0)) return notify(t('wo.needReps'));
+    const ex = active.exercises[ei];
+    if (!s.done && !(ex.type === 'time' ? num(s.time) > 0 : num(s.reps) > 0)) return notify(t('wo.needReps'));
     navigator.vibrate?.(12);
     patchSet(ei, si, { done: !s.done });
   };
@@ -51,7 +52,7 @@ export default function Workout({ go }) {
   const addSet = (ei) =>
     mapEx(ei, (e) => {
       const prev = e.sets[e.sets.length - 1] || { weight: '', reps: '' };
-      return { ...e, sets: [...e.sets, { weight: prev.weight, reps: prev.reps, done: false }] };
+      return { ...e, sets: [...e.sets, { weight: prev.weight, reps: prev.reps, time: prev.time || '', done: false }] };
     });
 
   const removeSet = (ei, si) => {
@@ -105,16 +106,19 @@ export default function Workout({ go }) {
                 <h2>{e.name}</h2>
                 <p className="muted small">{[e.plan, e.hint && t('wo.recommended', { w: e.hint }), e.note].filter(Boolean).join(' · ')}</p>
               </div>
-              {pb && <span className="pb" title={t('wo.pb')}>PB {fmtSet(pb.weight, pb.reps)}</span>}
+              {pb && <span className="pb" title={t('wo.pb')}>PB {fmtSet(pb.weight, pb.reps, pb.time)}</span>}
             </div>
-            <div className="set-cols label"><span>{t('wo.col.set')}</span><span>{t('wo.col.kg')}</span><span>{t('wo.col.reps')}</span><span /><span /></div>
+            <div className="set-cols label"><span>{t('wo.col.set')}</span><span>{t('wo.col.kg')}</span><span>{e.type === 'time' ? t('wo.col.min') : t('wo.col.reps')}</span><span /><span /></div>
             {e.sets.map((s, si) => {
-              const newPb = s.done && better({ weight: num(s.weight), reps: num(s.reps) }, pb) && pb;
+              const timed = e.type === 'time';
+              const newPb = s.done && better({ weight: num(s.weight), reps: timed ? 0 : num(s.reps), time: timed ? num(s.time) : 0 }, pb) && pb;
               return (
                 <div className={'set' + (s.done ? ' is-done' : '')} key={si}>
                   <span className="set-n">{si + 1}</span>
                   <input aria-label={t('wo.weight', { n: si + 1 })} inputMode="decimal" placeholder="BW" value={s.weight} onFocus={(ev) => ev.target.select()} onChange={(ev) => patchSet(ei, si, { weight: ev.target.value })} />
-                  <input aria-label={t('wo.reps', { n: si + 1 })} inputMode="numeric" placeholder="0" value={s.reps} onFocus={(ev) => ev.target.select()} onChange={(ev) => patchSet(ei, si, { reps: ev.target.value })} />
+                  {timed
+                    ? <input aria-label={t('wo.col.min')} inputMode="decimal" placeholder="0" value={s.time || ''} onFocus={(ev) => ev.target.select()} onChange={(ev) => patchSet(ei, si, { time: ev.target.value })} />
+                    : <input aria-label={t('wo.reps', { n: si + 1 })} inputMode="numeric" placeholder="0" value={s.reps} onFocus={(ev) => ev.target.select()} onChange={(ev) => patchSet(ei, si, { reps: ev.target.value })} />}
                   <button className="check" aria-label={s.done ? t('wo.uncheck') : t('wo.check')} aria-pressed={s.done} onClick={() => toggle(ei, si)}>
                     <CheckIcon width={18} height={18} />
                   </button>

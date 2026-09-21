@@ -30,7 +30,7 @@ const D = {
     'home.weekWorkouts': 'workouts this week', 'home.weekVolume': 'volume this week', 'home.total': 'workouts total',
     'home.recentPrs': 'Recent records', 'home.allStats': 'All analytics', 'home.noPrs': 'Records appear after your first finished workout.',
     'home.openStats': 'Open analytics',
-    'groups.PUSH': 'Chest, shoulders, triceps', 'groups.PULL': 'Back, rear delts, biceps', 'groups.LEGS': 'Legs, glutes, abs',
+    'groups.PUSH': 'Chest, shoulders, triceps', 'groups.PULL': 'Back, rear delts, biceps', 'groups.LEGS': 'Legs, glutes, abs', 'groups.UPPER': 'Back, shoulders, arms', 'groups.LOWER': 'Glutes, hamstrings, quads', 'groups.ABS': 'Core & cardio',
     'count.exercises': '{n} exercises', 'count.sets': '{n} sets',
     // workout
     'wo.title': 'Workout', 'wo.none': 'No workout in progress.', 'wo.pickTemplate': 'Choose a template', 'wo.emptyName': 'Quick workout',
@@ -79,7 +79,9 @@ const D = {
     'an.r4': '4w', 'an.r12': '12w', 'an.r26': '6m', 'an.r52': '1y', 'an.mon': 'Mon', 'an.wed': 'Wed', 'an.fri': 'Fri', 'an.nWorkouts': '{n}× workout',
     // categories
     'cat.chest': 'Chest', 'cat.back': 'Back', 'cat.shoulders': 'Shoulders', 'cat.biceps': 'Biceps', 'cat.triceps': 'Triceps',
-    'cat.legs': 'Legs', 'cat.glutes': 'Glutes', 'cat.abs': 'Abs', 'cat.other': 'Other',
+    'cat.legs': 'Legs', 'cat.glutes': 'Glutes', 'cat.abs': 'Abs', 'cat.cardio': 'Cardio', 'cat.other': 'Other',
+    'prof.title': 'Training profile', 'prof.pick': 'Who is training on this account?', 'prof.pickSub': 'Loads your own split and templates. You can change it later in Settings.', 'prof.saved': 'Profile set to {name}',
+    'wo.col.min': 'Min', 'tpl.min': 'Min', 'an.maxTime': 'Longest (min)', 'ex.timed': 'timed',
     // errors
     'err.load': 'Loading data failed: {m}', 'err.save': 'Saving failed: {m}', 'err.delete': 'Deleting failed: {m}', 'err.login': 'Sign-in failed: {m}',
   },
@@ -96,7 +98,7 @@ const D = {
     'home.weekWorkouts': 'tréninků tento týden', 'home.weekVolume': 'objem tento týden', 'home.total': 'tréninků celkem',
     'home.recentPrs': 'Nedávné rekordy', 'home.allStats': 'Všechny statistiky', 'home.noPrs': 'Rekordy se objeví po prvním dokončeném tréninku.',
     'home.openStats': 'Otevřít statistiky',
-    'groups.PUSH': 'Prsa, ramena, triceps', 'groups.PULL': 'Záda, zadní delty, biceps', 'groups.LEGS': 'Nohy, hýždě, břicho',
+    'groups.PUSH': 'Prsa, ramena, triceps', 'groups.PULL': 'Záda, zadní delty, biceps', 'groups.LEGS': 'Nohy, hýždě, břicho', 'groups.UPPER': 'Záda, ramena, paže', 'groups.LOWER': 'Hýždě, hamstringy, stehna', 'groups.ABS': 'Střed těla a kardio',
     'count.exercises': '{n} cvičení', 'count.sets': '{n} sérií',
     'wo.title': 'Trénink', 'wo.none': 'Žádný trénink neprobíhá.', 'wo.pickTemplate': 'Vybrat šablonu', 'wo.emptyName': 'Rychlý trénink',
     'wo.finish': 'Dokončit', 'wo.sets': '{done}/{total} sérií', 'wo.recommended': 'doporučeno {w}', 'wo.pb': 'Osobní rekord',
@@ -137,7 +139,9 @@ const D = {
     'an.weeks': '{n} týdnů', 'an.prs': 'Osobní rekordy', 'an.record': 'Rekord', 'an.weekOf': 'Týden od {d}', 'an.fewData': 'Zatím málo dat.',
     'an.r4': '4 t', 'an.r12': '12 t', 'an.r26': '6 m', 'an.r52': '1 r', 'an.mon': 'Po', 'an.wed': 'St', 'an.fri': 'Pá', 'an.nWorkouts': '{n}× trénink',
     'cat.chest': 'Prsa', 'cat.back': 'Záda', 'cat.shoulders': 'Ramena', 'cat.biceps': 'Biceps', 'cat.triceps': 'Triceps',
-    'cat.legs': 'Nohy', 'cat.glutes': 'Hýždě', 'cat.abs': 'Břicho', 'cat.other': 'Ostatní',
+    'cat.legs': 'Nohy', 'cat.glutes': 'Hýždě', 'cat.abs': 'Břicho', 'cat.cardio': 'Kardio', 'cat.other': 'Ostatní',
+    'prof.title': 'Tréninkový profil', 'prof.pick': 'Kdo na tomhle účtu trénuje?', 'prof.pickSub': 'Načte tvůj split a šablony. Změnit to jde později v Nastavení.', 'prof.saved': 'Profil nastaven: {name}',
+    'wo.col.min': 'Min', 'tpl.min': 'Min', 'an.maxTime': 'Nejdelší (min)', 'ex.timed': 'na čas',
     'err.load': 'Načtení dat selhalo: {m}', 'err.save': 'Uložení selhalo: {m}', 'err.delete': 'Smazání selhalo: {m}', 'err.login': 'Přihlášení selhalo: {m}',
   },
 };

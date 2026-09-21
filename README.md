@@ -61,3 +61,7 @@ Workflow `.github/workflows/deploy.yml` builduje při pushi do `main`. Firebase 
 - Exercises tab (desktop sidebar, or Settings → Manage exercises): library by muscle group, CSV export/import (`name,category`), reset to defaults in Settings.
 - Template colours (matte palette, light tint).
 - History: list / calendar view, filter by workout.
+
+## v4 – profiles
+- Training profile per Google account (`users/{uid}/meta/profile`): **Kryštof** (PUSH/PULL/LEGS, Normal/Hardcore) or **Chiara** (Upper A/B, Lower A/B, Abs & Cardio). Chosen on first login, changeable in Settings.
+- Timed exercises (Plank, Stairmaster and other cardio): sets are logged as kg + minutes. CSV has an optional `type` column (`reps` / `time`).

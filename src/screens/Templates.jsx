@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store.jsx';
-import { colorHex, GROUP_ORDER, TEMPLATE_COLORS } from '../data/defaultTemplates.js';
+import { colorHex, TEMPLATE_COLORS } from '../data/defaultTemplates.js';
 import { exKey, planLabel, uid } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
 import { ChevronIcon, PlusIcon, TrashIcon, XIcon } from '../components/Icons.jsx';
@@ -15,7 +15,7 @@ function TemplateCard({ tpl, onStart, onEdit, onDelete }) {
     <div className={'card tpl tinted' + (tpl.variant === 'Hardcore' ? ' is-hard' : '')} style={color ? { '--tint': color } : undefined}>
       <button className="tpl-head" onClick={() => setOpen(!open)} aria-expanded={open}>
         <div>
-          <h3>{tpl.builtin ? tpl.variant : tpl.name}</h3>
+          <h3>{tpl.builtin && ['Normal', 'Hardcore'].includes(tpl.variant) ? tpl.variant : tpl.name}</h3>
           <p className="label">{t('count.exercises', { n: tpl.exercises.length })} · {t('count.sets', { n: setCount(tpl) })}</p>
         </div>
         <ChevronIcon className={'chev' + (open ? ' is-open' : '')} />
@@ -62,11 +62,11 @@ function ColorPicker({ value, onChange }) {
   );
 }
 
-function Editor({ initial, onSave, onClose }) {
+function Editor({ initial, onSave, onClose, typeOf }) {
   const [name, setName] = useState(initial.name);
   const [color, setColor] = useState(initial.color || '');
   const [items, setItems] = useState(() =>
-    initial.exercises.map((e) => ({ ...e, reps: e.reps === 'max' ? 'max' : String(parseInt(e.reps, 10) || 8) }))
+    initial.exercises.map((e) => ({ ...e, type: e.type || typeOf(e.name), reps: e.reps === 'max' ? 'max' : String(parseInt(e.reps, 10) || 8), time: e.time || e.plan?.[0]?.t || 1 }))
   );
   const [picking, setPicking] = useState(false);
   const upd = (i, patch) => setItems((l) => l.map((x, j) => (j === i ? { ...x, ...patch } : x)));
@@ -82,6 +82,9 @@ function Editor({ initial, onSave, onClose }) {
         <div className="edit-ex" key={i}>
           <div className="edit-ex-name">{e.name}</div>
           <div className="mini"><span className="label">{t('tpl.sets')}</span><Stepper value={e.sets} min={1} max={20} onChange={(v) => upd(i, { sets: v })} /></div>
+          {e.type === 'time' ? (
+            <div className="mini"><span className="label">{t('tpl.min')}</span><Stepper value={e.time} min={1} max={120} onChange={(v) => upd(i, { time: v, plan: undefined })} /></div>
+          ) : (
           <div className="mini">
             <span className="label reps-label">{t('tpl.reps')}
               <button type="button" className={'max-chip' + (e.reps === 'max' ? ' is-on' : '')} onClick={() => upd(i, { reps: e.reps === 'max' ? '8' : 'max' })}>{t('tpl.max')}</button>
@@ -90,6 +93,7 @@ function Editor({ initial, onSave, onClose }) {
               ? <div className="stepper stepper-max">{t('tpl.toFailure')}</div>
               : <Stepper value={parseInt(e.reps, 10) || 8} min={1} max={50} onChange={(v) => upd(i, { reps: String(v) })} />}
           </div>
+          )}
           <label className="mini"><span className="label">{t('tpl.kg')}</span><input className="input" inputMode="decimal" value={e.weight ?? ''} placeholder="–" onChange={(ev) => upd(i, { weight: ev.target.value })} /></label>
           <button className="icon-btn" aria-label={t('tpl.remove')} onClick={() => setItems((l) => l.filter((_, j) => j !== i))}><XIcon width={16} height={16} /></button>
           <input className="input edit-note" value={e.note || ''} placeholder={t('tpl.note')} onChange={(ev) => upd(i, { note: ev.target.value })} />
@@ -104,7 +108,7 @@ function Editor({ initial, onSave, onClose }) {
         <ExercisePicker
           exclude={items.map((x) => exKey(x.name))}
           onClose={() => setPicking(false)}
-          onPick={(ex) => { setItems((l) => [...l, { name: ex.name, sets: 3, reps: '8', weight: '', hint: '', note: '' }]); setPicking(false); }}
+          onPick={(ex) => { const type = ex.type || typeOf(ex.name); setItems((l) => [...l, { name: ex.name, type, sets: type === 'time' ? 1 : 3, reps: '8', time: 10, weight: '', hint: '', note: '' }]); setPicking(false); }}
         />
       )}
     </div>
@@ -112,7 +116,7 @@ function Editor({ initial, onSave, onClose }) {
 }
 
 export default function Templates({ go }) {
-  const { templates, active, startWorkout, saveTemplate, deleteTemplate } = useStore();
+  const { templates, active, startWorkout, saveTemplate, deleteTemplate, prof, typeOf } = useStore();
   const [editing, setEditing] = useState(null);
 
   const start = (tpl) => {
@@ -136,7 +140,7 @@ export default function Templates({ go }) {
       <header className="screen-head"><h1>{t('tpl.title')}</h1></header>
 
       <div className="tpl-columns">
-        {GROUP_ORDER.map((g) => (
+        {prof.groups.map((g) => (
           <section key={g}>
             <div className="group-head"><h2>{g}</h2><span className="muted small">{t('groups.' + g)}</span></div>
             <div className="tpl-grid">
@@ -153,7 +157,7 @@ export default function Templates({ go }) {
         </div>
         <div className="editor-anchor" />
         {editing ? (
-          <Editor key={editing.id} initial={editing} onSave={save} onClose={() => setEditing(null)} />
+          <Editor key={editing.id} initial={editing} onSave={save} onClose={() => setEditing(null)} typeOf={typeOf} />
         ) : (
           <button className="btn btn-ghost btn-block" style={{ marginTop: 10 }} onClick={() => setEditing({ id: uid(), name: '', color: '', group: '', variant: '', exercises: [] })}>
             <PlusIcon width={16} height={16} /> {t('tpl.new')}

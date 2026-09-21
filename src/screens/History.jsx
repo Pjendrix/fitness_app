@@ -23,7 +23,7 @@ function WorkoutCard({ w, color, open, onToggle, onDelete }) {
           {w.exercises.map((e) => (
             <div key={e.key} className="hist-ex">
               <div>{e.name}</div>
-              <div className="mono muted small sets-line">{e.sets.map((s) => fmtSet(s.weight, s.reps)).join('  ·  ')}</div>
+              <div className="mono muted small sets-line">{e.sets.map((s) => fmtSet(s.weight, s.reps, s.time)).join('  ·  ')}</div>
             </div>
           ))}
           <button className="btn btn-danger btn-sm" onClick={() => window.confirm(t('hist.confirmDelete')) && onDelete(w.id)}>

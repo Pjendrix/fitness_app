@@ -1,10 +1,11 @@
 import { useStore } from '../lib/store.jsx';
 import ViewToggle from '../components/ViewToggle.jsx';
 import { download } from '../lib/csv.js';
+import { PROFILES } from '../data/defaultTemplates.js';
 import { t, useLang } from '../lib/i18n.js';
 
 export default function Settings({ go }) {
-  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, notify } = useStore();
+  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, notify, profile, setProfile } = useStore();
   const { lang, setLang } = useLang();
 
   const exportData = () => {
@@ -30,6 +31,11 @@ export default function Settings({ go }) {
       </section>
 
       <section className="card list">
+        <div className="row"><span>{t('prof.title')}</span>
+          <div className="seg seg-sm seg-inline" role="tablist">
+            {Object.values(PROFILES).map((p) => <button key={p.id} role="tab" aria-selected={profile === p.id} className={profile === p.id ? 'is-on' : ''} onClick={() => { setProfile(p.id); notify(t('prof.saved', { name: p.name })); }}>{p.name}</button>)}
+          </div>
+        </div>
         <div className="row"><span>{t('set.lang')}</span>
           <div className="seg seg-sm seg-inline" role="tablist">
             {[['en', 'English'], ['cs', 'Čeština']].map(([id, l]) => <button key={id} role="tab" aria-selected={lang === id} className={lang === id ? 'is-on' : ''} onClick={() => setLang(id)}>{l}</button>)}

@@ -33,7 +33,7 @@ export default function Exercises() {
     setName('');
   };
 
-  const exportCsv = () => download('forge-exercises.csv', toCsv([['name', 'category'], ...library.map((e) => [e.name, e.cat])]));
+  const exportCsv = () => download('forge-exercises.csv', toCsv([['name', 'category', 'type'], ...library.map((e) => [e.name, e.cat, e.type === 'time' ? 'time' : 'reps'])]));
 
   const importCsv = async (ev) => {
     const f = ev.target.files?.[0];
@@ -45,7 +45,7 @@ export default function Exercises() {
     const seen = new Set();
     const list = body
       .filter((r) => r[0])
-      .map((r) => ({ name: r[0], cat: normCat(r[1]) }))
+      .map((r) => { const cat = normCat(r[1]); const time = /^(time|cas|čas)$/i.test(r[2] || '') || (!r[2] && cat === 'cardio'); return time ? { name: r[0], cat, type: 'time' } : { name: r[0], cat }; })
       .filter((e) => !seen.has(exKey(e.name)) && seen.add(exKey(e.name)));
     if (!list.length) return notify(t('ex.importFail'));
     if (window.confirm(t('ex.importMode'))) {
@@ -92,7 +92,7 @@ export default function Exercises() {
                 <div className="lib-row" key={e.name}>
                   <div className="lib-main">
                     <span>{e.name}</span>
-                    <span className="label">{[prs[k] && `PB ${fmtSet(prs[k].weight, prs[k].reps)}`, counts[k] && t('ex.sessions', { n: counts[k] })].filter(Boolean).join(' · ')}</span>
+                    <span className="label">{[e.type === 'time' && t('ex.timed'), prs[k] && `PB ${fmtSet(prs[k].weight, prs[k].reps, prs[k].time)}`, counts[k] && t('ex.sessions', { n: counts[k] })].filter(Boolean).join(' · ')}</span>
                   </div>
                   <select className="lib-cat" value={e.cat} onChange={(ev) => recat(e, ev.target.value)} aria-label={t('pick.category')}>
                     {[...CATEGORIES, 'other'].map((x) => <option key={x} value={x}>{t('cat.' + x)}</option>)}

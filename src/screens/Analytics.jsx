@@ -3,12 +3,12 @@ import { useStore } from '../lib/store.jsx';
 import { CATEGORIES } from '../data/exercises.js';
 import { locale, t } from '../lib/i18n.js';
 import { BarChart, HBars, Heatmap, LineChart } from '../components/Charts.jsx';
-import { fmtDate, fmtDuration, fmtNum, fmtSet, workoutVolume } from '../lib/util.js';
+import { better, fmtDate, fmtDuration, fmtNum, fmtSet, workoutVolume } from '../lib/util.js';
 
 const WEEK = 7 * 864e5;
 const RANGES = [4, 12, 26, 52];
 const e1rm = (w, r) => (r <= 1 ? w : w * (1 + r / 30)); // Epley
-const GROUP_FALLBACK = { PUSH: 'chest', PULL: 'back', LEGS: 'legs' };
+const GROUP_FALLBACK = { PUSH: 'chest', PULL: 'back', LEGS: 'legs', UPPER: 'back', LOWER: 'legs', ABS: 'abs' };
 
 const monday = (t) => { const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); };
 
@@ -72,7 +72,7 @@ export default function Analytics() {
     for (const w of [...workouts].reverse()) {
       const e = w.exercises.find((x) => x.key === sel);
       if (!e) continue;
-      const top = e.sets.reduce((a, s) => (s.weight > a.weight || (s.weight === a.weight && s.reps > a.reps) ? s : a), e.sets[0]);
+      const top = e.sets.reduce((a, s) => (better(s, a) ? s : a), e.sets[0]);
       sessions.push({
         t: w.startedAt, top, sets: e.sets,
         e1: Math.max(...e.sets.map((s) => e1rm(s.weight, s.reps))),
@@ -91,7 +91,8 @@ export default function Analytics() {
     );
   }
 
-  const bodyweight = progress?.every((s) => s.top.weight === 0);
+  const timed = progress?.some((s) => s.top.time > 0);
+  const bodyweight = timed || progress?.every((s) => s.top.weight === 0);
 
   return (
     <div className="screen screen-wide">
@@ -119,16 +120,16 @@ export default function Analytics() {
           {progress && (
             <>
               <LineChart
-                unit={bodyweight ? '' : ' kg'}
+                unit={timed ? ' min' : bodyweight ? '' : ' kg'}
                 series={bodyweight
-                  ? [{ name: t('an.maxReps'), points: progress.map((s) => ({ x: s.t, y: s.top.reps })) }]
+                  ? [{ name: timed ? t('an.maxTime') : t('an.maxReps'), points: progress.map((s) => ({ x: s.t, y: timed ? s.top.time : s.top.reps })) }]
                   : [
                       { name: t('an.e1rm'), points: progress.map((s) => ({ x: s.t, y: s.e1 })) },
                       { name: t('an.top'), points: progress.map((s) => ({ x: s.t, y: s.top.weight })) },
                     ]}
               />
               <div className="mini-stats">
-                <div><span className="label">{t('an.pb')}</span><span>{prs[sel] ? fmtSet(prs[sel].weight, prs[sel].reps) : '–'}</span></div>
+                <div><span className="label">{t('an.pb')}</span><span>{prs[sel] ? fmtSet(prs[sel].weight, prs[sel].reps, prs[sel].time) : '–'}</span></div>
                 <div><span className="label">{t('an.e1rm')}</span><span>{bodyweight ? '–' : `${fmtNum(Math.round(Math.max(...progress.map((s) => s.e1))))} kg`}</span></div>
                 <div><span className="label">{t('an.sessions')}</span><span>{progress.length}</span></div>
                 <div><span className="label">{t('an.change')}</span><span>{progress.length > 1 && !bodyweight ? `${progress.at(-1).top.weight - progress[0].top.weight >= 0 ? '+' : ''}${fmtNum(progress.at(-1).top.weight - progress[0].top.weight)} kg` : '–'}</span></div>
@@ -138,7 +139,7 @@ export default function Analytics() {
                   <thead><tr><th>{t('an.date')}</th><th>{t('an.setsCol')}</th><th className="r">{t('an.volCol')}</th></tr></thead>
                   <tbody>
                     {[...progress].reverse().slice(0, 8).map((s) => (
-                      <tr key={s.t}><td>{fmtDate(s.t)}</td><td className="mono">{s.sets.map((x) => fmtSet(x.weight, x.reps)).join(', ')}</td><td className="r mono">{fmtNum(Math.round(s.vol))}</td></tr>
+                      <tr key={s.t}><td>{fmtDate(s.t)}</td><td className="mono">{s.sets.map((x) => fmtSet(x.weight, x.reps, x.time)).join(', ')}</td><td className="r mono">{fmtNum(Math.round(s.vol))}</td></tr>
                     ))}
                   </tbody>
                 </table>
@@ -160,7 +161,7 @@ export default function Analytics() {
               <tbody>
                 {Object.entries(prs).sort((a, b) => b[1].weight - a[1].weight).map(([k, p]) => (
                   <tr key={k} onClick={() => setExSel(k)} className="clickable">
-                    <td>{p.name}</td><td className="r mono">{fmtSet(p.weight, p.reps)}</td>
+                    <td>{p.name}</td><td className="r mono">{fmtSet(p.weight, p.reps, p.time)}</td>
                     <td className="r mono">{p.weight ? `${fmtNum(Math.round(e1rm(p.weight, p.reps)))} kg` : '–'}</td>
                     <td className="r mono muted">{fmtDate(p.date)}</td>
                   </tr>

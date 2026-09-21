@@ -1,7 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { backend } from './backend.js';
-import { DEFAULT_TEMPLATES } from '../data/defaultTemplates.js';
+import { profileOf } from '../data/defaultTemplates.js';
+import { defaultTypeOf, EXERCISES, modernName, normCat } from '../data/exercises.js';
 import { better, exKey, firstNum, isDone, num, planLabel, uid } from './util.js';
+import { t } from './i18n.js';
 
 const Ctx = createContext(null);
 export const useStore = () => useContext(Ctx);
@@ -15,17 +17,49 @@ const loadDraft = () => {
   }
 };
 
+// Old Czech exercise names → English (history, PBs, templates keep linking).
+const migrateEx = (e) => {
+  const name = modernName(e.name);
+  return name === e.name ? e : { ...e, name, key: exKey(name) };
+};
+const migrateWorkout = (w) => ({ ...w, exercises: w.exercises.map(migrateEx) });
+const migratePrs = (prs) => {
+  const out = {};
+  for (const p of Object.values(prs)) {
+    const name = modernName(p.name);
+    const key = exKey(name);
+    if (better(p, out[key]) || !out[key]) out[key] = { ...p, name };
+  }
+  return out;
+};
+const migrateTemplate = (tpl) => ({ ...tpl, exercises: tpl.exercises.map((e) => ({ ...e, name: modernName(e.name) })) });
+const loadLibrary = (doc) => {
+  if (!doc) return EXERCISES;
+  const list = (doc.list || []).map((e) => ({ name: modernName(e.name), cat: normCat(e.cat), ...(e.type === 'time' ? { type: 'time' } : {}) }));
+  if (doc.v === 2) return list;
+  // legacy: list = custom additions on top of defaults
+  const have = new Set(EXERCISES.map((e) => exKey(e.name)));
+  return [...EXERCISES, ...list.filter((e) => !have.has(exKey(e.name)))];
+};
+
 export function StoreProvider({ children }) {
-  const [user, setUser] = useState(undefined); // undefined = načítá se, null = odhlášen
+  const [user, setUser] = useState(undefined); // undefined = loading, null = signed out
   const [loading, setLoading] = useState(false);
   const [custom, setCustom] = useState([]);
   const [workouts, setWorkouts] = useState([]);
   const [prs, setPrs] = useState({});
-  const [customExercises, setCustomExercises] = useState([]);
+  const [library, setLibrary] = useState(EXERCISES);
+  const [profile, setProfileState] = useState(null);
   const [active, setActive] = useState(loadDraft);
   const [toast, setToast] = useState(null);
 
   const api = useMemo(() => (user ? backend.data(user.uid) : null), [user]);
+
+  const notify = useCallback((msg) => {
+    setToast({ msg, id: Date.now() });
+    setTimeout(() => setToast((x) => (x && Date.now() - x.id >= 2800 ? null : x)), 3000);
+  }, []);
+  const fail = useCallback((key) => (e) => notify(t(key, { m: e.message })), [notify]);
 
   useEffect(() => {
     let unsub = () => {};
@@ -41,32 +75,33 @@ export function StoreProvider({ children }) {
       .loadAll()
       .then((d) => {
         if (cancelled) return;
-        setCustom(d.templates);
-        setWorkouts(d.workouts);
-        setPrs(d.prs);
-        setCustomExercises(d.exercises || []);
+        setCustom(d.templates.map(migrateTemplate));
+        setWorkouts(d.workouts.map(migrateWorkout));
+        setPrs(migratePrs(d.prs));
+        setLibrary(loadLibrary(d.library));
+        setProfileState(d.profile || null);
       })
-      .catch((e) => notify('Načtení dat selhalo: ' + e.message))
+      .catch(fail('err.load'))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api]);
+  }, [api, fail]);
 
   useEffect(() => {
     if (active) localStorage.setItem(DRAFT, JSON.stringify(active));
     else localStorage.removeItem(DRAFT);
   }, [active]);
 
-  const notify = useCallback((msg) => {
-    setToast({ msg, id: Date.now() });
-    setTimeout(() => setToast((t) => (t && Date.now() - t.id >= 2800 ? null : t)), 3000);
-  }, []);
+  const prof = profileOf(profile);
+  const templates = useMemo(() => [...prof.templates, ...custom], [prof, custom]);
+  const setProfile = useCallback((id) => {
+    setProfileState(id);
+    api.saveProfile(id).catch(fail('err.save'));
+  }, [api, fail]);
+  const typeOf = useCallback((name) => library.find((e) => exKey(e.name) === exKey(name))?.type || defaultTypeOf(name), [library]);
 
-  const templates = useMemo(() => [...DEFAULT_TEMPLATES, ...custom], [custom]);
-
-  // Poslední odcvičené série daného cvičení (workouts jsou seřazené od nejnovějšího).
+  // Last logged sets of an exercise (workouts are sorted newest first).
   const lastSets = useCallback(
     (key) => {
       for (const w of workouts) {
@@ -83,34 +118,31 @@ export function StoreProvider({ children }) {
       const exercises = tpl.exercises.map((e) => {
         const key = exKey(e.name);
         const last = lastSets(key);
-        // Priorita předvyplnění: 1) poslední trénink z historie  2) plán série ze šablony  3) výchozí váha/opakování
+        // Prefill priority: 1) last session  2) per-set plan  3) template default weight/reps
         const sets = Array.from({ length: e.sets }, (_, i) => {
           const src = last ? last[Math.min(i, last.length - 1)] : null;
-          if (src) return { weight: String(src.weight || ''), reps: String(src.reps ?? ''), done: false };
+          if (src) return { weight: String(src.weight || ''), reps: String(src.reps || ''), time: String(src.time || ''), done: false };
           const p = e.plan?.[i];
           return {
-            weight: String(p?.w ?? e.weight ?? ''),
+            weight: String(p?.w || e.weight || ''),
             reps: String(p ? (typeof p.r === 'number' ? p.r : '') : firstNum(e.reps)),
+            time: String(p?.t || e.time || ''),
             done: false,
           };
         });
-        return { key, name: e.name, plan: planLabel(e), hint: last ? '' : e.hint || '', note: e.note || '', sets };
+        const type = e.type || typeOf(e.name);
+        return { key, name: e.name, type, plan: type === 'time' ? t('count.sets', { n: e.sets }) : planLabel(e), hint: last ? '' : e.hint || '', note: e.note || '', sets };
       });
       setActive({
-        id: uid(),
-        templateId: tpl.id,
-        name: tpl.name,
-        group: tpl.group || '',
-        variant: tpl.variant || '',
-        startedAt: Date.now(),
-        exercises,
+        id: uid(), templateId: tpl.id, name: tpl.name, group: tpl.group || '', variant: tpl.variant || '',
+        startedAt: Date.now(), exercises,
       });
     },
-    [lastSets]
+    [lastSets, typeOf]
   );
 
   const startEmptyWorkout = useCallback(() => {
-    setActive({ id: uid(), templateId: '', name: 'Rychlý trénink', group: '', variant: '', startedAt: Date.now(), exercises: [] });
+    setActive({ id: uid(), templateId: '', name: t('wo.emptyName'), group: '', variant: '', startedAt: Date.now(), exercises: [] });
   }, []);
 
   const discardWorkout = useCallback(() => setActive(null), []);
@@ -119,11 +151,7 @@ export function StoreProvider({ children }) {
     if (!active) return { empty: true };
     const finishedAt = Date.now();
     const exercises = active.exercises
-      .map((e) => ({
-        key: e.key,
-        name: e.name,
-        sets: e.sets.filter(isDone).map((s) => ({ weight: num(s.weight), reps: num(s.reps) })),
-      }))
+      .map((e) => ({ key: e.key, name: e.name, ...(e.type === 'time' ? { type: 'time' } : {}), sets: e.sets.filter(isDone).map((s) => (e.type === 'time' ? { weight: num(s.weight), reps: 0, time: num(s.time) } : { weight: num(s.weight), reps: num(s.reps) })) }))
       .filter((e) => e.sets.length);
     if (!exercises.length) return { empty: true };
 
@@ -133,81 +161,72 @@ export function StoreProvider({ children }) {
     let beaten = 0;
     for (const e of exercises) {
       for (const s of e.sets) {
-        const cand = { weight: s.weight, reps: s.reps };
-        if (better(cand, nextPrs[e.key])) {
+        if (better(s, nextPrs[e.key])) {
           if (nextPrs[e.key]) beaten += 1;
-          nextPrs[e.key] = { ...cand, name: e.name, date: finishedAt };
+          nextPrs[e.key] = { weight: s.weight, reps: s.reps, ...(s.time ? { time: s.time } : {}), name: e.name, date: finishedAt };
           updates[e.key] = nextPrs[e.key];
         }
       }
     }
-    // Lokální stav se aktualizuje hned (Firestore má offline cache), zápis běží na pozadí.
     setWorkouts((w) => [done, ...w]);
     setPrs(nextPrs);
     setActive(null);
-    api.saveWorkout(done, updates).catch((e) => notify('Uložení selhalo: ' + e.message));
+    api.saveWorkout(done, updates).catch(fail('err.save'));
     return { empty: false, beaten };
-  }, [active, prs, api, notify]);
+  }, [active, prs, api, fail]);
 
-  const deleteWorkout = useCallback(
-    (id) => {
-      setWorkouts((w) => w.filter((x) => x.id !== id));
-      api.deleteWorkout(id).catch((e) => notify('Smazání selhalo: ' + e.message));
-    },
-    [api, notify]
-  );
+  const deleteWorkout = useCallback((id) => {
+    setWorkouts((w) => w.filter((x) => x.id !== id));
+    api.deleteWorkout(id).catch(fail('err.delete'));
+  }, [api, fail]);
 
-  const saveTemplate = useCallback(
-    (tpl) => {
-      setCustom((c) => [...c.filter((x) => x.id !== tpl.id), tpl]);
-      api.saveTemplate(tpl).catch((e) => notify('Uložení šablony selhalo: ' + e.message));
-    },
-    [api, notify]
-  );
+  const saveTemplate = useCallback((tpl) => {
+    setCustom((c) => [...c.filter((x) => x.id !== tpl.id), tpl]);
+    api.saveTemplate(tpl).catch(fail('err.save'));
+  }, [api, fail]);
 
-  const deleteTemplate = useCallback(
-    (id) => {
-      setCustom((c) => c.filter((x) => x.id !== id));
-      api.deleteTemplate(id).catch((e) => notify('Smazání šablony selhalo: ' + e.message));
-    },
-    [api, notify]
-  );
+  const deleteTemplate = useCallback((id) => {
+    setCustom((c) => c.filter((x) => x.id !== id));
+    api.deleteTemplate(id).catch(fail('err.delete'));
+  }, [api, fail]);
 
-  const addCustomExercise = useCallback(
-    (ex) => {
-      setCustomExercises((list) => {
-        const next = [...list.filter((x) => x.name !== ex.name), ex];
-        api.saveExercises(next).catch((e) => notify('Uložení cvičení selhalo: ' + e.message));
-        return next;
-      });
-    },
-    [api, notify]
-  );
+  // Exercise library
+  const saveLibrary = useCallback((list) => {
+    setLibrary(list);
+    api.saveExercises(list).catch(fail('err.save'));
+  }, [api, fail]);
+  const addToLibrary = useCallback((ex) => {
+    setLibrary((lib) => {
+      const next = [...lib.filter((x) => exKey(x.name) !== exKey(ex.name)), { name: ex.name, cat: normCat(ex.cat), ...(ex.type === 'time' || (!ex.type && normCat(ex.cat) === 'cardio') ? { type: 'time' } : {}) }];
+      api.saveExercises(next).catch(fail('err.save'));
+      return next;
+    });
+  }, [api, fail]);
+  const resetLibrary = useCallback(() => saveLibrary(EXERCISES), [saveLibrary]);
+  const catOf = useCallback((name) => library.find((e) => exKey(e.name) === exKey(name))?.cat || null, [library]);
 
-  // Úpravy aktivního tréninku
   const patchActive = useCallback((fn) => setActive((a) => (a ? fn(a) : a)), []);
-  const addExerciseToActive = useCallback(
-    (ex) => {
-      const key = exKey(ex.name);
-      const last = lastSets(key);
-      const sets = (last || [{ weight: '', reps: '' }]).slice(0, Math.max(3, last?.length || 0)).map((s) => ({ weight: String(s.weight || ''), reps: String(s.reps || ''), done: false }));
-      while (sets.length < 3) sets.push({ ...sets[sets.length - 1], done: false });
-      patchActive((a) => ({ ...a, exercises: [...a.exercises, { key, name: ex.name, plan: '', hint: '', note: '', sets }] }));
-    },
-    [lastSets, patchActive]
-  );
+  const addExerciseToActive = useCallback((ex) => {
+    const key = exKey(ex.name);
+    const last = lastSets(key);
+    const type = ex.type || typeOf(ex.name);
+    const sets = (last || [{ weight: '', reps: '', time: '' }]).map((s) => ({ weight: String(s.weight || ''), reps: String(s.reps || ''), time: String(s.time || ''), done: false }));
+    while (sets.length < (type === 'time' ? 1 : 3)) sets.push({ ...sets[sets.length - 1], done: false });
+    patchActive((a) => ({ ...a, exercises: [...a.exercises, { key, name: ex.name, type, plan: '', hint: '', note: '', sets }] }));
+  }, [lastSets, patchActive, typeOf]);
 
   const value = {
     user, loading, mode: backend.mode,
-    signIn: () => backend.signIn().catch((e) => notify('Přihlášení selhalo: ' + e.message)),
+    signIn: () => backend.signIn().catch(fail('err.login')),
     signOut: async () => {
       await backend.signOut();
-      setCustom([]); setWorkouts([]); setPrs({}); setCustomExercises([]);
+      setCustom([]); setWorkouts([]); setPrs({}); setLibrary(EXERCISES); setProfileState(null);
     },
-    templates, workouts, prs, active, setActive,
-    startWorkout, startEmptyWorkout, discardWorkout, finishWorkout, deleteWorkout, saveTemplate, deleteTemplate,
+    templates, workouts, prs, active, setActive, patchActive,
+    startWorkout, startEmptyWorkout, discardWorkout, finishWorkout, deleteWorkout, saveTemplate, deleteTemplate, addExerciseToActive,
+    library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf,
+    profile, prof, setProfile,
     toast, notify,
-    customExercises, addCustomExercise, patchActive, addExerciseToActive,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
