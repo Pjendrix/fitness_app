@@ -3,6 +3,7 @@ import { useStore } from '../lib/store.jsx';
 import { better, fmtClock, fmtSet, isDone, num } from '../lib/util.js';
 import { CheckIcon, PlusIcon, TrashIcon, XIcon } from '../components/Icons.jsx';
 import ExercisePicker from '../components/ExercisePicker.jsx';
+import { InfoButton } from '../components/ExerciseInfo.jsx';
 import { t } from '../lib/i18n.js';
 
 // Smart weight step: small dumbbells 0.5 kg, mid 1 kg, barbell range 2.5 kg.
@@ -126,7 +127,7 @@ export default function Workout({ go }) {
           <section className="card ex" key={e.key + ei}>
             <div className="ex-head">
               <div className="ex-title">
-                <h2>{e.name}</h2>
+                <h2>{e.name} <InfoButton name={e.name} /></h2>
                 <p className="muted small">{[e.plan, e.hint && t('wo.recommended', { w: e.hint }), e.note].filter(Boolean).join(' · ')}</p>
               </div>
               {pb && <span className="pb" title={t('wo.pb')}>PB {fmtSet(pb.weight, pb.reps, pb.time)}</span>}

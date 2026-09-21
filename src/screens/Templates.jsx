@@ -5,6 +5,7 @@ import { exKey, planLabel, uid } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
 import { ChevronIcon, CopyIcon, PencilIcon, PlusIcon, TrashIcon, XIcon } from '../components/Icons.jsx';
 import ExercisePicker from '../components/ExercisePicker.jsx';
+import { InfoButton } from '../components/ExerciseInfo.jsx';
 
 const setCount = (tpl) => tpl.exercises.reduce((s, e) => s + e.sets, 0);
 
@@ -24,7 +25,7 @@ function TemplateCard({ tpl, onStart, onEdit, onDelete, onDuplicate }) {
         <ol className="tpl-list">
           {tpl.exercises.map((e, i) => (
             <li key={i}>
-              <span>{e.name}</span>
+              <span>{e.name} <InfoButton name={e.name} /></span>
               <span className="muted small">{[planLabel(e), e.hint, e.plan && e.plan.map((p) => `${p.w}×${p.r}`).join(', '), e.note].filter(Boolean).join(' · ')}</span>
             </li>
           ))}

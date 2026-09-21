@@ -365,3 +365,15 @@ html.desktop .numfield { grid-template-columns: 36px 1fr 36px; }
 .custom-ex .row-actions { flex-wrap: wrap; }
 .custom-ex .row-actions .input { flex: 1; min-width: 130px; }
 html.desktop .ex-add { grid-template-columns: 1fr 160px 170px auto; }
+
+/* Exercise info (free-exercise-db) */
+.info-btn { display: inline-grid; place-items: center; width: 17px; height: 17px; margin-left: 4px; padding: 0; border: 0; border-radius: 50%; box-shadow: 0 0 0 1px var(--ash); background: var(--white); color: var(--stone); font-family: Georgia, serif; font-style: italic; font-size: 11px; line-height: 1; vertical-align: 2px; cursor: pointer; }
+.info-btn:hover { color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.info-body { flex: 1; overflow-y: auto; margin: 0 -16px; padding: 0 16px 8px; display: flex; flex-direction: column; gap: 12px; }
+.info-photos { position: relative; aspect-ratio: 4 / 3; border-radius: var(--r); overflow: hidden; background: var(--paper); box-shadow: 0 0 0 1px var(--hairline); flex: none; }
+.info-photos img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.35s; }
+.info-photos img.is-on { opacity: 1; }
+.info-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.info-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.5; color: var(--charcoal); }
+.info-src { font-size: 10px; }
+html.desktop .info-sheet { max-width: 640px; }

@@ -6,6 +6,7 @@ import { exKey, fmtSet } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
 import { norm, TypeTag } from '../components/ExercisePicker.jsx';
 import { PlusIcon, TrashIcon } from '../components/Icons.jsx';
+import { InfoButton } from '../components/ExerciseInfo.jsx';
 
 export default function Exercises() {
   const { library, saveLibrary, addToLibrary, prs, workouts, notify } = useStore();
@@ -96,7 +97,7 @@ export default function Exercises() {
               return (
                 <div className="lib-row" key={e.name}>
                   <div className="lib-main">
-                    <span>{e.name} <button className="type-toggle" title={t('type.label')} onClick={() => saveLibrary(library.map((x) => (x === e ? (e.type === 'time' ? { name: x.name, cat: x.cat } : { ...x, type: 'time' }) : x)))}><TypeTag type={e.type} /></button></span>
+                    <span>{e.name} <InfoButton name={e.name} /> <button className="type-toggle" title={t('type.label')} onClick={() => saveLibrary(library.map((x) => (x === e ? (e.type === 'time' ? { name: x.name, cat: x.cat } : { ...x, type: 'time' }) : x)))}><TypeTag type={e.type} /></button></span>
                     <span className="label">{[prs[k] && `PB ${fmtSet(prs[k].weight, prs[k].reps, prs[k].time)}`, counts[k] && t('ex.sessions', { n: counts[k] })].filter(Boolean).join(' · ')}</span>
                   </div>
                   <select className="lib-cat" value={e.cat} onChange={(ev) => recat(e, ev.target.value)} aria-label={t('pick.category')}>
