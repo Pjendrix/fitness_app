@@ -21,6 +21,7 @@ export function StoreProvider({ children }) {
   const [custom, setCustom] = useState([]);
   const [workouts, setWorkouts] = useState([]);
   const [prs, setPrs] = useState({});
+  const [customExercises, setCustomExercises] = useState([]);
   const [active, setActive] = useState(loadDraft);
   const [toast, setToast] = useState(null);
 
@@ -43,6 +44,7 @@ export function StoreProvider({ children }) {
         setCustom(d.templates);
         setWorkouts(d.workouts);
         setPrs(d.prs);
+        setCustomExercises(d.exercises || []);
       })
       .catch((e) => notify('Načtení dat selhalo: ' + e.message))
       .finally(() => !cancelled && setLoading(false));
@@ -167,16 +169,41 @@ export function StoreProvider({ children }) {
     [api, notify]
   );
 
+  const addCustomExercise = useCallback(
+    (ex) => {
+      setCustomExercises((list) => {
+        const next = [...list.filter((x) => x.name !== ex.name), ex];
+        api.saveExercises(next).catch((e) => notify('Uložení cvičení selhalo: ' + e.message));
+        return next;
+      });
+    },
+    [api, notify]
+  );
+
+  // Úpravy aktivního tréninku
+  const patchActive = useCallback((fn) => setActive((a) => (a ? fn(a) : a)), []);
+  const addExerciseToActive = useCallback(
+    (ex) => {
+      const key = exKey(ex.name);
+      const last = lastSets(key);
+      const sets = (last || [{ weight: '', reps: '' }]).slice(0, Math.max(3, last?.length || 0)).map((s) => ({ weight: String(s.weight || ''), reps: String(s.reps || ''), done: false }));
+      while (sets.length < 3) sets.push({ ...sets[sets.length - 1], done: false });
+      patchActive((a) => ({ ...a, exercises: [...a.exercises, { key, name: ex.name, plan: '', hint: '', note: '', sets }] }));
+    },
+    [lastSets, patchActive]
+  );
+
   const value = {
     user, loading, mode: backend.mode,
     signIn: () => backend.signIn().catch((e) => notify('Přihlášení selhalo: ' + e.message)),
     signOut: async () => {
       await backend.signOut();
-      setCustom([]); setWorkouts([]); setPrs({});
+      setCustom([]); setWorkouts([]); setPrs({}); setCustomExercises([]);
     },
     templates, workouts, prs, active, setActive,
     startWorkout, discardWorkout, finishWorkout, deleteWorkout, saveTemplate, deleteTemplate,
     toast, notify,
+    customExercises, addCustomExercise, patchActive, addExerciseToActive,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

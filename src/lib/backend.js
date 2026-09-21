@@ -4,6 +4,7 @@
 //   users/{uid}/templates/{id}   vlastní šablony
 //   users/{uid}/workouts/{id}    odcvičené tréninky (exercises[].sets[] = {weight, reps})
 //   users/{uid}/prs/{exerciseKey} osobní rekord: {name, weight, reps, date}
+//   users/{uid}/meta/exercises    vlastní cvičení v knihovně: {list: [{name, cat}]}
 import { isFirebaseConfigured, auth, db, provider } from './firebase.js';
 import { clean } from './util.js';
 
@@ -39,14 +40,16 @@ const firebaseBackend = {
     return {
       async loadAll() {
         const { getDocs, query, orderBy, limit } = await fs;
-        const [t, w, p] = await Promise.all([
+        const { getDoc } = await fs;
+        const [t, w, p, ex] = await Promise.all([
           getDocs(await col('templates')),
-          getDocs(query(await col('workouts'), orderBy('startedAt', 'desc'), limit(300))),
+          getDocs(query(await col('workouts'), orderBy('startedAt', 'desc'), limit(500))),
           getDocs(await col('prs')),
+          getDoc(await ref('meta', 'exercises')),
         ]);
         const prs = {};
         p.forEach((d) => (prs[d.id] = d.data()));
-        return { templates: t.docs.map((d) => d.data()), workouts: w.docs.map((d) => d.data()), prs };
+        return { templates: t.docs.map((d) => d.data()), workouts: w.docs.map((d) => d.data()), prs, exercises: ex.exists() ? ex.data().list || [] : [] };
       },
       async saveTemplate(tpl) {
         const { setDoc } = await fs;
@@ -67,6 +70,10 @@ const firebaseBackend = {
         const { deleteDoc } = await fs;
         await deleteDoc(await ref('workouts', id));
       },
+      async saveExercises(list) {
+        const { setDoc } = await fs;
+        await setDoc(await ref('meta', 'exercises'), { list: clean(list) });
+      },
     };
   },
 };
@@ -74,9 +81,9 @@ const firebaseBackend = {
 const LS = 'forge:demo';
 const readLS = () => {
   try {
-    return JSON.parse(localStorage.getItem(LS)) || { templates: [], workouts: [], prs: {} };
+    return JSON.parse(localStorage.getItem(LS)) || { templates: [], workouts: [], prs: {}, exercises: [] };
   } catch {
-    return { templates: [], workouts: [], prs: {} };
+    return { templates: [], workouts: [], prs: {}, exercises: [] };
   }
 };
 const writeLS = (d) => localStorage.setItem(LS, JSON.stringify(d));
@@ -100,7 +107,7 @@ const demoBackend = {
     return {
       async loadAll() {
         const d = readLS();
-        return { ...d, workouts: [...d.workouts].sort((a, b) => b.startedAt - a.startedAt) };
+        return { ...d, exercises: d.exercises || [], workouts: [...d.workouts].sort((a, b) => b.startedAt - a.startedAt) };
       },
       async saveTemplate(t) {
         const d = readLS();
@@ -121,6 +128,11 @@ const demoBackend = {
       async deleteWorkout(id) {
         const d = readLS();
         d.workouts = d.workouts.filter((x) => x.id !== id);
+        writeLS(d);
+      },
+      async saveExercises(list) {
+        const d = readLS();
+        d.exercises = list;
         writeLS(d);
       },
     };
