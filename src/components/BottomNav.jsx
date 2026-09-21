@@ -1,28 +1,31 @@
 import ViewToggle from './ViewToggle.jsx';
-import { ChartIcon, DumbbellIcon, HistoryIcon, HomeIcon, SettingsIcon, TemplatesIcon } from './Icons.jsx';
+import { ChartIcon, DumbbellIcon, HistoryIcon, HomeIcon, ListIcon, SettingsIcon, TemplatesIcon } from './Icons.jsx';
+import { t } from '../lib/i18n.js';
 
-// Mobil: spodní lišta s 5 záložkami. Desktop (≥ 960 px): boční panel + Statistiky jako samostatná položka.
+// Mobile: bottom bar with 5 tabs. Desktop: sidebar incl. Analytics and Exercises.
 const TABS = [
-  { id: 'home', label: 'Domů', Icon: HomeIcon },
-  { id: 'workout', label: 'Trénink', Icon: DumbbellIcon },
-  { id: 'history', label: 'Historie', Icon: HistoryIcon },
-  { id: 'stats', label: 'Statistiky', Icon: ChartIcon, desktop: true },
-  { id: 'templates', label: 'Šablony', Icon: TemplatesIcon },
-  { id: 'settings', label: 'Nastavení', Icon: SettingsIcon },
+  { id: 'home', Icon: HomeIcon },
+  { id: 'workout', Icon: DumbbellIcon },
+  { id: 'history', Icon: HistoryIcon },
+  { id: 'stats', Icon: ChartIcon, desktop: true },
+  { id: 'templates', Icon: TemplatesIcon },
+  { id: 'exercises', Icon: ListIcon, desktop: true },
+  { id: 'settings', Icon: SettingsIcon },
 ];
+const PARENT = { stats: 'history', exercises: 'settings' };
 
 export default function BottomNav({ tab, go, live }) {
-  const current = (id) => tab === id || (id === 'history' && tab === 'stats');
+  const current = (id) => tab === id || PARENT[tab] === id;
   return (
-    <nav className="nav" aria-label="Hlavní navigace">
+    <nav className="nav" aria-label="Main">
       <div className="nav-brand"><span className="brand-mark">▮▮</span> Forge</div>
-      {TABS.map(({ id, label, Icon, desktop }) => (
+      {TABS.map(({ id, Icon, desktop }) => (
         <button key={id} className={'nav-item' + (desktop ? ' desktop-only' : '') + (current(id) ? ' is-mobile-active' : '') + (tab === id ? ' is-active' : '')} onClick={() => go(id)} aria-current={tab === id ? 'page' : undefined}>
           <span className="nav-icon">
             <Icon />
-            {id === 'workout' && live && <i className="live-dot" aria-label="Probíhá trénink" />}
+            {id === 'workout' && live && <i className="live-dot" aria-label={t('nav.live')} />}
           </span>
-          <span>{label}</span>
+          <span>{t('nav.' + id)}</span>
         </button>
       ))}
       <div className="nav-foot"><ViewToggle /></div>

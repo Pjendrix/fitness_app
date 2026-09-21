@@ -8,11 +8,14 @@ import History from './screens/History.jsx';
 import Templates from './screens/Templates.jsx';
 import Settings from './screens/Settings.jsx';
 import Analytics from './screens/Analytics.jsx';
+import Exercises from './screens/Exercises.jsx';
+import { useLang } from './lib/i18n.js';
 
-const SCREENS = { home: Home, workout: Workout, history: History, templates: Templates, settings: Settings, stats: Analytics };
+const SCREENS = { home: Home, workout: Workout, history: History, templates: Templates, settings: Settings, stats: Analytics, exercises: Exercises };
 
 function Shell() {
   const { user, active, toast } = useStore();
+  useLang(); // re-render on language change
   const [tab, setTab] = useState('home');
 
   if (user === undefined) return <div className="splash" aria-busy="true">Forge</div>;

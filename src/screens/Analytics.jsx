@@ -1,18 +1,19 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
-import { categoryOf, CATEGORIES } from '../data/exercises.js';
+import { CATEGORIES } from '../data/exercises.js';
+import { locale, t } from '../lib/i18n.js';
 import { BarChart, HBars, Heatmap, LineChart } from '../components/Charts.jsx';
 import { fmtDate, fmtDuration, fmtNum, fmtSet, workoutVolume } from '../lib/util.js';
 
 const WEEK = 7 * 864e5;
-const RANGES = [{ id: 4, label: '4 t' }, { id: 12, label: '12 t' }, { id: 26, label: '6 m' }, { id: 52, label: '1 r' }];
+const RANGES = [4, 12, 26, 52];
 const e1rm = (w, r) => (r <= 1 ? w : w * (1 + r / 30)); // Epley
-const GROUP_FALLBACK = { PUSH: 'Prsa', PULL: 'Záda', LEGS: 'Nohy' };
+const GROUP_FALLBACK = { PUSH: 'chest', PULL: 'back', LEGS: 'legs' };
 
 const monday = (t) => { const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); };
 
 export default function Analytics() {
-  const { workouts, prs } = useStore();
+  const { workouts, prs, catOf } = useStore();
   const [range, setRange] = useState(12);
 
   const inRange = useMemo(() => {
@@ -34,21 +35,21 @@ export default function Analytics() {
       const i = Math.floor((monday(w.startedAt) - first) / WEEK);
       if (buckets[i]) { buckets[i].vol += workoutVolume(w); buckets[i].n += 1; }
     }
-    const lab = (t) => new Date(t).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' });
+    const lab = (ms) => new Date(ms).toLocaleDateString(locale(), { day: 'numeric', month: 'numeric' });
     return {
-      vol: buckets.map((b) => ({ label: lab(b.t), title: `Týden od ${lab(b.t)}`, value: Math.round(b.vol) })),
-      n: buckets.map((b) => ({ label: lab(b.t), title: `Týden od ${lab(b.t)}`, value: b.n })),
+      vol: buckets.map((b) => ({ label: lab(b.t), title: t('an.weekOf', { d: lab(b.t) }), value: Math.round(b.vol) })),
+      n: buckets.map((b) => ({ label: lab(b.t), title: t('an.weekOf', { d: lab(b.t) }), value: b.n })),
     };
   }, [inRange, range]);
 
   const muscles = useMemo(() => {
     const m = Object.fromEntries(CATEGORIES.map((c) => [c, 0]));
     for (const w of inRange) for (const e of w.exercises) {
-      const c = categoryOf(e.name) || GROUP_FALLBACK[w.group] || 'Ostatní';
+      const c = catOf(e.name) || GROUP_FALLBACK[w.group] || 'other';
       m[c] = (m[c] || 0) + e.sets.length;
     }
-    return Object.entries(m).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
-  }, [inRange]);
+    return Object.entries(m).map(([c, value]) => ({ label: t('cat.' + c), value })).sort((a, b) => b.value - a.value);
+  }, [inRange, catOf]);
 
   const heat = useMemo(() => {
     const d = {};
@@ -84,8 +85,8 @@ export default function Analytics() {
   if (!workouts.length) {
     return (
       <div className="screen screen-wide">
-        <header className="screen-head"><h1>Statistiky</h1></header>
-        <p className="empty">Grafy se objeví po prvních dokončených trénincích.</p>
+        <header className="screen-head"><h1>{t('an.title')}</h1></header>
+        <p className="empty">{t('an.empty')}</p>
       </div>
     );
   }
@@ -95,23 +96,23 @@ export default function Analytics() {
   return (
     <div className="screen screen-wide">
       <header className="screen-head row-between">
-        <h1>Statistiky</h1>
-        <div className="seg seg-sm seg-inline" role="tablist" aria-label="Období">
-          {RANGES.map((r) => <button key={r.id} role="tab" aria-selected={range === r.id} className={range === r.id ? 'is-on' : ''} onClick={() => setRange(r.id)}>{r.label}</button>)}
+        <h1>{t('an.title')}</h1>
+        <div className="seg seg-sm seg-inline" role="tablist" aria-label={t('an.period')}>
+          {RANGES.map((r) => <button key={r} role="tab" aria-selected={range === r} className={range === r ? 'is-on' : ''} onClick={() => setRange(r)}>{t('an.r' + r)}</button>)}
         </div>
       </header>
 
       <section className="kpis">
-        <div className="card kpi"><span className="label">Tréninky</span><span className="num">{kpi.count}</span><span className="muted small">{fmtNum(Math.round(kpi.perWeek * 10) / 10)} týdně</span></div>
-        <div className="card kpi"><span className="label">Objem</span><span className="num">{fmtNum(Math.round(kpi.vol / 100) / 10)}<small> t</small></span><span className="muted small">váha × opakování</span></div>
-        <div className="card kpi"><span className="label">Série</span><span className="num">{kpi.sets}</span><span className="muted small">odškrtnutých</span></div>
-        <div className="card kpi"><span className="label">Průměrná délka</span><span className="num">{fmtDuration(kpi.dur)}</span><span className="muted small">na trénink</span></div>
+        <div className="card kpi"><span className="label">{t('an.workouts')}</span><span className="num">{kpi.count}</span><span className="muted small">{t('an.perWeek', { n: fmtNum(Math.round(kpi.perWeek * 10) / 10) })}</span></div>
+        <div className="card kpi"><span className="label">{t('an.volume')}</span><span className="num">{fmtNum(Math.round(kpi.vol / 100) / 10)}<small> t</small></span><span className="muted small">{t('an.volumeSub')}</span></div>
+        <div className="card kpi"><span className="label">{t('an.sets')}</span><span className="num">{kpi.sets}</span><span className="muted small">{t('an.setsSub')}</span></div>
+        <div className="card kpi"><span className="label">{t('an.avg')}</span><span className="num">{fmtDuration(kpi.dur)}</span><span className="muted small">{t('an.avgSub')}</span></div>
       </section>
 
       <div className="an-grid">
         <section className="card span-2">
-          <div className="card-head"><h2>Progres cvičení</h2>
-            <select className="input input-sm" value={sel || ''} onChange={(e) => setExSel(e.target.value)} aria-label="Cvičení">
+          <div className="card-head"><h2>{t('an.progress')}</h2>
+            <select className="input input-sm" value={sel || ''} onChange={(e) => setExSel(e.target.value)} aria-label={t('an.exercise')}>
               {exList.map((e) => <option key={e.key} value={e.key}>{e.name} ({e.n})</option>)}
             </select>
           </div>
@@ -120,21 +121,21 @@ export default function Analytics() {
               <LineChart
                 unit={bodyweight ? '' : ' kg'}
                 series={bodyweight
-                  ? [{ name: 'Max opakování', points: progress.map((s) => ({ x: s.t, y: s.top.reps })) }]
+                  ? [{ name: t('an.maxReps'), points: progress.map((s) => ({ x: s.t, y: s.top.reps })) }]
                   : [
-                      { name: 'Odhad 1RM', points: progress.map((s) => ({ x: s.t, y: s.e1 })) },
-                      { name: 'Top váha', points: progress.map((s) => ({ x: s.t, y: s.top.weight })) },
+                      { name: t('an.e1rm'), points: progress.map((s) => ({ x: s.t, y: s.e1 })) },
+                      { name: t('an.top'), points: progress.map((s) => ({ x: s.t, y: s.top.weight })) },
                     ]}
               />
               <div className="mini-stats">
-                <div><span className="label">PB</span><span>{prs[sel] ? fmtSet(prs[sel].weight, prs[sel].reps) : '–'}</span></div>
-                <div><span className="label">Odhad 1RM</span><span>{bodyweight ? '–' : `${fmtNum(Math.round(Math.max(...progress.map((s) => s.e1))))} kg`}</span></div>
-                <div><span className="label">Tréninků</span><span>{progress.length}</span></div>
-                <div><span className="label">Změna top váhy</span><span>{progress.length > 1 && !bodyweight ? `${progress.at(-1).top.weight - progress[0].top.weight >= 0 ? '+' : ''}${fmtNum(progress.at(-1).top.weight - progress[0].top.weight)} kg` : '–'}</span></div>
+                <div><span className="label">{t('an.pb')}</span><span>{prs[sel] ? fmtSet(prs[sel].weight, prs[sel].reps) : '–'}</span></div>
+                <div><span className="label">{t('an.e1rm')}</span><span>{bodyweight ? '–' : `${fmtNum(Math.round(Math.max(...progress.map((s) => s.e1))))} kg`}</span></div>
+                <div><span className="label">{t('an.sessions')}</span><span>{progress.length}</span></div>
+                <div><span className="label">{t('an.change')}</span><span>{progress.length > 1 && !bodyweight ? `${progress.at(-1).top.weight - progress[0].top.weight >= 0 ? '+' : ''}${fmtNum(progress.at(-1).top.weight - progress[0].top.weight)} kg` : '–'}</span></div>
               </div>
               <div className="table-wrap">
                 <table className="table">
-                  <thead><tr><th>Datum</th><th>Série</th><th className="r">Objem</th></tr></thead>
+                  <thead><tr><th>{t('an.date')}</th><th>{t('an.setsCol')}</th><th className="r">{t('an.volCol')}</th></tr></thead>
                   <tbody>
                     {[...progress].reverse().slice(0, 8).map((s) => (
                       <tr key={s.t}><td>{fmtDate(s.t)}</td><td className="mono">{s.sets.map((x) => fmtSet(x.weight, x.reps)).join(', ')}</td><td className="r mono">{fmtNum(Math.round(s.vol))}</td></tr>
@@ -146,16 +147,16 @@ export default function Analytics() {
           )}
         </section>
 
-        <section className="card"><div className="card-head"><h2>Objem po týdnech</h2><span className="label">kg</span></div><BarChart data={weekly.vol} unit=" kg" format={(v) => (v >= 1000 ? fmtNum(Math.round(v / 100) / 10) + 'k' : fmtNum(Math.round(v)))} /></section>
-        <section className="card"><div className="card-head"><h2>Tréninky po týdnech</h2></div><BarChart data={weekly.n} format={(v) => fmtNum(Math.round(v * 10) / 10)} /></section>
-        <section className="card"><div className="card-head"><h2>Série podle partie</h2></div><HBars data={muscles} /></section>
-        <section className="card"><div className="card-head"><h2>Docházka</h2><span className="label">18 týdnů</span></div><Heatmap days={heat} /></section>
+        <section className="card"><div className="card-head"><h2>{t('an.weeklyVol')}</h2><span className="label">kg</span></div><BarChart data={weekly.vol} unit=" kg" format={(v) => (v >= 1000 ? fmtNum(Math.round(v / 100) / 10) + 'k' : fmtNum(Math.round(v)))} /></section>
+        <section className="card"><div className="card-head"><h2>{t('an.weeklyN')}</h2></div><BarChart data={weekly.n} format={(v) => fmtNum(Math.round(v * 10) / 10)} /></section>
+        <section className="card"><div className="card-head"><h2>{t('an.muscles')}</h2></div><HBars data={muscles} /></section>
+        <section className="card"><div className="card-head"><h2>{t('an.attendance')}</h2><span className="label">{t('an.weeks', { n: 18 })}</span></div><Heatmap days={heat} /></section>
 
         <section className="card span-2">
-          <div className="card-head"><h2>Osobní rekordy</h2><span className="label">{Object.keys(prs).length}</span></div>
+          <div className="card-head"><h2>{t('an.prs')}</h2><span className="label">{Object.keys(prs).length}</span></div>
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>Cvičení</th><th className="r">Rekord</th><th className="r">Odhad 1RM</th><th className="r">Datum</th></tr></thead>
+              <thead><tr><th>{t('an.exercise')}</th><th className="r">{t('an.record')}</th><th className="r">{t('an.e1rm')}</th><th className="r">{t('an.date')}</th></tr></thead>
               <tbody>
                 {Object.entries(prs).sort((a, b) => b[1].weight - a[1].weight).map(([k, p]) => (
                   <tr key={k} onClick={() => setExSel(k)} className="clickable">

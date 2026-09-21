@@ -268,3 +268,51 @@ html.desktop .nav-foot { display: block; margin-top: auto; padding: 10px; }
 .reps-label { display: flex; align-items: center; justify-content: space-between; }
 .max-chip { border: 0; background: none; box-shadow: 0 0 0 1px var(--hairline); border-radius: 9999px; padding: 0 6px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.05em; color: var(--smoke); text-transform: uppercase; line-height: 16px; }
 .max-chip.is-on { background: var(--ink); color: var(--white); box-shadow: none; }
+
+/* Template colour tint (matte colour at low opacity) */
+.tinted[style*="--tint"] { background: color-mix(in srgb, var(--tint) 11%, var(--white)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--tint) 32%, var(--white)); }
+.tpl.is-hard.tinted[style*="--tint"] { box-shadow: 0 0 0 1px color-mix(in srgb, var(--tint) 60%, var(--ink)); }
+.tinted[style*="--tint"] .input, .tinted[style*="--tint"] .stepper { background: rgba(255, 255, 255, 0.7); }
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.swatch { width: 26px; height: 26px; border-radius: 50%; border: 0; padding: 0; background: color-mix(in srgb, var(--sw) 45%, var(--white)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--sw) 60%, var(--white)); }
+.swatch.is-on { box-shadow: 0 0 0 2px var(--white), 0 0 0 3.5px var(--ink); }
+.swatch-none { background: linear-gradient(135deg, transparent 46%, var(--ash) 46%, var(--ash) 54%, transparent 54%), var(--white); box-shadow: 0 0 0 1px var(--hairline); }
+.swatch-none.is-on { box-shadow: 0 0 0 2px var(--white), 0 0 0 3.5px var(--ink); }
+.editor-top { display: flex; flex-direction: column; gap: 10px; }
+.editor-color { display: flex; flex-direction: column; gap: 6px; }
+html.desktop .editor-top { flex-direction: row; align-items: flex-start; gap: 16px; }
+html.desktop .editor-top > .input { flex: 1; }
+html.desktop .editor-color { flex: 1; }
+html.desktop .tpl-mine { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+html.desktop .tpl-mine .tpl + .tpl { margin-top: 0; }
+.tpl-mine .tpl + .tpl { margin-top: 0; }
+
+/* History tools + calendar */
+.hist-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.hist-tools .input-sm { flex: 1; min-width: 150px; }
+.cal { padding: 12px; }
+.cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.cal-title { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.cal-title h2 { text-transform: capitalize; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-wd { text-align: center; padding: 4px 0; }
+.cal-day { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 0; background: none; border-radius: var(--r); font-family: var(--mono); font-size: 13px; color: var(--stone); min-height: 40px; }
+.cal-day.has { background: var(--paper); color: var(--ink); box-shadow: 0 0 0 1px var(--hairline); }
+.cal-day.is-today span:first-child { text-decoration: underline; text-underline-offset: 3px; }
+.cal-day.is-sel { background: var(--ink); color: var(--white); box-shadow: none; }
+.cal-day.is-sel .cal-dots i { box-shadow: 0 0 0 1px var(--white); }
+.cal-dots { display: flex; gap: 3px; height: 5px; }
+.cal-dots i { width: 5px; height: 5px; border-radius: 50%; }
+.hist.tinted { border-left: 0; }
+
+/* Exercise library */
+.ex-add { display: grid; grid-template-columns: 1fr; gap: 8px; }
+html.desktop .ex-add { grid-template-columns: 1fr 180px auto; }
+.ex-columns { display: grid; grid-template-columns: 1fr; gap: 12px; }
+html.desktop .ex-columns { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); align-items: start; }
+.lib-row { display: grid; grid-template-columns: 1fr auto 32px; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--hairline); }
+.lib-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lib-main .label { font-size: 10px; }
+.lib-main .label:empty { display: none; }
+.lib-cat { border: 0; background: none; font-size: 12px; color: var(--stone); font-family: var(--mono); max-width: 100px; }
+.row-btns { justify-content: flex-start; flex-wrap: wrap; }

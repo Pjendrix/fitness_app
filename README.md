@@ -55,3 +55,9 @@ Workflow `.github/workflows/deploy.yml` builduje při pushi do `main`. Firebase 
 
 ## Knihovna cvičení
 `src/data/exercises.js` – ~75 cviků rozdělených podle partie. Vlastní cviky se přidávají přímo ve výběru (napiš název → Vytvořit).
+
+## v3
+- English UI by default, Czech optional (Settings → Language). Exercise names and default templates are English; old Czech names in history/PBs are mapped automatically.
+- Exercises tab (desktop sidebar, or Settings → Manage exercises): library by muscle group, CSV export/import (`name,category`), reset to defaults in Settings.
+- Template colours (matte palette, light tint).
+- History: list / calendar view, filter by workout.

@@ -1,7 +1,7 @@
-// Lehké SVG grafy bez závislostí, černobílé.
+// Lightweight dependency-free SVG charts, monochrome.
 import { useLayoutEffect, useRef, useState } from 'react';
 
-// Šířka kontejneru v px → SVG se kreslí 1:1, texty os se nedeformují.
+// Container width in px → SVG drawn 1:1 so axis text isn't distorted.
 function useWidth() {
   const ref = useRef(null);
   const [w, setW] = useState(600);
@@ -15,6 +15,7 @@ function useWidth() {
   return [ref, w];
 }
 import { fmtNum } from '../lib/util.js';
+import { locale, t } from '../lib/i18n.js';
 
 const niceMax = (v) => {
   if (v <= 0) return 1;
@@ -32,7 +33,7 @@ export function BarChart({ data, unit = '', height = 180, format = fmtNum }) {
   const every = Math.ceil(data.length / Math.max(2, Math.floor(W / 70)));
   return (
     <div className="chart" ref={ref}>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Sloupcový graf">
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Bar chart">
         {[0, 0.5, 1].map((f) => (
           <g key={f}>
             <line x1={pad.l} x2={W - pad.r} y1={pad.t + ih * (1 - f)} y2={pad.t + ih * (1 - f)} className="grid" />
@@ -60,7 +61,7 @@ export function LineChart({ series, height = 200, unit = '' }) {
   const [ref, W] = useWidth();
   const H = height, pad = { l: 36, r: 12, t: 12, b: 24 };
   const pts = series.flatMap((s) => s.points);
-  if (!pts.length) return <p className="empty" ref={ref}>Zatím málo dat.</p>;
+  if (!pts.length) return <p className="empty" ref={ref}>{t('an.fewData')}</p>;
   const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
   const x0 = Math.min(...xs), x1 = Math.max(...xs) || x0 + 1;
   const yMin = Math.max(0, Math.floor(Math.min(...ys) * 0.9));
@@ -69,10 +70,10 @@ export function LineChart({ series, height = 200, unit = '' }) {
   const sx = (x) => pad.l + (x1 === x0 ? iw / 2 : ((x - x0) / (x1 - x0)) * iw);
   const sy = (y) => pad.t + ih * (1 - (y - yMin) / (yMax - yMin || 1));
   const main = series[0].points;
-  const date = (t) => new Date(t).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' });
+  const date = (t) => new Date(t).toLocaleDateString(locale(), { day: 'numeric', month: 'numeric' });
   return (
     <div className="chart" ref={ref}>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Spojnicový graf"
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Line chart"
         onMouseLeave={() => setHover(null)}
         onMouseMove={(e) => {
           const r = e.currentTarget.getBoundingClientRect();
@@ -124,7 +125,7 @@ export function HBars({ data, format = fmtNum }) {
   );
 }
 
-// Kalendářová mřížka posledních N týdnů (řádky = dny Po–Ne)
+// Calendar grid of the last N weeks (rows = Mon–Sun)
 export function Heatmap({ days, weeks = 18 }) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const dow = (today.getDay() + 6) % 7;
@@ -137,12 +138,12 @@ export function Heatmap({ days, weeks = 18 }) {
   const s = 14, g = 3;
   return (
     <div className="chart">
-      <svg viewBox={`0 0 ${weeks * (s + g) + 20} ${7 * (s + g)}`} className="heatmap" role="img" aria-label="Kalendář tréninků">
-        {['Po', 'St', 'Pá'].map((l, i) => <text key={l} x="0" y={i * 2 * (s + g) + 11} className="axis">{l}</text>)}
+      <svg viewBox={`0 0 ${weeks * (s + g) + 20} ${7 * (s + g)}`} className="heatmap" role="img" aria-label="Attendance">
+        {[t('an.mon'), t('an.wed'), t('an.fri')].map((l, i) => <text key={l} x="0" y={i * 2 * (s + g) + 11} className="axis">{l}</text>)}
         {cells.map((c) => (
           <rect key={c.t} x={20 + c.w * (s + g)} y={c.d * (s + g)} width={s} height={s} rx="2"
             className={c.future ? 'hm-future' : c.v ? 'hm-on' : 'hm-off'}>
-            <title>{new Date(c.t).toLocaleDateString('cs-CZ')}{c.v ? ` · ${c.v}× trénink` : ''}</title>
+            <title>{new Date(c.t).toLocaleDateString(locale())}{c.v ? ` · ${t('an.nWorkouts', { n: c.v })}` : ''}</title>
           </rect>
         ))}
       </svg>

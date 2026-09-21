@@ -1,14 +1,14 @@
 {
-  "name": "Forge – posilovací deník",
+  "name": "Forge – workout log",
   "short_name": "Forge",
-  "description": "Sledování posilovacích tréninků: PUSH / PULL / LEGS, historie a osobní rekordy.",
+  "description": "Strength training log: PUSH / PULL / LEGS templates, history and personal records.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#fafafa",
   "theme_color": "#fafafa",
-  "lang": "cs",
+  "lang": "en",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },

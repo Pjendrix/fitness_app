@@ -17,3 +17,5 @@ export const GoogleIcon = (props) => (
 );
 export const XIcon = I(<path d="M6 6l12 12M18 6L6 18" />);
 export const ChartIcon = I(<><path d="M4 20V4" /><path d="M4 20h16" /><path d="M8 16l4-5 3 3 5-7" /></>);
+export const ListIcon = I(<><path d="M9 6h11M9 12h11M9 18h11" /><circle cx="4.5" cy="6" r="1" /><circle cx="4.5" cy="12" r="1" /><circle cx="4.5" cy="18" r="1" /></>);
+export const ArrowIcon = I(<path d="M15 6l-6 6 6 6" />);

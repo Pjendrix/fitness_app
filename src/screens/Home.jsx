@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import ViewToggle from '../components/ViewToggle.jsx';
-import { GROUP_ORDER, GROUPS } from '../data/defaultTemplates.js';
+import { GROUP_ORDER } from '../data/defaultTemplates.js';
 import { fmtDate, fmtNum, fmtSet, startOfWeek, workoutVolume } from '../lib/util.js';
+import { t } from '../lib/i18n.js';
 
 export default function Home({ go }) {
   const { user, workouts, prs, templates, active, startWorkout, startEmptyWorkout } = useStore();
   const [variant, setVariant] = useState('Normal');
 
-  // Další v rotaci PUSH → PULL → LEGS podle posledního tréninku
+  // Next in the PUSH → PULL → LEGS rotation based on the last workout
   const next = useMemo(() => {
     const last = workouts.find((w) => GROUP_ORDER.includes(w.group));
     return last ? GROUP_ORDER[(GROUP_ORDER.indexOf(last.group) + 1) % 3] : 'PUSH';
@@ -22,65 +23,55 @@ export default function Home({ go }) {
     return { count: ws.length, volume: ws.reduce((s, w) => s + workoutVolume(w), 0) };
   }, [workouts]);
 
-  const recentPrs = useMemo(
-    () => Object.values(prs).sort((a, b) => b.date - a.date).slice(0, 3),
-    [prs]
-  );
+  const recentPrs = useMemo(() => Object.values(prs).sort((a, b) => b.date - a.date).slice(0, 3), [prs]);
 
-  const tpl = templates.find((t) => t.group === group && t.variant === variant);
+  const tpl = templates.find((x) => x.group === group && x.variant === variant);
   const first = (user?.name || '').split(' ')[0];
-
-  const start = () => {
-    startWorkout(tpl);
-    go('workout');
-  };
 
   return (
     <div className="screen">
       <header className="screen-head">
-        <div className="row-between"><p className="muted">{first ? `Ahoj, ${first}` : 'Ahoj'}</p><ViewToggle /></div>
-        <h1>Co dnes potrénujeme?</h1>
+        <div className="row-between"><p className="muted">{first ? t('home.hiName', { name: first }) : t('home.hi')}</p><ViewToggle /></div>
+        <h1>{t('home.title')}</h1>
       </header>
 
       {active ? (
         <section className="card card-hero">
-          <p className="label">Rozdělaný trénink</p>
+          <p className="label">{t('home.unfinished')}</p>
           <h2 className="big">{active.name}</h2>
-          <button className="btn btn-primary btn-block" onClick={() => go('workout')}>Pokračovat</button>
+          <button className="btn btn-primary btn-block" onClick={() => go('workout')}>{t('home.continue')}</button>
         </section>
       ) : (
         <section className="card card-hero">
-          <p className="label">Rychlý start{group === next ? ' · na řadě' : ''}</p>
-          <div className="seg" role="tablist" aria-label="Skupina">
+          <p className="label">{t('home.quickStart')}{group === next ? ` · ${t('home.upNext')}` : ''}</p>
+          <div className="seg" role="tablist">
             {GROUP_ORDER.map((g) => (
               <button key={g} role="tab" aria-selected={group === g} className={group === g ? 'is-on' : ''} onClick={() => setGroup(g)}>{g}</button>
             ))}
           </div>
-          <p className="group-sub">{GROUPS[group].sub}</p>
-          <div className="seg seg-sm" role="tablist" aria-label="Varianta">
+          <p className="group-sub">{t('groups.' + group)}</p>
+          <div className="seg seg-sm" role="tablist">
             {['Normal', 'Hardcore'].map((v) => (
               <button key={v} role="tab" aria-selected={variant === v} className={variant === v ? 'is-on' : ''} onClick={() => setVariant(v)}>{v}</button>
             ))}
           </div>
-          <p className="label">{tpl.exercises.length} cvičení · {tpl.exercises.reduce((s, e) => s + e.sets, 0)} sérií</p>
-          <button className="btn btn-primary btn-block" onClick={start}>Začít {tpl.name}</button>
+          <p className="label">{t('count.exercises', { n: tpl.exercises.length })} · {t('count.sets', { n: tpl.exercises.reduce((s, e) => s + e.sets, 0) })}</p>
+          <button className="btn btn-primary btn-block" onClick={() => { startWorkout(tpl); go('workout'); }}>{t('home.start', { name: tpl.name })}</button>
         </section>
       )}
 
-      <section className="stats" onClick={() => go('stats')} role="button" tabIndex={0} aria-label="Otevřít statistiky">
-        <div className="card stat"><span className="num">{week.count}</span><span className="muted small">tréninků tento týden</span></div>
-        <div className="card stat"><span className="num">{week.volume ? fmtNum(Math.round(week.volume / 100) / 10) : 0}<small> t</small></span><span className="muted small">objem tento týden</span></div>
-        <div className="card stat"><span className="num">{workouts.length}</span><span className="muted small">tréninků celkem</span></div>
+      <section className="stats" onClick={() => go('stats')} role="button" tabIndex={0} aria-label={t('home.openStats')}>
+        <div className="card stat"><span className="num">{week.count}</span><span className="muted small">{t('home.weekWorkouts')}</span></div>
+        <div className="card stat"><span className="num">{week.volume ? fmtNum(Math.round(week.volume / 100) / 10) : 0}<small> t</small></span><span className="muted small">{t('home.weekVolume')}</span></div>
+        <div className="card stat"><span className="num">{workouts.length}</span><span className="muted small">{t('home.total')}</span></div>
       </section>
 
       {!active && (
-        <button className="btn btn-primary btn-block btn-lg" onClick={() => { startEmptyWorkout(); go('workout'); }}>
-          Zahájit rychlý trénink
-        </button>
+        <button className="btn btn-primary btn-block btn-lg" onClick={() => { startEmptyWorkout(); go('workout'); }}>{t('home.empty')}</button>
       )}
 
       <section>
-        <div className="row-between"><h3 className="section-title">Nedávné rekordy</h3><button className="link" onClick={() => go('stats')}>Všechny statistiky</button></div>
+        <div className="row-between"><h3 className="section-title">{t('home.recentPrs')}</h3><button className="link" onClick={() => go('stats')}>{t('home.allStats')}</button></div>
         {recentPrs.length ? (
           <div className="card list">
             {recentPrs.map((p) => (
@@ -91,7 +82,7 @@ export default function Home({ go }) {
             ))}
           </div>
         ) : (
-          <p className="empty">Rekordy se objeví po prvním dokončeném tréninku.</p>
+          <p className="empty">{t('home.noPrs')}</p>
         )}
       </section>
     </div>
