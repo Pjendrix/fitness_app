@@ -1,3 +1,4 @@
+import ViewToggle from './ViewToggle.jsx';
 import { ChartIcon, DumbbellIcon, HistoryIcon, HomeIcon, SettingsIcon, TemplatesIcon } from './Icons.jsx';
 
 // Mobil: spodní lišta s 5 záložkami. Desktop (≥ 960 px): boční panel + Statistiky jako samostatná položka.
@@ -24,6 +25,7 @@ export default function BottomNav({ tab, go, live }) {
           <span>{label}</span>
         </button>
       ))}
+      <div className="nav-foot"><ViewToggle /></div>
     </nav>
   );
 }
