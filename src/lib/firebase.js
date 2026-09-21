@@ -6,7 +6,8 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 // Hodnoty z env proměnných mají přednost; když chybí, použije se tento config.
 const fallback = {
   apiKey: 'AIzaSyB4q3dQL9lap-hzBHMbeSYAENIz6IEHtFk',
-  authDomain: 'fitnessapp-88bd2.firebaseapp.com',
+  // Přihlašování běží přes vlastní doménu (proxy ve vercel.json), jinak ho iOS PWA z plochy rozbije.
+  authDomain: typeof location !== 'undefined' && location.hostname.endsWith('.vercel.app') ? location.host : 'fitnessapp-88bd2.firebaseapp.com',
   projectId: 'fitnessapp-88bd2',
   storageBucket: 'fitnessapp-88bd2.firebasestorage.app',
   messagingSenderId: '587112214919',
@@ -15,7 +16,7 @@ const fallback = {
 const env = import.meta.env;
 const cfg = {
   apiKey: env.VITE_FIREBASE_API_KEY || fallback.apiKey,
-  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || fallback.authDomain,
+  authDomain: fallback.authDomain,
   projectId: env.VITE_FIREBASE_PROJECT_ID || fallback.projectId,
   storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || fallback.storageBucket,
   messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || fallback.messagingSenderId,

@@ -11,13 +11,17 @@ import { clean } from './util.js';
 const firebaseBackend = {
   mode: 'firebase',
   async onAuth(cb) {
-    const { onAuthStateChanged } = await import('firebase/auth');
+    const { onAuthStateChanged, getRedirectResult } = await import('firebase/auth');
+    getRedirectResult(auth).catch((e) => console.error('Redirect login:', e.code, e.message));
     return onAuthStateChanged(auth, (u) =>
       cb(u ? { uid: u.uid, name: u.displayName || '', email: u.email || '', photo: u.photoURL || '' } : null)
     );
   },
   async signIn() {
     const { signInWithPopup, signInWithRedirect } = await import('firebase/auth');
+    // Appka spuštěná z plochy (standalone) → redirect, popup tam nefunguje
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    if (standalone) return signInWithRedirect(auth, provider);
     try {
       await signInWithPopup(auth, provider);
     } catch (e) {
