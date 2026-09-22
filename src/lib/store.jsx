@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { backend } from './backend.js';
+import { backend, HISTORY_LIMIT } from './backend.js';
 import { profileOf } from '../data/defaultTemplates.js';
 import { defaultTypeOf, EXERCISES, modernName, normCat } from '../data/exercises.js';
 import { better, exKey, firstNum, hasValue, isDone, LIMITS, planLabel, sanitizeName, sanitizeSet, uid } from './util.js';
@@ -85,6 +85,7 @@ export function StoreProvider({ children }) {
   const [sync, setSync] = useState({ pending: false, fromCache: false });
   const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
   const [rest, setRest] = useState(null); // {until, total}
+  const [weeklyGoal, setWeeklyGoalState] = useState(3);
 
   const api = useMemo(() => (user ? backend.data(user.uid) : null), [user]);
 
@@ -123,6 +124,8 @@ export function StoreProvider({ children }) {
         setLibrary(loadLibrary(d.library));
         setProfileState(d.profile || null);
         setMainStore(d.main || {});
+        const cached = parseInt(localStorage.getItem(`forge:goal:${user.uid}`), 10);
+        setWeeklyGoalState(d.settings?.weeklyGoal || cached || 3);
       })
       .catch(fail('err.load'))
       .finally(() => !cancelled && setMetaLoading(false));
@@ -131,7 +134,23 @@ export function StoreProvider({ children }) {
       (e) => { fail('err.load')(e); setWorkoutsReady(true); }
     );
     return () => { cancelled = true; unsub(); };
-  }, [api, fail]);
+  }, [api, fail]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ——— Srovnání rekordů s historií (jednou po načtení ze serveru) ———
+  // Opraví rekordy, které zůstaly po tréninku smazaném dřív (např. ve starší verzi appky),
+  // a doplní chybějící. Když je historie na limitu, nesrovnává (starší tréninky nejsou načtené).
+  const reconciled = useRef(false);
+  useEffect(() => { reconciled.current = false; }, [api]);
+  useEffect(() => {
+    if (!api || reconciled.current || metaLoading || !workoutsReady || sync.fromCache) return;
+    reconciled.current = true;
+    if (workouts.length >= HISTORY_LIMIT) return;
+    const keys = new Set([...Object.keys(prs), ...workouts.flatMap((w) => w.exercises.map((e) => e.key))]);
+    const changes = recomputeKeys(keys, workouts, prs);
+    if (!Object.keys(changes).length) return;
+    setPrs((p) => applyChanges(p, changes));
+    api.applyPrChanges(changes).catch(fail('err.save'));
+  }, [api, metaLoading, workoutsReady, sync.fromCache, workouts, prs, fail]);
 
   // ——— Draft: načíst pro přihlášeného, ukládat s debounce, flush při schování appky ———
   const draftOwner = useRef(null);
@@ -247,6 +266,13 @@ export function StoreProvider({ children }) {
   }, [api, fail, prof.id, remember]);
   const groupLabel = useCallback((id) => main.groups.find((g) => g.id === id)?.label || id, [main]);
   const groupSub = useCallback((id) => main.groups.find((x) => x.id === id)?.sub || t('groups.' + id), [main]);
+  // Týdenní cíl: účet (meta/settings) + lokální kopie, kdyby zápis selhal (např. starší rules)
+  const setWeeklyGoal = useCallback((n) => {
+    const v = Math.min(7, Math.max(1, Math.round(n)));
+    setWeeklyGoalState(v);
+    try { localStorage.setItem(`forge:goal:${user?.uid}`, String(v)); } catch { /* ignore */ }
+    api?.saveSettings({ weeklyGoal: v }).catch((e) => console.warn('settings', e));
+  }, [api, user?.uid]);
   const setProfile = useCallback((id) => {
     setProfileState(id);
     api.saveProfile(id).catch(fail('err.save'));
@@ -441,10 +467,10 @@ export function StoreProvider({ children }) {
     user, denied, loading, mode: backend.mode, signIn, signOut, live, sync, online,
     templates, workouts, prs, deleteWorkout, updateWorkout, saveTemplate, deleteTemplate, startWorkout, startEmptyWorkout,
     library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf,
-    profile, prof, setProfile, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, resetMain,
+    profile, prof, setProfile, weeklyGoal, setWeeklyGoal, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, resetMain,
     undoStack, undo, notify,
   }), [user, denied, loading, signIn, signOut, live, sync, online, templates, workouts, prs, deleteWorkout, updateWorkout, saveTemplate, deleteTemplate, startWorkout, startEmptyWorkout,
-    library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf, profile, prof, setProfile, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, resetMain, undoStack, undo, notify]);
+    library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf, profile, prof, setProfile, weeklyGoal, setWeeklyGoal, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, resetMain, undoStack, undo, notify]);
 
   const session = useMemo(() => ({
     active, patchActive, finishWorkout, discardWorkout, addExerciseToActive, prs, notify, rest, startRest, adjustRest, stopRest,

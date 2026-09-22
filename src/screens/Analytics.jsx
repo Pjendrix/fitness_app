@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { CATEGORIES } from '../data/exercises.js';
 import { locale, t } from '../lib/i18n.js';
-import { BarChart, HBars, Heatmap, LineChart } from '../components/Charts.jsx';
+import { BarChart, HBars, LineChart } from '../components/Charts.jsx';
+import WeeklyGoal from '../components/WeeklyGoal.jsx';
 import { better, fmtDate, fmtDuration, fmtNum, fmtSet, workoutVolume } from '../lib/util.js';
 
 const WEEK = 7 * 864e5;
@@ -13,7 +14,7 @@ const GROUP_FALLBACK = { PUSH: 'chest', PULL: 'back', LEGS: 'legs', UPPER: 'back
 const monday = (t) => { const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); };
 
 export default function Analytics() {
-  const { workouts, prs, catOf } = useStore();
+  const { workouts, prs, catOf, weeklyGoal, setWeeklyGoal, main } = useStore();
   const [range, setRange] = useState(12);
 
   const inRange = useMemo(() => {
@@ -50,12 +51,6 @@ export default function Analytics() {
     }
     return Object.entries(m).map(([c, value]) => ({ label: t('cat.' + c), value })).sort((a, b) => b.value - a.value);
   }, [inRange, catOf]);
-
-  const heat = useMemo(() => {
-    const d = {};
-    for (const w of workouts) { const k = new Date(w.startedAt).toDateString(); d[k] = (d[k] || 0) + 1; }
-    return d;
-  }, [workouts]);
 
   // Cvičení seřazená podle počtu tréninků
   const exList = useMemo(() => {
@@ -152,7 +147,7 @@ export default function Analytics() {
         <section className="card"><div className="card-head"><h2>{t('an.weeklyVol')}</h2><span className="label">kg</span></div><BarChart label={t('an.weeklyVol')} data={weekly.vol} unit=" kg" format={(v) => (v >= 1000 ? fmtNum(Math.round(v / 100) / 10) + 'k' : fmtNum(Math.round(v)))} /></section>
         <section className="card"><div className="card-head"><h2>{t('an.weeklyN')}</h2></div><BarChart label={t('an.weeklyN')} data={weekly.n} format={(v) => fmtNum(Math.round(v * 10) / 10)} /></section>
         <section className="card"><div className="card-head"><h2>{t('an.muscles')}</h2></div><HBars data={muscles} /></section>
-        <section className="card"><div className="card-head"><h2>{t('an.attendance')}</h2><span className="label">{t('an.weeks', { n: 18 })}</span></div><Heatmap days={heat} /></section>
+        <WeeklyGoal workouts={workouts} goal={weeklyGoal} setGoal={setWeeklyGoal} groups={main.groups} />
 
         <section className="card span-2">
           <div className="card-head"><h2>{t('an.prs')}</h2><span className="label">{Object.keys(prs).length}</span></div>

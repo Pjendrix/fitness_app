@@ -47,13 +47,14 @@ const firebaseBackend = {
     const ref = (n, id) => doc(db, 'users', uid, n, id);
     return {
       async loadAll() {
-        const [t, p, ex, pr, mn] = await Promise.all([
+        const [t, p, ex, pr, mn, st] = await Promise.all([
           getDocs(col('templates')), getDocs(col('prs')),
           getDoc(ref('meta', 'exercises')), getDoc(ref('meta', 'profile')), getDoc(ref('meta', 'main')),
+          getDoc(ref('meta', 'settings')).catch(() => null),
         ]);
         const prs = {};
         p.forEach((d) => (prs[d.id] = d.data()));
-        return { templates: t.docs.map((d) => d.data()), prs, library: ex.exists() ? ex.data() : null, profile: pr.exists() ? pr.data().id : null, main: mn.exists() ? mn.data() : {} };
+        return { templates: t.docs.map((d) => d.data()), prs, library: ex.exists() ? ex.data() : null, profile: pr.exists() ? pr.data().id : null, main: mn.exists() ? mn.data() : {}, settings: st?.exists() ? st.data() : null };
       },
       // Živý odběr historie: data z offline cache hned, pak ze serveru; metadata říkají, co ještě čeká na odeslání.
       subscribeWorkouts(cb, onError) {
@@ -84,8 +85,18 @@ const firebaseBackend = {
         }
         return batch.commit();
       },
+      // Jen rekordy ({key: pr | null}) – srovnání s historií
+      applyPrChanges(changes) {
+        const batch = writeBatch(db);
+        for (const [key, pr] of Object.entries(changes)) {
+          if (pr) batch.set(ref('prs', key), clean(pr));
+          else batch.delete(ref('prs', key));
+        }
+        return batch.commit();
+      },
       saveExercises: (list) => setDoc(ref('meta', 'exercises'), { list: clean(list), v: 2 }),
       saveProfile: (id) => setDoc(ref('meta', 'profile'), { id }),
+      saveSettings: (s) => setDoc(ref('meta', 'settings'), s, { merge: true }),
       // Upravené hlavní šablony pro profil; null = zpět na výchozí
       saveMain: (profileId, cfg) => setDoc(ref('meta', 'main'), { [profileId]: cfg ? clean(cfg) : deleteField() }, { merge: true }),
     };
@@ -115,7 +126,7 @@ const demoBackend = {
     return {
       async loadAll() {
         const d = readLS();
-        return { templates: d.templates, prs: d.prs, main: d.main || {}, profile: d.profile || null, library: d.library || (d.exercises?.length ? { list: d.exercises } : null) };
+        return { templates: d.templates, prs: d.prs, main: d.main || {}, settings: d.settings || null, profile: d.profile || null, library: d.library || (d.exercises?.length ? { list: d.exercises } : null) };
       },
       subscribeWorkouts(cb) { listeners.add(cb); emit(); return () => listeners.delete(cb); },
       async saveTemplate(t) { edit((d) => { d.templates = [...d.templates.filter((x) => x.id !== t.id), t]; }); },
@@ -128,8 +139,10 @@ const demoBackend = {
         });
         emit();
       },
+      async applyPrChanges(ch) { edit((d) => { for (const [k, v] of Object.entries(ch)) { if (v) d.prs[k] = v; else delete d.prs[k]; } }); },
       async saveExercises(list) { edit((d) => { d.library = { list, v: 2 }; }); },
       async saveProfile(id) { edit((d) => { d.profile = id; }); },
+      async saveSettings(s) { edit((d) => { d.settings = { ...(d.settings || {}), ...s }; }); },
       async saveMain(profileId, cfg) { edit((d) => { d.main = { ...(d.main || {}) }; if (cfg) d.main[profileId] = cfg; else delete d.main[profileId]; }); },
     };
   },

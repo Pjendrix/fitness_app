@@ -492,3 +492,30 @@ html[data-theme='light'][data-profile='chiara'] .prof-badge { background: #b83c6
 .edit-add-set { align-self: flex-start; }
 .edit-foot { display: flex; flex-direction: column; gap: 6px; padding-top: 8px; border-top: 1px solid var(--hairline); }
 .edit-body .mini .input { text-align: left; font-family: var(--sans); padding: 11px 12px; }
+
+/* Týdenní cíl */
+.wg-goal { display: inline-flex; align-items: center; gap: 2px; border-radius: 9999px; box-shadow: 0 0 0 1px var(--hairline); padding: 2px; }
+.wg-goal button { width: 32px; height: 32px; border: 0; border-radius: 50%; background: none; color: var(--ink); font-size: 18px; touch-action: manipulation; }
+.wg-goal button:disabled { color: var(--ash); }
+.wg-goal .label { min-width: 64px; text-align: center; color: var(--ink); }
+.wg-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0 14px; }
+.wg-kpi { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--r); background: var(--paper); }
+.wg-kpi strong { font-family: var(--mono); font-size: 26px; font-weight: 500; letter-spacing: -0.03em; }
+.wg-kpi small { font-size: 14px; color: var(--stone); letter-spacing: 0; }
+.wg-meter { display: block; height: 4px; border-radius: 2px; background: var(--hairline); margin-top: 4px; overflow: hidden; }
+.wg-meter i { display: block; height: 100%; background: var(--ink); border-radius: 2px; transition: width 0.3s; }
+.wg-bars { position: relative; height: 130px; display: flex; align-items: flex-end; gap: 5px; }
+.wg-line { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--smoke); pointer-events: none; }
+.wg-bar { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; border: 0; background: none; padding: 0; min-width: 0; }
+.wg-bar i { width: 100%; min-height: 4px; border-radius: 3px; background: color-mix(in srgb, var(--ink) 20%, transparent); }
+.wg-bar.met i { background: var(--ink); }
+.wg-bar.cur i { background: color-mix(in srgb, var(--ink) 55%, transparent); }
+.wg-bar.sel i { outline: 2px solid var(--ink); outline-offset: 2px; }
+.wg-bar span { height: 14px; font-family: var(--mono); font-size: 10px; color: var(--smoke); white-space: nowrap; }
+.wg-detail { margin-top: 8px; min-height: 20px; }
+.wg-split { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 8px; }
+.wg-split-title { font-size: 14px; font-weight: 500; }
+.wg-split-bar { display: flex; gap: 2px; height: 10px; border-radius: 5px; overflow: hidden; background: var(--hairline); }
+.wg-split-legend { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 12px; color: var(--stone); }
+.wg-lag { font-size: 13px; color: #b45309; }
+html[data-theme='dark'] .wg-lag { color: #f59e0b; }
