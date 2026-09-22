@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useStore } from '../lib/store.jsx';
+import Sheet from '../components/Sheet.jsx';
+import { useSession, useStore } from '../lib/store.jsx';
 import ViewToggle from '../components/ViewToggle.jsx';
 import ProfileBadge from '../components/ProfileBadge.jsx';
 import { colorHex, PROFILES } from '../data/defaultTemplates.js';
@@ -7,9 +8,10 @@ import { fmtDate, fmtNum, fmtSet, startOfWeek, workoutVolume } from '../lib/util
 import { t } from '../lib/i18n.js';
 
 export default function Home({ go }) {
-  const { user, workouts, prs, templates, active, startWorkout, startEmptyWorkout, profile, setProfile, loading, main, groupLabel, groupSub } = useStore();
+  const { user, workouts, prs, templates, startWorkout, startEmptyWorkout, profile, setProfile, loading, main, groupLabel, groupSub } = useStore();
+  const { active } = useSession();
   // Groups that have at least one template
-  const G = main.groups.map((g) => g.id).filter((id) => main.templates.some((x) => x.group === id));
+  const G = useMemo(() => main.groups.map((g) => g.id).filter((id) => main.templates.some((x) => x.group === id)), [main]);
   const [pickedVariant, setVariant] = useState(null);
   const [pickMine, setPickMine] = useState(false);
   const mine = templates.filter((x) => !x.builtin);
@@ -78,7 +80,7 @@ export default function Home({ go }) {
         </section>
       )}
 
-      <section className="stats" onClick={() => go('stats')} role="button" tabIndex={0} aria-label={t('home.openStats')}>
+      <section className="stats" onClick={() => go('stats')} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), go('stats'))} role="button" tabIndex={0} aria-label={t('home.openStats')}>
         <div className="card stat"><span className="num">{week.count}</span><span className="muted small">{t('home.weekWorkouts')}</span></div>
         <div className="card stat"><span className="num">{week.volume ? fmtNum(Math.round(week.volume / 100) / 10) : 0}<small> t</small></span><span className="muted small">{t('home.weekVolume')}</span></div>
         <div className="card stat"><span className="num">{workouts.length}</span><span className="muted small">{t('home.total')}</span></div>
@@ -92,9 +94,7 @@ export default function Home({ go }) {
       )}
 
       {pickMine && (
-        <div className="sheet-backdrop" onClick={() => setPickMine(false)}>
-          <div className="sheet sheet-short" role="dialog" aria-label={t('home.mine')} onClick={(e) => e.stopPropagation()}>
-            <div className="sheet-grip" />
+        <Sheet label={t('home.mine')} onClose={() => setPickMine(false)} className="sheet-short">
             <div className="sheet-head">
               <h2>{t('home.mine')}</h2>
               <button className="btn btn-ghost btn-sm" onClick={() => setPickMine(false)}>{t('pick.close')}</button>
@@ -110,8 +110,7 @@ export default function Home({ go }) {
                 );
               })}
             </div>
-          </div>
-        </div>
+        </Sheet>
       )}
 
       <section>

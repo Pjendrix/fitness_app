@@ -98,8 +98,8 @@ export default function Analytics() {
     <div className="screen screen-wide">
       <header className="screen-head row-between">
         <h1>{t('an.title')}</h1>
-        <div className="seg seg-sm seg-inline" role="tablist" aria-label={t('an.period')}>
-          {RANGES.map((r) => <button key={r} role="tab" aria-selected={range === r} className={range === r ? 'is-on' : ''} onClick={() => setRange(r)}>{t('an.r' + r)}</button>)}
+        <div className="seg seg-sm seg-inline" role="radiogroup" aria-label={t('an.period')}>
+          {RANGES.map((r) => <button key={r} role="radio" aria-checked={range === r} className={range === r ? 'is-on' : ''} onClick={() => setRange(r)}>{t('an.r' + r)}</button>)}
         </div>
       </header>
 
@@ -120,6 +120,7 @@ export default function Analytics() {
           {progress && (
             <>
               <LineChart
+                label={exList.find((e) => e.key === sel)?.name || ''}
                 unit={timed ? ' min' : bodyweight ? '' : ' kg'}
                 series={bodyweight
                   ? [{ name: timed ? t('an.maxTime') : t('an.maxReps'), points: progress.map((s) => ({ x: s.t, y: timed ? s.top.time : s.top.reps })) }]
@@ -148,8 +149,8 @@ export default function Analytics() {
           )}
         </section>
 
-        <section className="card"><div className="card-head"><h2>{t('an.weeklyVol')}</h2><span className="label">kg</span></div><BarChart data={weekly.vol} unit=" kg" format={(v) => (v >= 1000 ? fmtNum(Math.round(v / 100) / 10) + 'k' : fmtNum(Math.round(v)))} /></section>
-        <section className="card"><div className="card-head"><h2>{t('an.weeklyN')}</h2></div><BarChart data={weekly.n} format={(v) => fmtNum(Math.round(v * 10) / 10)} /></section>
+        <section className="card"><div className="card-head"><h2>{t('an.weeklyVol')}</h2><span className="label">kg</span></div><BarChart label={t('an.weeklyVol')} data={weekly.vol} unit=" kg" format={(v) => (v >= 1000 ? fmtNum(Math.round(v / 100) / 10) + 'k' : fmtNum(Math.round(v)))} /></section>
+        <section className="card"><div className="card-head"><h2>{t('an.weeklyN')}</h2></div><BarChart label={t('an.weeklyN')} data={weekly.n} format={(v) => fmtNum(Math.round(v * 10) / 10)} /></section>
         <section className="card"><div className="card-head"><h2>{t('an.muscles')}</h2></div><HBars data={muscles} /></section>
         <section className="card"><div className="card-head"><h2>{t('an.attendance')}</h2><span className="label">{t('an.weeks', { n: 18 })}</span></div><Heatmap days={heat} /></section>
 
@@ -160,7 +161,7 @@ export default function Analytics() {
               <thead><tr><th>{t('an.exercise')}</th><th className="r">{t('an.record')}</th><th className="r">{t('an.e1rm')}</th><th className="r">{t('an.date')}</th></tr></thead>
               <tbody>
                 {Object.entries(prs).sort((a, b) => b[1].weight - a[1].weight).map(([k, p]) => (
-                  <tr key={k} onClick={() => setExSel(k)} className="clickable">
+                  <tr key={k} onClick={() => setExSel(k)} className="clickable" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && setExSel(k)}>
                     <td>{p.name}</td><td className="r mono">{fmtSet(p.weight, p.reps, p.time)}</td>
                     <td className="r mono">{p.weight ? `${fmtNum(Math.round(e1rm(p.weight, p.reps)))} kg` : '–'}</td>
                     <td className="r mono muted">{fmtDate(p.date)}</td>

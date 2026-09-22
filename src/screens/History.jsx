@@ -4,10 +4,12 @@ import { colorHex } from '../data/defaultTemplates.js';
 import { fmtDate, fmtDuration, fmtNum, fmtSet, workoutVolume } from '../lib/util.js';
 import { locale, t } from '../lib/i18n.js';
 import { ArrowIcon, ChevronIcon, TrashIcon } from '../components/Icons.jsx';
+import { useDialog } from '../components/Dialog.jsx';
 
 const dayKey = (ms) => new Date(ms).toDateString();
 
 function WorkoutCard({ w, color, open, onToggle, onDelete }) {
+  const dialog = useDialog();
   const sets = w.exercises.reduce((n, e) => n + e.sets.length, 0);
   return (
     <section className="card hist tinted" style={color ? { '--tint': color } : undefined}>
@@ -26,7 +28,7 @@ function WorkoutCard({ w, color, open, onToggle, onDelete }) {
               <div className="mono muted small sets-line">{e.sets.map((s) => fmtSet(s.weight, s.reps, s.time)).join('  ·  ')}</div>
             </div>
           ))}
-          <button className="btn btn-danger btn-sm" onClick={() => window.confirm(t('hist.confirmDelete')) && onDelete(w.id)}>
+          <button className="btn btn-danger btn-sm" onClick={async () => (await dialog.confirm(t('hist.confirmDelete'), { danger: true, ok: t('hist.delete') })) && onDelete(w.id)}>
             <TrashIcon width={16} height={16} /> {t('hist.delete')}
           </button>
         </div>
@@ -86,7 +88,8 @@ export default function History({ go }) {
   const [filter, setFilter] = useState('all');
   const [day, setDay] = useState(dayKey(Date.now()));
 
-  const colorOf = (w) => colorHex(templates.find((x) => x.id === w.templateId)?.color);
+  const colorById = useMemo(() => new Map(templates.map((x) => [x.id, colorHex(x.color)])), [templates]);
+  const colorOf = (w) => colorById.get(w.templateId);
   // Filter options = workout names that exist in history (template renames keep their own entry)
   const options = useMemo(() => [...new Set(workouts.map((w) => w.name))].sort(), [workouts]);
   const filtered = filter === 'all' ? workouts : workouts.filter((w) => w.name === filter);

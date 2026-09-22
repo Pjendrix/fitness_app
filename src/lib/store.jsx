@@ -2,116 +2,183 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { backend } from './backend.js';
 import { profileOf } from '../data/defaultTemplates.js';
 import { defaultTypeOf, EXERCISES, modernName, normCat } from '../data/exercises.js';
-import { better, exKey, firstNum, isDone, num, planLabel, uid } from './util.js';
+import { better, exKey, firstNum, hasValue, isDone, LIMITS, planLabel, sanitizeName, sanitizeSet, uid } from './util.js';
+import { applyChanges, applyWorkout, changesAfterDelete } from './records.js';
+import { getRestDefault } from './rest.js';
 import { t } from './i18n.js';
 import { INFO_KEYS } from '../data/infoKeys.js';
 
-const Ctx = createContext(null);
-export const useStore = () => useContext(Ctx);
+// Tři oddělené kontexty: psaní v aktivním tréninku nepřekresluje zbytek appky.
+const DataCtx = createContext(null);
+const SessionCtx = createContext(null);
+const ToastCtx = createContext(null);
+export const useStore = () => useContext(DataCtx);
+export const useSession = () => useContext(SessionCtx);
+export const useToast = () => useContext(ToastCtx);
 
-const DRAFT = 'forge:active';
-const loadDraft = () => {
+// ——— Draft rozdělaného tréninku (per uživatel) ———
+const draftKey = (u) => `forge:active:${u}`;
+const LEGACY_DRAFT = 'forge:active';
+const withIds = (a) =>
+  a && Array.isArray(a.exercises)
+    ? { ...a, exercises: a.exercises.map((e) => ({ ...e, id: e.id || uid(), sets: (e.sets || []).map((s) => ({ ...s, id: s.id || uid() })) })) }
+    : null;
+const loadDraft = (u) => {
   try {
-    return JSON.parse(localStorage.getItem(DRAFT));
+    let raw = localStorage.getItem(draftKey(u));
+    if (!raw && localStorage.getItem(LEGACY_DRAFT)) {
+      // Jednorázová migrace starého sdíleného klíče na prvního přihlášeného
+      raw = localStorage.getItem(LEGACY_DRAFT);
+      localStorage.removeItem(LEGACY_DRAFT);
+    }
+    return withIds(JSON.parse(raw));
   } catch {
     return null;
   }
 };
 
-// Old Czech exercise names → English (history, PBs, templates keep linking).
+// Staré české názvy cviků → anglické (historie, PB i šablony se dál párují).
 const migrateEx = (e) => {
   const name = modernName(e.name);
   return name === e.name ? e : { ...e, name, key: exKey(name) };
 };
-const migrateWorkout = (w) => ({ ...w, exercises: w.exercises.map(migrateEx) });
+const migrateWorkout = (w) => ({ ...w, exercises: (w.exercises || []).map(migrateEx) });
 const migratePrs = (prs) => {
   const out = {};
   for (const p of Object.values(prs)) {
     const name = modernName(p.name);
     const key = exKey(name);
-    if (better(p, out[key]) || !out[key]) out[key] = { ...p, name };
+    if (!out[key] || better(p, out[key])) out[key] = { ...p, name };
   }
   return out;
 };
 const migrateTemplate = (tpl) => ({ ...tpl, exercises: tpl.exercises.map((e) => ({ ...e, name: modernName(e.name) })) });
-const loadLibrary = (doc) => {
-  if (!doc) return EXERCISES;
-  const list = (doc.list || []).map((e) => ({ name: modernName(e.name), cat: normCat(e.cat), ...(e.type === 'time' ? { type: 'time' } : {}), ...(e.db ? { db: e.db } : {}) }));
-  if (doc.v === 2) return list;
-  // legacy: list = custom additions on top of defaults
+const loadLibrary = (d) => {
+  if (!d) return EXERCISES;
+  const list = (d.list || []).map((e) => ({ name: modernName(e.name), cat: normCat(e.cat), ...(e.type === 'time' ? { type: 'time' } : {}), ...(e.db ? { db: e.db } : {}) }));
+  if (d.v === 2) return list;
   const have = new Set(EXERCISES.map((e) => exKey(e.name)));
   return [...EXERCISES, ...list.filter((e) => !have.has(exKey(e.name)))];
 };
+const newSet = (s = {}) => ({ id: uid(), weight: String(s.weight || ''), reps: String(s.reps || ''), time: String(s.time || ''), done: false });
+
+const toLibEntry = (ex) => {
+  const cat = normCat(ex.cat);
+  return { name: sanitizeName(ex.name), cat, ...(ex.type === 'time' || (!ex.type && cat === 'cardio') ? { type: 'time' } : {}), ...(ex.db ? { db: String(ex.db).slice(0, 120) } : {}) };
+};
 
 export function StoreProvider({ children }) {
-  const [user, setUser] = useState(undefined); // undefined = loading, null = signed out
-  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState(undefined); // undefined = načítání, null = odhlášen
+  const [denied, setDenied] = useState(null); // e-mail účtu bez přístupu
+  const [metaLoading, setMetaLoading] = useState(false);
+  const [workoutsReady, setWorkoutsReady] = useState(false);
   const [custom, setCustom] = useState([]);
   const [workouts, setWorkouts] = useState([]);
   const [prs, setPrs] = useState({});
   const [library, setLibrary] = useState(EXERCISES);
   const [profile, setProfileState] = useState(null);
-  const [mainStore, setMainStore] = useState({}); // { [profileId]: {groups, templates} } – user-edited main templates
+  const [mainStore, setMainStore] = useState({});
   const [undoStack, setUndoStack] = useState([]);
-  const [active, setActive] = useState(loadDraft);
+  const [active, setActive] = useState(null);
   const [toast, setToast] = useState(null);
+  const [sync, setSync] = useState({ pending: false, fromCache: false });
+  const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
+  const [rest, setRest] = useState(null); // {until, total}
 
   const api = useMemo(() => (user ? backend.data(user.uid) : null), [user]);
 
-  const notify = useCallback((msg) => {
-    setToast({ msg, id: Date.now() });
-    setTimeout(() => setToast((x) => (x && Date.now() - x.id >= 2800 ? null : x)), 3000);
+  // ——— Toast (volitelně s akcí, např. „Zpět“) ———
+  const toastTimer = useRef(null);
+  const notify = useCallback((msg, opts = {}) => {
+    clearTimeout(toastTimer.current);
+    const id = Date.now() + Math.random();
+    setToast({ msg, id, action: opts.action || null });
+    toastTimer.current = setTimeout(() => setToast((x) => (x?.id === id ? null : x)), opts.duration || (opts.action ? 5000 : 3000));
   }, []);
-  const fail = useCallback((key) => (e) => notify(t(key, { m: e.message })), [notify]);
+  const dismissToast = useCallback(() => setToast(null), []);
+  const fail = useCallback((key) => (e) => { console.error(e); notify(t(key, { m: e?.code || e?.message || '?' })); }, [notify]);
+
+  // ——— Auth ———
+  useEffect(() => backend.onAuth((u) => { setUser(u); if (u) setDenied(null); }, setDenied), []);
 
   useEffect(() => {
-    let unsub = () => {};
-    backend.onAuth(setUser).then((u) => (unsub = u));
-    return () => unsub();
+    const on = () => setOnline(true), off = () => setOnline(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
 
+  // ——— Data ———
   useEffect(() => {
     if (!api) return;
     let cancelled = false;
-    setLoading(true);
-    api
-      .loadAll()
+    setMetaLoading(true);
+    setWorkoutsReady(false);
+    api.loadAll()
       .then((d) => {
         if (cancelled) return;
         setCustom(d.templates.map(migrateTemplate));
-        setWorkouts(d.workouts.map(migrateWorkout));
         setPrs(migratePrs(d.prs));
         setLibrary(loadLibrary(d.library));
         setProfileState(d.profile || null);
         setMainStore(d.main || {});
       })
       .catch(fail('err.load'))
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
+      .finally(() => !cancelled && setMetaLoading(false));
+    const unsub = api.subscribeWorkouts(
+      (list, meta) => { if (cancelled) return; setWorkouts(list.map(migrateWorkout)); setSync(meta); setWorkoutsReady(true); },
+      (e) => { fail('err.load')(e); setWorkoutsReady(true); }
+    );
+    return () => { cancelled = true; unsub(); };
   }, [api, fail]);
 
+  // ——— Draft: načíst pro přihlášeného, ukládat s debounce, flush při schování appky ———
+  const draftOwner = useRef(null);
+  const pendingDraft = useRef(undefined);
+  const draftTimer = useRef(null);
+  const flushDraft = useCallback(() => {
+    clearTimeout(draftTimer.current);
+    const owner = draftOwner.current, v = pendingDraft.current;
+    if (!owner || v === undefined) return;
+    pendingDraft.current = undefined;
+    try {
+      if (v) localStorage.setItem(draftKey(owner), JSON.stringify(v));
+      else localStorage.removeItem(draftKey(owner));
+    } catch { /* plné úložiště – draft zůstane jen v paměti */ }
+  }, []);
   useEffect(() => {
-    if (active) localStorage.setItem(DRAFT, JSON.stringify(active));
-    else localStorage.removeItem(DRAFT);
-  }, [active]);
+    flushDraft();
+    draftOwner.current = user ? user.uid : null;
+    setActive(user ? loadDraft(user.uid) : null);
+    setRest(null);
+  }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!draftOwner.current) return;
+    pendingDraft.current = active;
+    if (!active) flushDraft();
+    else { clearTimeout(draftTimer.current); draftTimer.current = setTimeout(flushDraft, 300); }
+  }, [active, flushDraft]);
+  useEffect(() => {
+    const onHide = () => document.visibilityState === 'hidden' && flushDraft();
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', flushDraft);
+    return () => { document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', flushDraft); };
+  }, [flushDraft]);
 
+  // ——— Hlavní šablony ———
   const prof = profileOf(profile);
-  // Main templates: user-edited version for this profile, or defaults
   const main = useMemo(() => {
     const m = mainStore[prof.id];
     const groups = m ? m.groups : prof.groups.map((id) => ({ id, label: id, sub: '' }));
     const list = m ? m.templates.map((x) => ({ ...migrateTemplate(x), builtin: true })) : prof.templates;
-    // Main template name is always "<group> <variant>" – group name is fixed, only the variant is named
     const label = (id) => groups.find((g) => g.id === id)?.label || id;
     return { groups, templates: list.map((x) => ({ ...x, name: `${label(x.group)} ${x.variant || ''}`.trim() })) };
   }, [mainStore, prof]);
   const templates = useMemo(() => [...main.templates, ...custom], [main, custom]);
 
-  // ——— Undo (last 5 changes to templates, main templates, library, history) ———
+  // ——— Undo (posledních 5 změn šablon, knihovny a historie) ———
   const snap = useRef({});
-  snap.current = { custom, library, mainStore, workouts };
+  snap.current = { custom, library, mainStore, workouts, prs };
   const remember = useCallback((label) => {
     const { custom: c, library: l, mainStore: m, workouts: w } = snap.current;
     setUndoStack((st) => [...st.slice(-4), { label, custom: c, library: l, mainStore: m, workouts: w }]);
@@ -119,39 +186,43 @@ export function StoreProvider({ children }) {
   const stackRef = useRef(undoStack);
   stackRef.current = undoStack;
   const undo = useCallback(() => {
-    {
-      const st = stackRef.current;
-      const last = st[st.length - 1];
-      if (!last) return;
-      setUndoStack(st.slice(0, -1));
-      const now = snap.current;
-      // templates: delete added, re-save changed/removed
-      const before = new Map(last.custom.map((x) => [x.id, x]));
-      for (const x of now.custom) if (!before.has(x.id)) api.deleteTemplate(x.id).catch(fail('err.delete'));
-      for (const x of last.custom) if (JSON.stringify(x) !== JSON.stringify(now.custom.find((y) => y.id === x.id))) api.saveTemplate(x).catch(fail('err.save'));
-      setCustom(last.custom);
-      if (last.library !== now.library) { setLibrary(last.library); api.saveExercises(last.library).catch(fail('err.save')); }
-      if (last.mainStore !== now.mainStore) {
-        setMainStore(last.mainStore);
-        for (const id of new Set([...Object.keys(last.mainStore), ...Object.keys(now.mainStore)])) {
-          if (last.mainStore[id] !== now.mainStore[id]) api.saveMain(id, last.mainStore[id] || null).catch(fail('err.save'));
-        }
+    const st = stackRef.current;
+    const last = st[st.length - 1];
+    if (!last || !api) return;
+    setUndoStack(st.slice(0, -1));
+    const now = snap.current;
+    const before = new Map(last.custom.map((x) => [x.id, x]));
+    for (const x of now.custom) if (!before.has(x.id)) api.deleteTemplate(x.id).catch(fail('err.delete'));
+    for (const x of last.custom) if (JSON.stringify(x) !== JSON.stringify(now.custom.find((y) => y.id === x.id))) api.saveTemplate(x).catch(fail('err.save'));
+    setCustom(last.custom);
+    if (last.library !== now.library) { setLibrary(last.library); api.saveExercises(last.library).catch(fail('err.save')); }
+    if (last.mainStore !== now.mainStore) {
+      setMainStore(last.mainStore);
+      for (const id of new Set([...Object.keys(last.mainStore), ...Object.keys(now.mainStore)])) {
+        if (last.mainStore[id] !== now.mainStore[id]) api.saveMain(id, last.mainStore[id] || null).catch(fail('err.save'));
       }
-      if (last.workouts !== now.workouts) {
-        const ids = new Set(now.workouts.map((w) => w.id));
-        for (const w of last.workouts) if (!ids.has(w.id)) api.saveWorkout(w, {}).catch(fail('err.save'));
-        setWorkouts(last.workouts);
-      }
-      notify(t('undo.done', { what: t(last.label) }));
     }
+    if (last.workouts !== now.workouts) {
+      // Obnovené tréninky znovu započítat do rekordů
+      const ids = new Set(now.workouts.map((w) => w.id));
+      let p = now.prs;
+      for (const w of last.workouts) {
+        if (ids.has(w.id)) continue;
+        const r = applyWorkout(w, p);
+        p = r.next;
+        api.saveWorkout(w, r.updates).catch(fail('err.save'));
+      }
+      setPrs(p);
+      setWorkouts(last.workouts);
+    }
+    notify(t('undo.done', { what: t(last.label) }));
   }, [api, fail, notify]);
 
-  // Main template edits (whole config per profile is stored)
   const writeMain = useCallback((cfg) => {
     setMainStore((ms) => ({ ...ms, [prof.id]: cfg }));
     api.saveMain(prof.id, cfg).catch(fail('err.save'));
   }, [api, fail, prof.id]);
-  const cleanMainTpl = (x) => { const { builtin, ...rest } = x; return rest; };
+  const cleanMainTpl = (x) => { const { builtin, ...rest } = x; void builtin; return rest; };
   const saveMainTemplate = useCallback((tpl) => {
     remember('undo.tpl');
     const list = main.templates.some((x) => x.id === tpl.id) ? main.templates.map((x) => (x.id === tpl.id ? tpl : x)) : [...main.templates, tpl];
@@ -163,7 +234,7 @@ export function StoreProvider({ children }) {
   }, [main, writeMain, remember]);
   const renameGroup = useCallback((id, label, sub) => {
     remember('undo.group');
-    writeMain({ groups: main.groups.map((g) => (g.id === id ? { ...g, label, sub } : g)), templates: main.templates.map(cleanMainTpl) });
+    writeMain({ groups: main.groups.map((g) => (g.id === id ? { ...g, label: sanitizeName(label, 20), sub: sanitizeName(sub) } : g)), templates: main.templates.map(cleanMainTpl) });
   }, [main, writeMain, remember]);
   const resetMain = useCallback(() => {
     remember('undo.reset');
@@ -171,152 +242,186 @@ export function StoreProvider({ children }) {
     api.saveMain(prof.id, null).catch(fail('err.save'));
   }, [api, fail, prof.id, remember]);
   const groupLabel = useCallback((id) => main.groups.find((g) => g.id === id)?.label || id, [main]);
-  const groupSub = useCallback((id) => { const g = main.groups.find((x) => x.id === id); return g?.sub || t('groups.' + id); }, [main]);
+  const groupSub = useCallback((id) => main.groups.find((x) => x.id === id)?.sub || t('groups.' + id), [main]);
   const setProfile = useCallback((id) => {
     setProfileState(id);
     api.saveProfile(id).catch(fail('err.save'));
   }, [api, fail]);
-  const typeOf = useCallback((name) => library.find((e) => exKey(e.name) === exKey(name))?.type || defaultTypeOf(name), [library]);
 
-  // Last logged sets of an exercise (workouts are sorted newest first).
-  const lastSets = useCallback(
-    (key) => {
-      for (const w of workouts) {
-        const e = w.exercises.find((x) => x.key === key);
-        if (e && e.sets.length) return e.sets;
-      }
-      return null;
-    },
-    [workouts]
-  );
+  // Rychlé vyhledávání v knihovně (místo find + exKey v každém volání)
+  const libMap = useMemo(() => new Map(library.map((e) => [exKey(e.name), e])), [library]);
+  const typeOf = useCallback((name) => libMap.get(exKey(name))?.type || defaultTypeOf(name), [libMap]);
+  const catOf = useCallback((name) => libMap.get(exKey(name))?.cat || null, [libMap]);
+  const infoOf = useCallback((name) => {
+    const k = exKey(name);
+    const e = libMap.get(k);
+    if (e?.db) return { db: e.db };
+    return INFO_KEYS.has(k) ? { curated: true } : null;
+  }, [libMap]);
 
-  const startWorkout = useCallback(
-    (tpl) => {
-      const exercises = tpl.exercises.map((e) => {
-        const key = exKey(e.name);
-        const last = lastSets(key);
-        // Prefill priority: 1) last session  2) per-set plan  3) template default weight/reps
-        const sets = Array.from({ length: e.sets }, (_, i) => {
-          const src = last ? last[Math.min(i, last.length - 1)] : null;
-          if (src) return { weight: String(src.weight || ''), reps: String(src.reps || ''), time: String(src.time || ''), done: false };
-          const p = e.plan?.[i];
-          return {
-            weight: String(p?.w || e.weight || ''),
-            reps: String(p ? (typeof p.r === 'number' ? p.r : '') : firstNum(e.reps)),
-            time: String(p?.t || e.time || ''),
-            done: false,
-          };
-        });
-        const type = e.type || typeOf(e.name);
-        return { key, name: e.name, type, plan: type === 'time' ? t('count.sets', { n: e.sets }) : planLabel(e), hint: last ? '' : e.hint || '', note: e.note || '', sets };
-      });
-      setActive({
-        id: uid(), templateId: tpl.id, name: tpl.name, group: tpl.group || '', variant: tpl.variant || '',
-        startedAt: Date.now(), exercises,
-      });
-    },
-    [lastSets, typeOf]
-  );
-
-  const startEmptyWorkout = useCallback(() => {
-    setActive({ id: uid(), templateId: '', name: t('wo.emptyName'), group: '', variant: '', startedAt: Date.now(), exercises: [] });
-  }, []);
-
-  const discardWorkout = useCallback(() => setActive(null), []);
-
-  const finishWorkout = useCallback(async () => {
-    if (!active) return { empty: true };
-    const finishedAt = Date.now();
-    const exercises = active.exercises
-      .map((e) => ({ key: e.key, name: e.name, ...(e.type === 'time' ? { type: 'time' } : {}), sets: e.sets.filter(isDone).map((s) => (e.type === 'time' ? { weight: num(s.weight), reps: 0, time: num(s.time) } : { weight: num(s.weight), reps: num(s.reps) })) }))
-      .filter((e) => e.sets.length);
-    if (!exercises.length) return { empty: true };
-
-    const done = { id: active.id, templateId: active.templateId, name: active.name, group: active.group, variant: active.variant, startedAt: active.startedAt, finishedAt, exercises };
-    const nextPrs = { ...prs };
-    const updates = {};
-    let beaten = 0;
-    for (const e of exercises) {
-      for (const s of e.sets) {
-        if (better(s, nextPrs[e.key])) {
-          if (nextPrs[e.key]) beaten += 1;
-          nextPrs[e.key] = { weight: s.weight, reps: s.reps, ...(s.time ? { time: s.time } : {}), name: e.name, date: finishedAt };
-          updates[e.key] = nextPrs[e.key];
-        }
-      }
+  // Poslední zapsané série cviku (historie je seřazená od nejnovější)
+  const lastSets = useCallback((key) => {
+    for (const w of workouts) {
+      const e = w.exercises.find((x) => x.key === key);
+      if (e && e.sets.length) return e.sets;
     }
-    setWorkouts((w) => [done, ...w]);
-    setPrs(nextPrs);
-    setActive(null);
-    api.saveWorkout(done, updates).catch(fail('err.save'));
-    return { empty: false, beaten };
-  }, [active, prs, api, fail]);
+    return null;
+  }, [workouts]);
 
+  // ——— Historie ———
   const deleteWorkout = useCallback((id) => {
+    const w = workouts.find((x) => x.id === id);
+    if (!w) return;
     remember('undo.workout');
-    setWorkouts((w) => w.filter((x) => x.id !== id));
-    api.deleteWorkout(id).catch(fail('err.delete'));
-  }, [api, fail, remember]);
+    const remaining = workouts.filter((x) => x.id !== id);
+    const changes = changesAfterDelete(w, remaining, prs);
+    setWorkouts(remaining);
+    setPrs((p) => applyChanges(p, changes));
+    api.deleteWorkout(id, changes).catch(fail('err.delete'));
+  }, [workouts, prs, api, fail, remember]);
 
   const saveTemplate = useCallback((tpl) => {
     remember('undo.tpl');
     setCustom((c) => [...c.filter((x) => x.id !== tpl.id), tpl]);
     api.saveTemplate(tpl).catch(fail('err.save'));
   }, [api, fail, remember]);
-
   const deleteTemplate = useCallback((id) => {
     remember('undo.tplDel');
     setCustom((c) => c.filter((x) => x.id !== id));
     api.deleteTemplate(id).catch(fail('err.delete'));
   }, [api, fail, remember]);
 
-  // Exercise library
+  // ——— Knihovna ———
   const saveLibrary = useCallback((list) => {
     remember('undo.library');
-    setLibrary(list);
-    api.saveExercises(list).catch(fail('err.save'));
+    const next = list.map(toLibEntry).filter((e) => e.name).slice(0, LIMITS.library);
+    setLibrary(next);
+    api.saveExercises(next).catch(fail('err.save'));
   }, [api, fail, remember]);
   const addToLibrary = useCallback((ex) => {
+    const entry = toLibEntry(ex);
+    if (!entry.name) return;
     remember('undo.library');
     setLibrary((lib) => {
-      const next = [...lib.filter((x) => exKey(x.name) !== exKey(ex.name)), { name: ex.name, cat: normCat(ex.cat), ...(ex.type === 'time' || (!ex.type && normCat(ex.cat) === 'cardio') ? { type: 'time' } : {}), ...(ex.db ? { db: ex.db } : {}) }];
+      const next = [...lib.filter((x) => exKey(x.name) !== exKey(entry.name)), entry].slice(0, LIMITS.library);
       api.saveExercises(next).catch(fail('err.save'));
       return next;
     });
   }, [api, fail, remember]);
   const resetLibrary = useCallback(() => saveLibrary(EXERCISES), [saveLibrary]);
-  // Guide source: bundled guide, linked DB entry, or null (= custom exercise)
-  const infoOf = useCallback((name) => {
-    const k = exKey(name);
-    const e = library.find((x) => exKey(x.name) === k);
-    if (e?.db) return { db: e.db };
-    return INFO_KEYS.has(k) ? { curated: true } : null;
-  }, [library]);
-  const catOf = useCallback((name) => library.find((e) => exKey(e.name) === exKey(name))?.cat || null, [library]);
+
+  // ——— Aktivní trénink ———
+  const startWorkout = useCallback((tpl) => {
+    const exercises = tpl.exercises.map((e) => {
+      const key = exKey(e.name);
+      const last = lastSets(key);
+      // Předvyplnění: 1) poslední trénink 2) plán série 3) výchozí váha/opakování šablony
+      const sets = Array.from({ length: e.sets }, (_, i) => {
+        const src = last ? last[Math.min(i, last.length - 1)] : null;
+        if (src) return newSet(src);
+        const p = e.plan?.[i];
+        return newSet({ weight: p?.w || e.weight || '', reps: p ? (typeof p.r === 'number' ? p.r : '') : firstNum(e.reps), time: p?.t || e.time || '' });
+      });
+      const type = e.type || typeOf(e.name);
+      return { id: uid(), key, name: e.name, type, plan: type === 'time' ? t('count.sets', { n: e.sets }) : planLabel(e), hint: last ? '' : e.hint || '', note: e.note || '', sets };
+    });
+    setRest(null);
+    setActive({ id: uid(), templateId: tpl.id, name: tpl.name, group: tpl.group || '', variant: tpl.variant || '', startedAt: Date.now(), exercises });
+  }, [lastSets, typeOf]);
+
+  const startEmptyWorkout = useCallback(() => {
+    setRest(null);
+    setActive({ id: uid(), templateId: '', name: t('wo.emptyName'), group: '', variant: '', startedAt: Date.now(), exercises: [] });
+  }, []);
+  const discardWorkout = useCallback(() => { setActive(null); setRest(null); }, []);
+
+  const finishWorkout = useCallback(({ includeUnchecked = false } = {}) => {
+    if (!active) return { empty: true };
+    const draft = active, prevPrs = prs;
+    const finishedAt = Date.now();
+    const exercises = active.exercises
+      .map((e) => {
+        const timed = e.type === 'time';
+        const sets = e.sets
+          .filter((s) => isDone(s) || (includeUnchecked && hasValue(s, timed)))
+          .map((s) => sanitizeSet(s, timed))
+          .filter((s) => (timed ? s.time > 0 : s.reps > 0));
+        return { key: e.key, name: sanitizeName(e.name), ...(timed ? { type: 'time' } : {}), sets };
+      })
+      .filter((e) => e.sets.length)
+      .slice(0, LIMITS.exercises);
+    if (!exercises.length) return { empty: true };
+
+    const done = {
+      id: active.id, templateId: String(active.templateId || '').slice(0, 60), name: sanitizeName(active.name) || t('wo.emptyName'),
+      group: sanitizeName(active.group, 20), variant: sanitizeName(active.variant, LIMITS.variant),
+      startedAt: active.startedAt, finishedAt: Math.max(finishedAt, active.startedAt), exercises,
+    };
+    const { next, updates, beaten } = applyWorkout(done, prs);
+    setWorkouts((w) => [done, ...w.filter((x) => x.id !== done.id)]);
+    setPrs(next);
+    setActive(null);
+    setRest(null);
+    // Offline se zápis zařadí do fronty a odešle později. Selže jen při odmítnutí serverem → vrátit draft.
+    api.saveWorkout(done, updates).catch((e) => {
+      console.error(e);
+      setActive((cur) => cur || draft);
+      setPrs(prevPrs);
+      setWorkouts((w) => w.filter((x) => x.id !== done.id));
+      notify(t('err.saveWorkout', { m: e?.code || e?.message || '?' }), { duration: 8000 });
+    });
+    return { empty: false, beaten };
+  }, [active, prs, api, notify]);
 
   const patchActive = useCallback((fn) => setActive((a) => (a ? fn(a) : a)), []);
   const addExerciseToActive = useCallback((ex) => {
     const key = exKey(ex.name);
     const last = lastSets(key);
     const type = ex.type || typeOf(ex.name);
-    const sets = (last || [{ weight: '', reps: '', time: '' }]).map((s) => ({ weight: String(s.weight || ''), reps: String(s.reps || ''), time: String(s.time || ''), done: false }));
-    while (sets.length < (type === 'time' ? 1 : 3)) sets.push({ ...sets[sets.length - 1], done: false });
-    patchActive((a) => ({ ...a, exercises: [...a.exercises, { key, name: ex.name, type, plan: '', hint: '', note: '', sets }] }));
+    const sets = (last || [{}]).map(newSet);
+    while (sets.length < (type === 'time' ? 1 : 3)) sets.push(newSet(sets[sets.length - 1]));
+    patchActive((a) => ({ ...a, exercises: [...a.exercises, { id: uid(), key, name: ex.name, type, plan: '', hint: '', note: '', sets }] }));
   }, [lastSets, patchActive, typeOf]);
 
-  const value = {
-    user, loading, mode: backend.mode,
-    signIn: () => backend.signIn().catch(fail('err.login')),
-    signOut: async () => {
-      await backend.signOut();
-      setCustom([]); setWorkouts([]); setPrs({}); setLibrary(EXERCISES); setProfileState(null); setMainStore({}); setUndoStack([]);
-    },
-    templates, workouts, prs, active, setActive, patchActive,
-    startWorkout, startEmptyWorkout, discardWorkout, finishWorkout, deleteWorkout, saveTemplate, deleteTemplate, addExerciseToActive,
+  // ——— Pauza ———
+  const startRest = useCallback(() => {
+    const total = getRestDefault();
+    if (total > 0) setRest({ until: Date.now() + total * 1000, total });
+  }, []);
+  const adjustRest = useCallback((delta) => setRest((r) => (r ? { ...r, until: Math.max(Date.now() + 5000, r.until + delta * 1000), total: Math.max(5, r.total + delta) } : r)), []);
+  const stopRest = useCallback(() => setRest(null), []);
+
+  const signIn = useCallback(() => { setDenied(null); return backend.signIn().catch(fail('err.login')); }, [fail]);
+  const signOut = useCallback(async () => {
+    flushDraft();
+    draftOwner.current = null; // draft zůstane uložený pro svého majitele
+    await backend.signOut();
+    setActive(null); setRest(null);
+    setCustom([]); setWorkouts([]); setPrs({}); setLibrary(EXERCISES); setProfileState(null); setMainStore({}); setUndoStack([]);
+  }, [flushDraft]);
+
+  const live = Boolean(active);
+  const loading = metaLoading || (Boolean(user) && !workoutsReady);
+  const data = useMemo(() => ({
+    user, denied, loading, mode: backend.mode, signIn, signOut, live, sync, online,
+    templates, workouts, prs, deleteWorkout, saveTemplate, deleteTemplate, startWorkout, startEmptyWorkout,
     library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf,
     profile, prof, setProfile, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, resetMain,
-    undoStack, undo,
-    toast, notify,
-  };
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+    undoStack, undo, notify,
+  }), [user, denied, loading, signIn, signOut, live, sync, online, templates, workouts, prs, deleteWorkout, saveTemplate, deleteTemplate, startWorkout, startEmptyWorkout,
+    library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf, profile, prof, setProfile, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, resetMain, undoStack, undo, notify]);
+
+  const session = useMemo(() => ({
+    active, patchActive, finishWorkout, discardWorkout, addExerciseToActive, prs, notify, rest, startRest, adjustRest, stopRest,
+  }), [active, patchActive, finishWorkout, discardWorkout, addExerciseToActive, prs, notify, rest, startRest, adjustRest, stopRest]);
+
+  const toastValue = useMemo(() => ({ toast, notify, dismissToast }), [toast, notify, dismissToast]);
+
+  return (
+    <DataCtx.Provider value={data}>
+      <SessionCtx.Provider value={session}>
+        <ToastCtx.Provider value={toastValue}>{children}</ToastCtx.Provider>
+      </SessionCtx.Provider>
+    </DataCtx.Provider>
+  );
 }

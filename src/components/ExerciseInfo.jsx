@@ -3,6 +3,7 @@ import { exKey } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
 import { useStore } from '../lib/store.jsx';
 import { DB_IMG, loadDb } from '../lib/exerciseDb.js';
+import Sheet from './Sheet.jsx';
 
 // Instructions + photos from free-exercise-db (github.com/yuhonas/free-exercise-db, public domain).
 const IMG = DB_IMG;
@@ -43,9 +44,7 @@ function InfoSheet({ name, db, onClose }) {
   const yt = `https://www.youtube.com/results?search_query=${encodeURIComponent(name + ' exercise form')}`;
 
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet info-sheet" role="dialog" aria-label={name} onClick={(e) => e.stopPropagation()}>
-        <div className="sheet-grip" />
+    <Sheet label={name} onClose={onClose} className="info-sheet">
         <div className="sheet-head">
           <h2>{name}</h2>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>{t('pick.close')}</button>
@@ -56,7 +55,7 @@ function InfoSheet({ name, db, onClose }) {
             <>
               <div className="info-photos">
                 {info.images.map((src, i) => (
-                  <img key={src} src={IMG + src} alt="" loading="lazy" className={i === frame ? 'is-on' : ''} />
+                  <img key={src} src={IMG + src} alt={i === 0 ? t('info.photo', { name }) : ''} loading="lazy" className={i === frame ? 'is-on' : ''} />
                 ))}
               </div>
               <div className="info-meta">
@@ -69,7 +68,6 @@ function InfoSheet({ name, db, onClose }) {
           {info === null && <p className="empty">{t('info.none')}</p>}
           <a className="btn btn-ghost btn-block" href={yt} target="_blank" rel="noreferrer">{t('info.video')}</a>
         </div>
-      </div>
-    </div>
+    </Sheet>
   );
 }

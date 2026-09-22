@@ -23,7 +23,7 @@ const niceMax = (v) => {
   return [1, 2, 2.5, 5, 10].map((m) => m * p).find((m) => m >= v);
 };
 
-export function BarChart({ data, unit = '', height = 180, format = fmtNum }) {
+export function BarChart({ data, unit = '', height = 180, format = fmtNum, label = '' }) {
   const [hover, setHover] = useState(null);
   const [ref, W] = useWidth();
   const H = height, pad = { l: 36, r: 8, t: 12, b: 24 };
@@ -33,7 +33,7 @@ export function BarChart({ data, unit = '', height = 180, format = fmtNum }) {
   const every = Math.ceil(data.length / Math.max(2, Math.floor(W / 70)));
   return (
     <div className="chart" ref={ref}>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Bar chart">
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t('chart.bar', { name: label })}>
         {[0, 0.5, 1].map((f) => (
           <g key={f}>
             <line x1={pad.l} x2={W - pad.r} y1={pad.t + ih * (1 - f)} y2={pad.t + ih * (1 - f)} className="grid" />
@@ -43,7 +43,7 @@ export function BarChart({ data, unit = '', height = 180, format = fmtNum }) {
         {data.map((d, i) => {
           const h = (d.value / max) * ih;
           return (
-            <g key={i} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} onClick={() => setHover(i)}>
+            <g key={i} onPointerEnter={() => setHover(i)} onPointerLeave={(e) => e.pointerType === 'mouse' && setHover(null)} onPointerDown={() => setHover(i)}>
               <rect x={pad.l + i * bw} y={pad.t} width={bw} height={ih} fill="transparent" />
               <rect x={pad.l + i * bw + bw * 0.18} y={pad.t + ih - h} width={bw * 0.64} height={Math.max(h, d.value ? 1 : 0)} className={'bar' + (hover === i ? ' is-hover' : '')} rx="2" />
               {i % every === 0 && <text x={pad.l + i * bw + bw / 2} y={H - 6} className="axis" textAnchor="middle">{d.label}</text>}
@@ -56,7 +56,7 @@ export function BarChart({ data, unit = '', height = 180, format = fmtNum }) {
   );
 }
 
-export function LineChart({ series, height = 200, unit = '' }) {
+export function LineChart({ series, height = 200, unit = '', label = '' }) {
   const [hover, setHover] = useState(null);
   const [ref, W] = useWidth();
   const H = height, pad = { l: 36, r: 12, t: 12, b: 24 };
@@ -71,17 +71,19 @@ export function LineChart({ series, height = 200, unit = '' }) {
   const sy = (y) => pad.t + ih * (1 - (y - yMin) / (yMax - yMin || 1));
   const main = series[0].points;
   const date = (t) => new Date(t).toLocaleDateString(locale(), { day: 'numeric', month: 'numeric' });
+  const pick = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width) * W;
+    let best = 0;
+    main.forEach((p, i) => { if (Math.abs(sx(p.x) - x) < Math.abs(sx(main[best].x) - x)) best = i; });
+    setHover(best);
+  };
   return (
     <div className="chart" ref={ref}>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Line chart"
-        onMouseLeave={() => setHover(null)}
-        onMouseMove={(e) => {
-          const r = e.currentTarget.getBoundingClientRect();
-          const x = ((e.clientX - r.left) / r.width) * W;
-          let best = 0;
-          main.forEach((p, i) => { if (Math.abs(sx(p.x) - x) < Math.abs(sx(main[best].x) - x)) best = i; });
-          setHover(best);
-        }}>
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t('chart.line', { name: label })} style={{ touchAction: 'pan-y' }}
+        onPointerLeave={(e) => e.pointerType === 'mouse' && setHover(null)}
+        onPointerDown={pick}
+        onPointerMove={pick}>
         {[0, 0.5, 1].map((f) => {
           const v = yMin + (yMax - yMin) * f;
           return (
@@ -138,7 +140,7 @@ export function Heatmap({ days, weeks = 18 }) {
   const s = 14, g = 3;
   return (
     <div className="chart">
-      <svg viewBox={`0 0 ${weeks * (s + g) + 20} ${7 * (s + g)}`} className="heatmap" role="img" aria-label="Attendance">
+      <svg viewBox={`0 0 ${weeks * (s + g) + 20} ${7 * (s + g)}`} className="heatmap" role="img" aria-label={t('an.attendanceAria', { n: Object.values(days).reduce((a, b) => a + b, 0) })}>
         {[t('an.mon'), t('an.wed'), t('an.fri')].map((l, i) => <text key={l} x="0" y={i * 2 * (s + g) + 11} className="axis">{l}</text>)}
         {cells.map((c) => (
           <rect key={c.t} x={20 + c.w * (s + g)} y={c.d * (s + g)} width={s} height={s} rx="2"

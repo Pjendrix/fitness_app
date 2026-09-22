@@ -1,6 +1,7 @@
 import { locale, t } from './i18n.js';
 
-export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+export const uid = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '').slice(0, 16) : Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 
 // Exercise key: same name => shared history and PB across templates.
 export const exKey = (name) =>
@@ -59,3 +60,21 @@ export const clean = (o) => JSON.parse(JSON.stringify(o)); // Firestore rejects 
 
 export const planLabel = (e) =>
   !e.reps || !/^(\d|max)/.test(e.reps) ? t('count.sets', { n: e.sets }) : `${e.sets}× ${e.reps}`;
+
+// ——— Validace vstupů (poslední obrana před zápisem; rules hlídají strukturu) ———
+export const LIMITS = { weight: 500, reps: 200, time: 600, name: 80, variant: 40, exercises: 40, library: 1500 };
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+export const sanitizeSet = (s, timed) =>
+  timed
+    ? { weight: clamp(Math.round(num(s.weight) * 100) / 100, 0, LIMITS.weight), reps: 0, time: clamp(Math.round(num(s.time) * 100) / 100, 0, LIMITS.time) }
+    : { weight: clamp(Math.round(num(s.weight) * 100) / 100, 0, LIMITS.weight), reps: clamp(Math.round(num(s.reps)), 0, LIMITS.reps) };
+export const sanitizeName = (n, max = LIMITS.name) => String(n ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+
+// Filtry pro textová pole (povolí i rozepsané hodnoty jako "82," nebo "").
+export const DECIMAL_INPUT = /^\d{0,3}([.,]\d{0,2})?$/;
+export const INT_INPUT = /^\d{0,3}$/;
+
+// Série vyplněná, ale neodškrtnutá
+export const hasValue = (s, timed) => (timed ? num(s.time) > 0 : num(s.reps) > 0);
+export const countUnchecked = (active) =>
+  (active?.exercises || []).reduce((n, e) => n + e.sets.filter((s) => !s.done && hasValue(s, e.type === 'time')).length, 0);

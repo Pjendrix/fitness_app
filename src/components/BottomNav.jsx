@@ -18,7 +18,7 @@ const PARENT = { stats: 'history', exercises: 'settings' };
 export default function BottomNav({ tab, go, live }) {
   const current = (id) => tab === id || PARENT[tab] === id;
   return (
-    <nav className="nav" aria-label="Main">
+    <nav className="nav" aria-label={t('nav.main')}>
       <div className="nav-brand"><span className="brand-mark">▮▮</span> Forge <ProfileBadge /></div>
       {TABS.map(({ id, Icon, desktop }) => (
         <button key={id} className={'nav-item' + (desktop ? ' desktop-only' : '') + (current(id) ? ' is-mobile-active' : '') + (tab === id ? ' is-active' : '')} onClick={() => go(id)} aria-current={tab === id ? 'page' : undefined}>

@@ -1,9 +1,78 @@
 rules_version = '2';
+// Forge – přístup jen pro dva povolené Google účty; každý vidí a mění jen svá data.
+// Vše, co tu není výslovně povolené, je zakázané.
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Každý uživatel vidí a mění jen svá data.
-    match /users/{uid}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+    function signedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    // Musí odpovídat src/lib/access.js
+    function allowed() {
+      return request.auth.token.email.lower() in ['tofbenka@gmail.com', 'chiaralari24@gmail.com'];
+    }
+    function owner(uid) {
+      return signedIn() && allowed() && request.auth.uid == uid;
+    }
+    function str(v, max) {
+      return v is string && v.size() <= max;
+    }
+    function num(v, lo, hi) {
+      return v is number && v >= lo && v <= hi;
+    }
+
+    // ——— Odcvičené tréninky ———
+    match /users/{uid}/workouts/{id} {
+      allow read, delete: if owner(uid);
+      allow create, update: if owner(uid) && validWorkout(request.resource.data, id);
+    }
+    function validWorkout(d, id) {
+      return d.keys().hasOnly(['id', 'templateId', 'name', 'group', 'variant', 'startedAt', 'finishedAt', 'exercises'])
+        && d.keys().hasAll(['id', 'name', 'startedAt', 'finishedAt', 'exercises'])
+        && d.id == id
+        && str(d.name, 80)
+        && (!('templateId' in d) || str(d.templateId, 60))
+        && (!('group' in d) || str(d.group, 20))
+        && (!('variant' in d) || str(d.variant, 40))
+        && d.startedAt is int && d.finishedAt is int
+        && d.finishedAt >= d.startedAt
+        && d.finishedAt <= request.time.toMillis() + 86400000
+        && d.exercises is list && d.exercises.size() > 0 && d.exercises.size() <= 40;
+    }
+
+    // ——— Osobní rekordy ———
+    match /users/{uid}/prs/{key} {
+      allow read, delete: if owner(uid);
+      allow create, update: if owner(uid) && key.size() <= 120 && validPr(request.resource.data);
+    }
+    function validPr(d) {
+      return d.keys().hasOnly(['name', 'weight', 'reps', 'time', 'date'])
+        && str(d.name, 80)
+        && num(d.weight, 0, 500)
+        && num(d.reps, 0, 200)
+        && (!('time' in d) || num(d.time, 0, 600))
+        && d.date is int;
+    }
+
+    // ——— Vlastní šablony ———
+    match /users/{uid}/templates/{id} {
+      allow read, delete: if owner(uid);
+      allow create, update: if owner(uid)
+        && request.resource.data.id == id
+        && str(request.resource.data.name, 80)
+        && request.resource.data.exercises is list
+        && request.resource.data.exercises.size() <= 40;
+    }
+
+    // ——— Nastavení: knihovna cviků, profil, upravené hlavní šablony ———
+    match /users/{uid}/meta/{doc} {
+      allow read: if owner(uid);
+      allow delete: if false;
+      allow create, update: if owner(uid) && (
+        (doc == 'profile' && request.resource.data.keys().hasOnly(['id']) && request.resource.data.id in ['krystof', 'chiara'])
+        || (doc == 'exercises' && request.resource.data.keys().hasOnly(['list', 'v']) && request.resource.data.list is list && request.resource.data.list.size() <= 1500)
+        || (doc == 'main' && request.resource.data.keys().hasOnly(['krystof', 'chiara']))
+      );
     }
   }
 }

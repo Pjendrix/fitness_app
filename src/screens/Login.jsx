@@ -3,7 +3,7 @@ import { GoogleIcon } from '../components/Icons.jsx';
 import { t } from '../lib/i18n.js';
 
 export default function Login() {
-  const { signIn, mode } = useStore();
+  const { signIn, mode, denied } = useStore();
   return (
     <main className="login">
       <div className="login-mark" aria-hidden="true">
@@ -16,6 +16,7 @@ export default function Login() {
       <button className="btn btn-primary btn-lg" onClick={signIn}>
         {mode === 'firebase' ? (<><GoogleIcon /> {t('login.google')}</>) : t('login.demo')}
       </button>
+      {denied && <p className="login-error" role="alert">{t('login.denied', { email: denied })}</p>}
       {mode === 'demo' && <p className="login-note">{t('login.demoNote')}</p>}
     </main>
   );

@@ -2,11 +2,12 @@ import { useMemo, useRef, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { CATEGORIES, normCat } from '../data/exercises.js';
 import { download, parseCsv, toCsv } from '../lib/csv.js';
-import { exKey, fmtSet } from '../lib/util.js';
+import { exKey, fmtSet, LIMITS, sanitizeName } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
 import ExercisePicker, { norm, TypeTag } from '../components/ExercisePicker.jsx';
 import { PlusIcon, TrashIcon } from '../components/Icons.jsx';
 import { InfoButton } from '../components/ExerciseInfo.jsx';
+import { useDialog } from '../components/Dialog.jsx';
 
 export default function Exercises() {
   const { library, saveLibrary, addToLibrary, prs, workouts, notify } = useStore();
@@ -16,6 +17,7 @@ export default function Exercises() {
   const [type, setType] = useState('reps');
   const [browsing, setBrowsing] = useState(false);
   const file = useRef(null);
+  const dialog = useDialog();
 
   const counts = useMemo(() => {
     const c = {};
@@ -29,7 +31,7 @@ export default function Exercises() {
     .filter((g) => g.items.length);
 
   const add = () => {
-    const n = name.trim();
+    const n = sanitizeName(name);
     if (!n) return;
     if (library.some((e) => exKey(e.name) === exKey(n))) return notify(t('ex.exists'));
     addToLibrary({ name: n, cat, type });
@@ -47,11 +49,18 @@ export default function Exercises() {
     const body = head && head[0] === 'name' ? rows.slice(1) : rows;
     const seen = new Set();
     const list = body
-      .filter((r) => r[0])
-      .map((r) => { const cat = normCat(r[1]); const time = /^(time|cas|čas)$/i.test(r[2] || '') || (!r[2] && cat === 'cardio'); const db = r[3] ? { db: r[3] } : {}; return time ? { name: r[0], cat, type: 'time', ...db } : { name: r[0], cat, ...db }; })
+      .filter((r) => sanitizeName(r[0]))
+      .slice(0, LIMITS.library)
+      .map((r) => { const cat = normCat(r[1]); const time = /^(time|cas|čas)$/i.test(r[2] || '') || (!r[2] && cat === 'cardio'); const db = r[3] ? { db: r[3] } : {}; const name = sanitizeName(r[0]); return time ? { name, cat, type: 'time', ...db } : { name, cat, ...db }; })
       .filter((e) => !seen.has(exKey(e.name)) && seen.add(exKey(e.name)));
     if (!list.length) return notify(t('ex.importFail'));
-    if (window.confirm(t('ex.importMode'))) {
+    const mode = await dialog.choose({
+      title: t('ex.importTitle', { n: list.length }),
+      message: t('ex.importMode'),
+      actions: [{ value: 'merge', label: t('ex.importMerge'), primary: true }, { value: 'replace', label: t('ex.importReplace'), danger: true }, { value: null, label: t('dlg.cancel') }],
+    });
+    if (!mode) return;
+    if (mode === 'replace') {
       saveLibrary(list);
     } else {
       const have = new Map(library.map((e) => [exKey(e.name), e]));
@@ -61,7 +70,7 @@ export default function Exercises() {
     notify(t('ex.imported', { n: list.length }));
   };
 
-  const remove = (e) => window.confirm(t('ex.confirmDelete', { name: e.name })) && saveLibrary(library.filter((x) => x !== e));
+  const remove = async (e) => (await dialog.confirm(t('ex.confirmDelete', { name: e.name }), { danger: true, ok: t('ex.delete') })) && saveLibrary(library.filter((x) => x !== e));
   const recat = (e, c) => saveLibrary(library.map((x) => (x === e ? { ...x, cat: c } : x)));
 
   return (
@@ -79,7 +88,7 @@ export default function Exercises() {
 
       <p className="label" style={{ margin: '6px 0 -4px' }}>{t('ex.customTitle')}</p>
       <div className="card ex-add">
-        <input className="input" placeholder={t('ex.namePh')} value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
+        <input className="input" maxLength={80} placeholder={t('ex.namePh')} value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
         <select className="input" value={cat} onChange={(e) => { setCat(e.target.value); if (e.target.value === 'cardio') setType('time'); }} aria-label={t('pick.category')}>
           {CATEGORIES.map((c) => <option key={c} value={c}>{t('cat.' + c)}</option>)}
         </select>
@@ -101,7 +110,7 @@ export default function Exercises() {
               return (
                 <div className="lib-row" key={e.name}>
                   <div className="lib-main">
-                    <span>{e.name} <InfoButton name={e.name} /> <button className="type-toggle" title={t('type.label')} onClick={() => saveLibrary(library.map((x) => (x === e ? (e.type === 'time' ? (({ type, ...rest }) => rest)(x) : { ...x, type: 'time' }) : x)))}><TypeTag type={e.type} /></button></span>
+                    <span>{e.name} <InfoButton name={e.name} /> <button className="type-toggle" title={t('type.label')} onClick={() => saveLibrary(library.map((x) => (x === e ? (e.type === 'time' ? (({ type: _type, ...rest }) => rest)(x) : { ...x, type: 'time' }) : x)))}><TypeTag type={e.type} /></button></span>
                     <span className="label">{[prs[k] && `PB ${fmtSet(prs[k].weight, prs[k].reps, prs[k].time)}`, counts[k] && t('ex.sessions', { n: counts[k] })].filter(Boolean).join(' · ')}</span>
                   </div>
                   <select className="lib-cat" value={e.cat} onChange={(ev) => recat(e, ev.target.value)} aria-label={t('pick.category')}>

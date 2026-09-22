@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { colorHex, TEMPLATE_COLORS } from '../data/defaultTemplates.js';
-import { exKey, planLabel, uid } from '../lib/util.js';
+import { DECIMAL_INPUT, exKey, LIMITS, planLabel, sanitizeName, uid } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
 import { ChevronIcon, CopyIcon, PencilIcon, PlusIcon, TrashIcon, XIcon } from '../components/Icons.jsx';
 import ExercisePicker from '../components/ExercisePicker.jsx';
 import { InfoButton } from '../components/ExerciseInfo.jsx';
+import { useDialog } from '../components/Dialog.jsx';
 
 const setCount = (tpl) => tpl.exercises.reduce((s, e) => s + e.sets, 0);
 
 function TemplateCard({ tpl, onStart, onEdit, onDelete, onDuplicate }) {
   const [open, setOpen] = useState(false);
+  const dialog = useDialog();
   const color = colorHex(tpl.color);
   return (
     <div className={'card tpl tinted' + (tpl.variant === 'Hardcore' ? ' is-hard' : '')} style={color ? { '--tint': color } : undefined}>
@@ -35,7 +37,7 @@ function TemplateCard({ tpl, onStart, onEdit, onDelete, onDuplicate }) {
         <button className="btn btn-primary btn-sm" onClick={() => onStart(tpl)}>{t('tpl.start')}</button>
         <button className="btn btn-ghost btn-sm" onClick={() => onEdit(tpl)}>{t('tpl.edit')}</button>
         {onDuplicate && <button className="icon-btn" aria-label={t('tpl.duplicate')} title={t('tpl.duplicate')} onClick={() => onDuplicate(tpl)}><CopyIcon width={16} height={16} /></button>}
-        {onDelete && <button className="icon-btn danger" aria-label={t('tpl.delete')} onClick={() => window.confirm(t('tpl.confirmDelete')) && onDelete(tpl.id)}><TrashIcon width={17} height={17} /></button>}
+        {onDelete && <button className="icon-btn danger" aria-label={t('tpl.delete')} onClick={async () => (await dialog.confirm(t('tpl.confirmDelete'), { danger: true, ok: t('tpl.delete') })) && onDelete(tpl.id)}><TrashIcon width={17} height={17} /></button>}
       </div>
     </div>
   );
@@ -82,10 +84,10 @@ function Editor({ initial, onSave, onClose, typeOf, isMain, groupLabel }) {
           {isMain ? (
             <label className="mini variant-field">
               <span className="label">{t('tpl.variant')}</span>
-              <span className="variant-input"><span className="group-fixed">{groupLabel}</span><input className="input" autoFocus value={variant} placeholder="A" onChange={(e) => setVariant(e.target.value)} /></span>
+              <span className="variant-input"><span className="group-fixed">{groupLabel}</span><input className="input" autoFocus maxLength={40} value={variant} placeholder="A" onChange={(e) => setVariant(e.target.value)} /></span>
             </label>
           ) : (
-            <input className="input" placeholder={t('tpl.name')} value={name} onChange={(e) => setName(e.target.value)} />
+            <input className="input" maxLength={80} placeholder={t('tpl.name')} value={name} onChange={(e) => setName(e.target.value)} />
           )}
         </div>
         <div className="editor-color"><span className="label">{t('tpl.color')}</span><ColorPicker value={color} onChange={setColor} /></div>
@@ -106,9 +108,9 @@ function Editor({ initial, onSave, onClose, typeOf, isMain, groupLabel }) {
               : <Stepper value={parseInt(e.reps, 10) || 8} min={1} max={50} onChange={(v) => upd(i, { reps: String(v) })} />}
           </div>
           )}
-          <label className="mini"><span className="label">{t('tpl.kg')}</span><input className="input" inputMode="decimal" value={e.weight ?? ''} placeholder="–" onChange={(ev) => upd(i, { weight: ev.target.value })} /></label>
+          <label className="mini"><span className="label">{t('tpl.kg')}</span><input className="input" inputMode="decimal" value={e.weight ?? ''} placeholder="–" onChange={(ev) => { const v = ev.target.value; if (v === '' || DECIMAL_INPUT.test(v)) upd(i, { weight: v }); }} /></label>
           <button className="icon-btn" aria-label={t('tpl.remove')} onClick={() => setItems((l) => l.filter((_, j) => j !== i))}><XIcon width={16} height={16} /></button>
-          <input className="input edit-note" value={e.note || ''} placeholder={t('tpl.note')} onChange={(ev) => upd(i, { note: ev.target.value })} />
+          <input className="input edit-note" maxLength={120} value={e.note || ''} placeholder={t('tpl.note')} onChange={(ev) => upd(i, { note: ev.target.value })} />
         </div>
       ))}
       <button className="btn btn-ghost btn-sm" onClick={() => setPicking(true)}><PlusIcon width={16} height={16} /> {t('wo.addEx')}</button>
@@ -128,11 +130,12 @@ function Editor({ initial, onSave, onClose, typeOf, isMain, groupLabel }) {
 }
 
 export default function Templates({ go }) {
-  const { templates, active, startWorkout, saveTemplate, deleteTemplate, typeOf, main, groupSub, groupLabel, saveMainTemplate, deleteMainTemplate, renameGroup, notify } = useStore();
+  const dialog = useDialog();
+  const { templates, live, startWorkout, saveTemplate, deleteTemplate, typeOf, main, groupSub, groupLabel, saveMainTemplate, deleteMainTemplate, renameGroup, notify } = useStore();
   const [editing, setEditing] = useState(null); // {tpl, main: bool}
 
-  const start = (tpl) => {
-    if (active && !window.confirm(t('wo.replace'))) return;
+  const start = async (tpl) => {
+    if (live && !(await dialog.confirm(t('wo.replace'), { danger: true, ok: t('tpl.start') }))) return;
     startWorkout(tpl);
     go('workout');
   };
@@ -140,7 +143,16 @@ export default function Templates({ go }) {
     setEditing({ tpl, main: isMain });
     setTimeout(() => document.querySelector(isMain ? '.editor-anchor-main' : '.editor-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   };
-  const normalise = (tpl) => ({ ...tpl, exercises: tpl.exercises.map((e) => ({ ...e, weight: e.weight === '' || e.weight == null ? '' : Number(String(e.weight).replace(',', '.')) || '' })) });
+  const normalise = (tpl) => ({
+    ...tpl,
+    ...(tpl.name != null ? { name: sanitizeName(tpl.name) } : {}),
+    ...(tpl.variant != null ? { variant: sanitizeName(tpl.variant, LIMITS.variant) } : {}),
+    exercises: tpl.exercises.slice(0, LIMITS.exercises).map((e) => ({
+      ...e,
+      note: sanitizeName(e.note || '', 120),
+      weight: e.weight === '' || e.weight == null ? '' : Math.min(LIMITS.weight, Math.max(0, Number(String(e.weight).replace(',', '.')) || 0)) || '',
+    })),
+  });
   const save = (tpl) => {
     if (editing.main) { const { builtin, name, ...rest } = normalise(tpl); saveMainTemplate(rest); }
     else saveTemplate(normalise(tpl));
@@ -156,11 +168,16 @@ export default function Templates({ go }) {
     const variant = [...letters].find((l) => !inGroup.some((x) => x.variant === l)) || String(inGroup.length + 1);
     openEditor({ id: `m-${uid()}`, group: g.id, variant, color: '', exercises: [] }, true);
   };
-  const rename = (g) => {
-    const label = window.prompt(t('tpl.groupName'), g.label);
-    if (label == null || !label.trim()) return;
-    const sub = window.prompt(t('tpl.groupSub'), g.sub || groupSub(g.id));
-    renameGroup(g.id, label.trim().toUpperCase(), sub == null ? g.sub : sub.trim());
+  const rename = async (g) => {
+    const v = await dialog.form({
+      title: t('tpl.renameGroup'),
+      fields: [
+        { name: 'label', label: t('tpl.groupName'), value: g.label, maxLength: 20, required: true },
+        { name: 'sub', label: t('tpl.groupSub'), value: g.sub || groupSub(g.id), maxLength: 80 },
+      ],
+    });
+    if (!v) return;
+    renameGroup(g.id, v.label.trim().toUpperCase(), v.sub.trim());
   };
   const removeMain = (tpl) => {
     if (main.templates.filter((x) => x.group === tpl.group).length <= 1) return notify(t('tpl.lastInGroup'));

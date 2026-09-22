@@ -1,5 +1,7 @@
 // Minimal CSV helpers (RFC 4180 quotes; comma or semicolon separator).
-const q = (v) => (/[",;\n]/.test(v) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
+// Buňky začínající =, +, -, @ by Excel spustil jako vzorec → prefix apostrofem (CSV injection).
+const safe = (v) => { const s = String(v ?? ''); return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s; };
+const q = (v) => { const s = safe(v); return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
 export const toCsv = (rows) => rows.map((r) => r.map(q).join(',')).join('\n');
 
 export function parseCsv(text) {

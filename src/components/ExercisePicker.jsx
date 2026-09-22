@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import Sheet from './Sheet.jsx';
 import { fromDb, loadDb } from '../lib/exerciseDb.js';
 import { CATEGORIES } from '../data/exercises.js';
 import { useStore } from '../lib/store.jsx';
-import { exKey } from '../lib/util.js';
+import { exKey, sanitizeName } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
 import { PlusIcon } from './Icons.jsx';
 
@@ -31,34 +32,34 @@ export default function ExercisePicker({ onPick, onClose, exclude = [], mode }) 
     if (!wantDb || db) return;
     loadDb().then(setDb).catch(() => setDbErr(true));
   }, [wantDb, db]);
-  const inLib = new Set(library.map((e) => exKey(e.name)));
-  const dbList = !db || !wantDb ? [] : db
-    .map(fromDb)
-    .filter((e) => !inLib.has(exKey(e.name)) && (cat === 'all' || e.cat === cat) && norm(e.name).includes(query))
+  const inLib = useMemo(() => new Set(library.map((e) => exKey(e.name))), [library]);
+  const dbMapped = useMemo(() => (db ? db.map((x) => ({ ...fromDb(x), n: norm(x.name) })) : []), [db]);
+  const dbList = !wantDb ? [] : dbMapped
+    .filter((e) => !inLib.has(exKey(e.name)) && (cat === 'all' || e.cat === cat) && e.n.includes(query))
     .slice(0, 60);
-  const pickDb = (ex) => { addToLibrary(ex); onPick(ex); };
+  const pickDb = ({ n, ...ex }) => { void n; addToLibrary(ex); onPick(ex); };
 
   const list = dbOnly ? [] : library
     .filter((e) => (cat === 'all' || e.cat === cat) && norm(e.name).includes(query))
     .sort((a, b) => a.name.localeCompare(b.name));
-  const exact = library.some((e) => norm(e.name) === query) || dbList.some((e) => norm(e.name) === query);
+  const exact = library.some((e) => norm(e.name) === query) || dbList.some((e) => e.n === query);
   const skip = new Set(exclude);
 
   const createCustom = () => {
-    const ex = { name: q.trim(), cat: newCat, type: newType };
+    const name = sanitizeName(q);
+    if (!name) return;
+    const ex = { name, cat: newCat, type: newType };
     addToLibrary(ex);
     onPick(ex);
   };
 
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" role="dialog" aria-label={t('pick.title')} onClick={(e) => e.stopPropagation()}>
-        <div className="sheet-grip" />
+    <Sheet label={dbOnly ? t('ex.browse') : t('pick.title')} onClose={onClose}>
         <div className="sheet-head">
           <h2>{dbOnly ? t('ex.browse') : t('pick.title')}</h2>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>{t('pick.close')}</button>
         </div>
-        <input className="input" autoFocus placeholder={t('pick.search')} value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="input" autoFocus maxLength={80} type="search" aria-label={t('pick.search')} placeholder={t('pick.search')} value={q} onChange={(e) => setQ(e.target.value)} />
         <div className="chips">
           {['all', ...CATEGORIES].map((c) => (
             <button key={c} className={'chip' + (cat === c ? ' is-on' : '')} onClick={() => setCat(c)}>{c === 'all' ? t('pick.all') : t('cat.' + c)}</button>
@@ -111,7 +112,6 @@ export default function ExercisePicker({ onPick, onClose, exclude = [], mode }) 
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </Sheet>
   );
 }

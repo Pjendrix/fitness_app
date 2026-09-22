@@ -31,7 +31,7 @@ const D = {
     'home.recentPrs': 'Recent records', 'home.allStats': 'All analytics', 'home.noPrs': 'Records appear after your first finished workout.',
     'home.openStats': 'Open analytics',
     'groups.PUSH': 'Chest, shoulders, triceps', 'groups.PULL': 'Back, rear delts, biceps', 'groups.LEGS': 'Legs, glutes, abs', 'groups.UPPER': 'Back, shoulders, arms', 'groups.LOWER': 'Glutes, hamstrings, quads', 'groups.ABS': 'Core & cardio',
-    'count.exercises': '{n} exercises', 'count.sets': '{n} sets',
+    'count.exercises': { one: '{n} exercise', other: '{n} exercises' }, 'count.sets': { one: '{n} set', other: '{n} sets' },
     // workout
     'wo.title': 'Workout', 'wo.none': 'No workout in progress.', 'wo.pickTemplate': 'Choose a template', 'wo.emptyName': 'Quick workout',
     'wo.finish': 'Finish', 'wo.sets': '{done}/{total} sets', 'wo.recommended': 'suggested {w}', 'wo.pb': 'Personal best',
@@ -49,7 +49,7 @@ const D = {
     'hist.title': 'History', 'hist.analytics': 'Analytics & charts', 'hist.list': 'List', 'hist.calendar': 'Calendar',
     'hist.allTemplates': 'All workouts', 'hist.loading': 'Loading…', 'hist.empty': 'No finished workouts yet.',
     'hist.noMatch': 'No workouts match this filter.', 'hist.delete': 'Delete', 'hist.confirmDelete': 'Delete this workout from history?',
-    'hist.dayEmpty': 'Rest day.', 'hist.prev': 'Previous month', 'hist.next': 'Next month', 'hist.month': '{n} workouts this month',
+    'hist.dayEmpty': 'Rest day.', 'hist.prev': 'Previous month', 'hist.next': 'Next month', 'hist.month': { one: '{n} workout this month', other: '{n} workouts this month' },
     // templates
     'tpl.title': 'Templates', 'tpl.mine': 'My templates', 'tpl.start': 'Start', 'tpl.edit': 'Edit', 'tpl.editCopy': 'Edit copy',
     'tpl.delete': 'Delete template', 'tpl.confirmDelete': 'Delete this template?', 'tpl.new': 'New template', 'tpl.name': 'Template name',
@@ -57,8 +57,8 @@ const D = {
     'tpl.remove': 'Remove', 'tpl.save': 'Save template', 'tpl.cancel': 'Cancel', 'tpl.less': 'Less', 'tpl.more': 'More',
     'tpl.copySuffix': '(mine)', 'tpl.color': 'Colour', 'tpl.noColor': 'No colour',
     // exercises
-    'ex.title': 'Exercises', 'ex.count': '{n} exercises', 'ex.export': 'Export CSV', 'ex.import': 'Import CSV',
-    'ex.importMode': 'Replace the whole library with this file? (Cancel = merge / add only)', 'ex.imported': 'Imported {n} exercises',
+    'ex.title': 'Exercises', 'ex.count': { one: '{n} exercise', other: '{n} exercises' }, 'ex.export': 'Export CSV', 'ex.import': 'Import CSV',
+    'ex.importMode': 'Replace the whole library with this file? (Cancel = merge / add only)', 'ex.imported': { one: 'Imported {n} exercise', other: 'Imported {n} exercises' },
     'ex.importFail': 'No valid rows found. Expected columns: name,category', 'ex.add': 'Add exercise', 'ex.namePh': 'Exercise name',
     'ex.delete': 'Delete from library', 'ex.confirmDelete': 'Delete “{name}” from the library? History stays untouched.',
     'ex.sessions': '{n}× logged', 'ex.exists': 'Already in the library', 'ex.search': 'Search',
@@ -92,6 +92,23 @@ const D = {
     'set.resetTpl': 'Reset templates', 'set.confirmResetTpl': 'Restore the default main templates for this profile? My templates stay untouched.', 'set.resetTplDone': 'Main templates restored',
     // errors
     'err.load': 'Loading data failed: {m}', 'err.save': 'Saving failed: {m}', 'err.delete': 'Deleting failed: {m}', 'err.login': 'Sign-in failed: {m}',
+
+    // v5
+    'login.denied': 'The account {email} does not have access to this app.',
+    'nav.main': 'Main navigation',
+    'wo.time': 'Minutes, set {n}', 'wo.dec': 'Decrease: {what}', 'wo.inc': 'Increase: {what}',
+    'wo.setRemoved': 'Set deleted', 'wo.exRemoved': 'Exercise removed', 'wo.swipeHint': 'Swipe a set to the left to delete it.',
+    'wo.uncheckedTitle': { one: '{n} filled-in set is not ticked', other: '{n} filled-in sets are not ticked' },
+    'wo.uncheckedMsg': 'Save them as completed, or leave them out?', 'wo.tickSave': 'Tick and save', 'wo.dropSave': 'Save without them',
+    'err.saveWorkout': 'Saving failed ({m}). The workout is back in the Workout tab.',
+    'rest.title': 'Rest', 'rest.skip': 'Skip', 'rest.done': 'Rest over – next set', 'rest.off': 'Off', 'rest.minusAria': 'Shorten rest by 15 seconds', 'rest.plusAria': 'Extend rest by 15 seconds',
+    'set.rest': 'Rest timer', 'set.theme': 'Theme', 'theme.light': 'Light', 'theme.dark': 'Dark', 'theme.auto': 'Auto',
+    'sync.offline': 'Offline – saved on this device', 'sync.pending': 'Syncing…',
+    'upd.ready': 'A new version is available', 'upd.reload': 'Reload',
+    'dlg.cancel': 'Cancel', 'dlg.confirm': 'Confirm', 'dlg.save': 'Save',
+    'ex.importTitle': { one: 'Import {n} exercise', other: 'Import {n} exercises' }, 'ex.importMerge': 'Add to library', 'ex.importReplace': 'Replace library',
+    'chart.bar': 'Bar chart: {name}', 'chart.line': 'Line chart: {name}', 'an.attendanceAria': { one: 'Attendance calendar, {n} workout', other: 'Attendance calendar, {n} workouts' },
+    'info.photo': 'Illustration of {name}',
   },
   cs: {
     'nav.home': 'Domů', 'nav.workout': 'Trénink', 'nav.history': 'Historie', 'nav.stats': 'Statistiky',
@@ -107,7 +124,7 @@ const D = {
     'home.recentPrs': 'Nedávné rekordy', 'home.allStats': 'Všechny statistiky', 'home.noPrs': 'Rekordy se objeví po prvním dokončeném tréninku.',
     'home.openStats': 'Otevřít statistiky',
     'groups.PUSH': 'Prsa, ramena, triceps', 'groups.PULL': 'Záda, zadní delty, biceps', 'groups.LEGS': 'Nohy, hýždě, břicho', 'groups.UPPER': 'Záda, ramena, paže', 'groups.LOWER': 'Hýždě, hamstringy, stehna', 'groups.ABS': 'Střed těla a kardio',
-    'count.exercises': '{n} cvičení', 'count.sets': '{n} sérií',
+    'count.exercises': '{n} cvičení', 'count.sets': { one: '{n} série', few: '{n} série', many: '{n} série', other: '{n} sérií' },
     'wo.title': 'Trénink', 'wo.none': 'Žádný trénink neprobíhá.', 'wo.pickTemplate': 'Vybrat šablonu', 'wo.emptyName': 'Rychlý trénink',
     'wo.finish': 'Dokončit', 'wo.sets': '{done}/{total} sérií', 'wo.recommended': 'doporučeno {w}', 'wo.pb': 'Osobní rekord',
     'wo.weight': 'Váha, série {n}', 'wo.reps': 'Opakování, série {n}', 'wo.check': 'Odškrtnout sérii', 'wo.uncheck': 'Zrušit odškrtnutí',
@@ -122,7 +139,7 @@ const D = {
     'hist.title': 'Historie', 'hist.analytics': 'Statistiky a grafy', 'hist.list': 'Seznam', 'hist.calendar': 'Kalendář',
     'hist.allTemplates': 'Všechny tréninky', 'hist.loading': 'Načítám…', 'hist.empty': 'Zatím žádný odcvičený trénink.',
     'hist.noMatch': 'Filtru neodpovídá žádný trénink.', 'hist.delete': 'Smazat', 'hist.confirmDelete': 'Smazat trénink z historie?',
-    'hist.dayEmpty': 'Volno.', 'hist.prev': 'Předchozí měsíc', 'hist.next': 'Další měsíc', 'hist.month': '{n} tréninků tento měsíc',
+    'hist.dayEmpty': 'Volno.', 'hist.prev': 'Předchozí měsíc', 'hist.next': 'Další měsíc', 'hist.month': { one: '{n} trénink tento měsíc', few: '{n} tréninky tento měsíc', many: '{n} tréninku tento měsíc', other: '{n} tréninků tento měsíc' },
     'tpl.title': 'Šablony', 'tpl.mine': 'Moje šablony', 'tpl.start': 'Spustit', 'tpl.edit': 'Upravit', 'tpl.editCopy': 'Upravit kopii',
     'tpl.delete': 'Smazat šablonu', 'tpl.confirmDelete': 'Smazat šablonu?', 'tpl.new': 'Nová šablona', 'tpl.name': 'Název šablony',
     'tpl.sets': 'Série', 'tpl.reps': 'Opak.', 'tpl.kg': 'kg', 'tpl.max': 'max', 'tpl.toFailure': 'do selhání', 'tpl.note': 'Poznámka (např. drop-set, do selhání)',
@@ -159,11 +176,36 @@ const D = {
     'tpl.renameGroup': 'Přejmenovat skupinu', 'tpl.groupName': 'Název skupiny', 'tpl.groupSub': 'Popis (volitelné)', 'tpl.lastInGroup': 'Ve skupině musí zůstat aspoň jedna šablona',
     'set.resetTpl': 'Obnovit šablony', 'set.confirmResetTpl': 'Obnovit výchozí hlavní šablony tohoto profilu? Moje šablony zůstanou.', 'set.resetTplDone': 'Hlavní šablony obnoveny',
     'err.load': 'Načtení dat selhalo: {m}', 'err.save': 'Uložení selhalo: {m}', 'err.delete': 'Smazání selhalo: {m}', 'err.login': 'Přihlášení selhalo: {m}',
+
+    // v5
+    'login.denied': 'Účet {email} nemá do appky přístup.',
+    'nav.main': 'Hlavní navigace',
+    'wo.time': 'Minuty, série {n}', 'wo.dec': 'Snížit: {what}', 'wo.inc': 'Zvýšit: {what}',
+    'wo.setRemoved': 'Série smazána', 'wo.exRemoved': 'Cvičení odebráno', 'wo.swipeHint': 'Sérii smažeš potažením doleva.',
+    'wo.uncheckedTitle': { one: '{n} vyplněná série není odškrtnutá', few: '{n} vyplněné série nejsou odškrtnuté', many: '{n} vyplněné série není odškrtnuto', other: '{n} vyplněných sérií není odškrtnutých' },
+    'wo.uncheckedMsg': 'Uložit je jako odcvičené, nebo je vynechat?', 'wo.tickSave': 'Odškrtnout a uložit', 'wo.dropSave': 'Uložit bez nich',
+    'err.saveWorkout': 'Uložení selhalo ({m}). Trénink je zpět v záložce Trénink.',
+    'rest.title': 'Pauza', 'rest.skip': 'Přeskočit', 'rest.done': 'Pauza skončila – další série', 'rest.off': 'Vyp.', 'rest.minusAria': 'Zkrátit pauzu o 15 sekund', 'rest.plusAria': 'Prodloužit pauzu o 15 sekund',
+    'set.rest': 'Pauza mezi sériemi', 'set.theme': 'Vzhled', 'theme.light': 'Světlý', 'theme.dark': 'Tmavý', 'theme.auto': 'Auto',
+    'sync.offline': 'Offline – uloženo v zařízení', 'sync.pending': 'Synchronizuji…',
+    'upd.ready': 'Je k dispozici nová verze', 'upd.reload': 'Obnovit',
+    'dlg.cancel': 'Zrušit', 'dlg.confirm': 'Potvrdit', 'dlg.save': 'Uložit',
+    'ex.importTitle': { one: 'Import {n} cvičení', other: 'Import {n} cvičení' }, 'ex.importMerge': 'Doplnit do knihovny', 'ex.importReplace': 'Nahradit knihovnu',
+    'chart.bar': 'Sloupcový graf: {name}', 'chart.line': 'Spojnicový graf: {name}', 'an.attendanceAria': { one: 'Kalendář docházky, {n} trénink', few: 'Kalendář docházky, {n} tréninky', many: 'Kalendář docházky, {n} tréninku', other: 'Kalendář docházky, {n} tréninků' },
+    'info.photo': 'Ilustrace cviku {name}',
   },
 };
 
+// Množná čísla přes Intl.PluralRules (cs: one / few / many / other). Hodnota klíče může být text nebo {one, few, other…}.
+const PLURAL = { en: new Intl.PluralRules('en'), cs: new Intl.PluralRules('cs') };
 export const t = (key, vars) => {
-  let s = D[getLang()][key] ?? D.en[key] ?? key;
+  const lang = getLang();
+  let s = D[lang][key] ?? D.en[key];
+  if (s == null) {
+    if (import.meta.env?.DEV) console.warn('i18n: missing key', key);
+    return key;
+  }
+  if (typeof s === 'object') s = s[PLURAL[lang].select(Number(vars?.n ?? 0))] ?? s.other;
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, v);
   return s;
 };

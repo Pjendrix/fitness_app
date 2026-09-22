@@ -44,7 +44,7 @@ const LEGACY = {
   'Skull Crusher (EZ)': 'Skull Crusher (EZ Bar)', 'DB Overhead Extension': 'Dumbbell Overhead Extension', 'Squat (Dřepy)': 'Squat',
   'Leg Extension (Předkopávání)': 'Leg Extension', 'Leg Curl (Zakopávání)': 'Leg Curl', 'Bulgarian Split Squats': 'Bulgarian Split Squat',
   'Výpady (Lunges)': 'Lunges', 'Pistol Squats / Výpady': 'Pistol Squat', 'Calf Raise (Lýtka)': 'Calf Raise', 'Abduktory (Machine)': 'Hip Abduction (Machine)',
-  'Random ABS (Břicho)': 'Abs Circuit', 'Biceps Curl (EZ)': 'Bicep Curl (EZ Bar)',
+  'Random ABS (Břicho)': 'Abs Circuit',
 };
 const LEGACY_BY_KEY = Object.fromEntries(Object.entries(LEGACY).map(([o, n]) => [exKey(o), n]));
 export const modernName = (name) => LEGACY_BY_KEY[exKey(name)] || name;

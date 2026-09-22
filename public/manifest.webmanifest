@@ -1,7 +1,8 @@
 {
+  "id": "./",
   "name": "Forge – workout log",
   "short_name": "Forge",
-  "description": "Strength training log: PUSH / PULL / LEGS templates, history and personal records.",
+  "description": "Strength training log: templates, history, rest timer and personal records.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -9,6 +10,7 @@
   "background_color": "#fafafa",
   "theme_color": "#fafafa",
   "lang": "en",
+  "categories": ["health", "fitness", "sports"],
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
