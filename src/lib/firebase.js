@@ -7,8 +7,9 @@ import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-ch
 // (allowlist + validace), API klíč omezení v Google Cloud Console a App Check.
 const config = {
   apiKey: 'AIzaSyB4q3dQL9lap-hzBHMbeSYAENIz6IEHtFk',
-  // Přihlašování přes vlastní doménu (proxy /__/auth ve vercel.json), jinak ho iOS PWA z plochy rozbije.
-  authDomain: typeof location !== 'undefined' && location.hostname.endsWith('.vercel.app') ? location.host : 'fitnessapp-88bd2.firebaseapp.com',
+  // Přihlašování přes doménu, na které appka běží (proxy /__/auth ve vercel.json) – jinak ho iOS PWA z plochy rozbije.
+  // Platí pro fitness.krystofbenka.cz i *.vercel.app; na localhostu přímo firebaseapp.com.
+  authDomain: typeof location !== 'undefined' && location.protocol === 'https:' && !location.hostname.endsWith('firebaseapp.com') ? location.host : 'fitnessapp-88bd2.firebaseapp.com',
   projectId: 'fitnessapp-88bd2',
   storageBucket: 'fitnessapp-88bd2.firebasestorage.app',
   messagingSenderId: '587112214919',
