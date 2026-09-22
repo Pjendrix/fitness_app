@@ -3,7 +3,7 @@ import { backend } from './backend.js';
 import { profileOf } from '../data/defaultTemplates.js';
 import { defaultTypeOf, EXERCISES, modernName, normCat } from '../data/exercises.js';
 import { better, exKey, firstNum, hasValue, isDone, LIMITS, planLabel, sanitizeName, sanitizeSet, uid } from './util.js';
-import { applyChanges, applyWorkout, changesAfterDelete } from './records.js';
+import { applyChanges, applyWorkout, changesAfterDelete, recomputeKeys } from './records.js';
 import { getRestDefault } from './rest.js';
 import { t } from './i18n.js';
 import { INFO_KEYS } from '../data/infoKeys.js';
@@ -60,6 +60,7 @@ const loadLibrary = (d) => {
   const have = new Set(EXERCISES.map((e) => exKey(e.name)));
   return [...EXERCISES, ...list.filter((e) => !have.has(exKey(e.name)))];
 };
+const byStart = (list) => [...list].sort((a, b) => b.startedAt - a.startedAt);
 const newSet = (s = {}) => ({ id: uid(), weight: String(s.weight || ''), reps: String(s.reps || ''), time: String(s.time || ''), done: false });
 
 const toLibEntry = (ex) => {
@@ -203,17 +204,20 @@ export function StoreProvider({ children }) {
       }
     }
     if (last.workouts !== now.workouts) {
-      // Obnovené tréninky znovu započítat do rekordů
-      const ids = new Set(now.workouts.map((w) => w.id));
-      let p = now.prs;
-      for (const w of last.workouts) {
-        if (ids.has(w.id)) continue;
-        const r = applyWorkout(w, p);
-        p = r.next;
-        api.saveWorkout(w, r.updates).catch(fail('err.save'));
+      // Vrátit smazané i upravené tréninky; tréninky dokončené mezitím zůstanou.
+      const nowById = new Map(now.workouts.map((w) => [w.id, w]));
+      const lastIds = new Set(last.workouts.map((w) => w.id));
+      const merged = byStart([...last.workouts, ...now.workouts.filter((w) => !lastIds.has(w.id))]);
+      const changed = last.workouts.filter((w) => JSON.stringify(nowById.get(w.id)) !== JSON.stringify(w));
+      const keys = new Set();
+      for (const w of changed) {
+        w.exercises.forEach((e) => keys.add(e.key));
+        nowById.get(w.id)?.exercises.forEach((e) => keys.add(e.key));
       }
-      setPrs(p);
-      setWorkouts(last.workouts);
+      const changes = recomputeKeys(keys, merged, now.prs);
+      changed.forEach((w, i) => api.saveWorkout(w, i === 0 ? changes : {}).catch(fail('err.save')));
+      setPrs(applyChanges(now.prs, changes));
+      setWorkouts(merged);
     }
     notify(t('undo.done', { what: t(last.label) }));
   }, [api, fail, notify]);
@@ -278,6 +282,37 @@ export function StoreProvider({ children }) {
     setWorkouts(remaining);
     setPrs((p) => applyChanges(p, changes));
     api.deleteWorkout(id, changes).catch(fail('err.delete'));
+  }, [workouts, prs, api, fail, remember]);
+
+  // Úprava tréninku z historie (název, datum, délka, série). Rekordy dotčených cviků se přepočítají.
+  const updateWorkout = useCallback((edited) => {
+    const old = workouts.find((x) => x.id === edited.id);
+    if (!old) return false;
+    const exercises = edited.exercises
+      .map((e) => {
+        const timed = e.type === 'time';
+        const sets = e.sets.map((s) => sanitizeSet(s, timed)).filter((s) => (timed ? s.time > 0 : s.reps > 0));
+        return { key: e.key, name: sanitizeName(e.name), ...(timed ? { type: 'time' } : {}), sets };
+      })
+      .filter((e) => e.sets.length)
+      .slice(0, LIMITS.exercises);
+    if (!exercises.length) return false;
+    const startedAt = Math.round(edited.startedAt);
+    const w = {
+      ...old,
+      name: sanitizeName(edited.name) || old.name,
+      startedAt,
+      finishedAt: Math.max(startedAt, Math.round(edited.finishedAt)),
+      exercises,
+    };
+    remember('undo.workoutEdit');
+    const list = byStart(workouts.map((x) => (x.id === w.id ? w : x)));
+    const keys = new Set([...old.exercises, ...w.exercises].map((e) => e.key));
+    const changes = recomputeKeys(keys, list, prs);
+    setWorkouts(list);
+    setPrs((p) => applyChanges(p, changes));
+    api.saveWorkout(w, changes).catch(fail('err.save'));
+    return true;
   }, [workouts, prs, api, fail, remember]);
 
   const saveTemplate = useCallback((tpl) => {
@@ -404,11 +439,11 @@ export function StoreProvider({ children }) {
   const loading = metaLoading || (Boolean(user) && !workoutsReady);
   const data = useMemo(() => ({
     user, denied, loading, mode: backend.mode, signIn, signOut, live, sync, online,
-    templates, workouts, prs, deleteWorkout, saveTemplate, deleteTemplate, startWorkout, startEmptyWorkout,
+    templates, workouts, prs, deleteWorkout, updateWorkout, saveTemplate, deleteTemplate, startWorkout, startEmptyWorkout,
     library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf,
     profile, prof, setProfile, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, resetMain,
     undoStack, undo, notify,
-  }), [user, denied, loading, signIn, signOut, live, sync, online, templates, workouts, prs, deleteWorkout, saveTemplate, deleteTemplate, startWorkout, startEmptyWorkout,
+  }), [user, denied, loading, signIn, signOut, live, sync, online, templates, workouts, prs, deleteWorkout, updateWorkout, saveTemplate, deleteTemplate, startWorkout, startEmptyWorkout,
     library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf, profile, prof, setProfile, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, resetMain, undoStack, undo, notify]);
 
   const session = useMemo(() => ({

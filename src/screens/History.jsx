@@ -5,10 +5,11 @@ import { fmtDate, fmtDuration, fmtNum, fmtSet, workoutVolume } from '../lib/util
 import { locale, t } from '../lib/i18n.js';
 import { ArrowIcon, ChevronIcon, TrashIcon } from '../components/Icons.jsx';
 import { useDialog } from '../components/Dialog.jsx';
+import WorkoutEditor from '../components/WorkoutEditor.jsx';
 
 const dayKey = (ms) => new Date(ms).toDateString();
 
-function WorkoutCard({ w, color, open, onToggle, onDelete }) {
+function WorkoutCard({ w, color, open, onToggle, onDelete, onEdit }) {
   const dialog = useDialog();
   const sets = w.exercises.reduce((n, e) => n + e.sets.length, 0);
   return (
@@ -28,9 +29,12 @@ function WorkoutCard({ w, color, open, onToggle, onDelete }) {
               <div className="mono muted small sets-line">{e.sets.map((s) => fmtSet(s.weight, s.reps, s.time)).join('  ·  ')}</div>
             </div>
           ))}
+          <div className="row-actions">
+          <button className="btn btn-ghost btn-sm" onClick={() => onEdit(w)}>{t('hist.edit')}</button>
           <button className="btn btn-danger btn-sm" onClick={async () => (await dialog.confirm(t('hist.confirmDelete'), { danger: true, ok: t('hist.delete') })) && onDelete(w.id)}>
             <TrashIcon width={16} height={16} /> {t('hist.delete')}
           </button>
+          </div>
         </div>
       )}
     </section>
@@ -84,6 +88,7 @@ function Calendar({ workouts, colorOf, selected, onSelect }) {
 export default function History({ go }) {
   const { workouts, templates, deleteWorkout, loading } = useStore();
   const [open, setOpen] = useState(null);
+  const [editing, setEditing] = useState(null);
   const [view, setView] = useState('list');
   const [filter, setFilter] = useState('all');
   const [day, setDay] = useState(dayKey(Date.now()));
@@ -116,8 +121,9 @@ export default function History({ go }) {
       {!workouts.length && <p className="empty">{loading ? t('hist.loading') : t('hist.empty')}</p>}
       {workouts.length > 0 && !shown.length && <p className="empty">{view === 'calendar' ? t('hist.dayEmpty') : t('hist.noMatch')}</p>}
       {shown.map((w) => (
-        <WorkoutCard key={w.id} w={w} color={colorOf(w)} open={open === w.id || (view === 'calendar' && shown.length === 1)} onToggle={() => setOpen(open === w.id ? null : w.id)} onDelete={deleteWorkout} />
+        <WorkoutCard key={w.id} w={w} color={colorOf(w)} open={open === w.id || (view === 'calendar' && shown.length === 1)} onToggle={() => setOpen(open === w.id ? null : w.id)} onDelete={deleteWorkout} onEdit={setEditing} />
       ))}
+      {editing && <WorkoutEditor key={editing.id} workout={editing} onClose={() => setEditing(null)} />}
     </div>
   );
 }

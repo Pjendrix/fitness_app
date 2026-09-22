@@ -12,8 +12,13 @@ const apply = () => {
   const m = getTheme();
   const dark = m === 'dark' || (m === 'auto' && mq?.matches);
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0a0a0a' : '#fafafa');
+  syncThemeColor();
   listeners.forEach((f) => f());
+};
+// Barva stavového řádku = barva pozadí (respektuje i růžový profil Chiary)
+export const syncThemeColor = () => {
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--paper').trim() || '#fafafa';
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg);
 };
 export const setTheme = (m) => {
   try { localStorage.setItem(KEY, m); } catch { /* ignore */ }

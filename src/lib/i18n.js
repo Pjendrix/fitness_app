@@ -109,6 +109,9 @@ const D = {
     'ex.importTitle': { one: 'Import {n} exercise', other: 'Import {n} exercises' }, 'ex.importMerge': 'Add to library', 'ex.importReplace': 'Replace library',
     'chart.bar': 'Bar chart: {name}', 'chart.line': 'Line chart: {name}', 'an.attendanceAria': { one: 'Attendance calendar, {n} workout', other: 'Attendance calendar, {n} workouts' },
     'info.photo': 'Illustration of {name}',
+    'hist.edit': 'Edit', 'edit.title': 'Edit workout', 'edit.name': 'Name', 'edit.start': 'Start', 'edit.duration': 'Duration (min)',
+    'edit.save': 'Save changes', 'edit.saved': 'Workout updated', 'edit.needSet': 'Keep at least one set with reps or time.',
+    'edit.future': 'The start cannot be in the future.', 'edit.discard': 'Discard your changes?', 'edit.discardOk': 'Discard', 'undo.workoutEdit': 'workout edit',
   },
   cs: {
     'nav.home': 'Domů', 'nav.workout': 'Trénink', 'nav.history': 'Historie', 'nav.stats': 'Statistiky',
@@ -193,6 +196,9 @@ const D = {
     'ex.importTitle': { one: 'Import {n} cvičení', other: 'Import {n} cvičení' }, 'ex.importMerge': 'Doplnit do knihovny', 'ex.importReplace': 'Nahradit knihovnu',
     'chart.bar': 'Sloupcový graf: {name}', 'chart.line': 'Spojnicový graf: {name}', 'an.attendanceAria': { one: 'Kalendář docházky, {n} trénink', few: 'Kalendář docházky, {n} tréninky', many: 'Kalendář docházky, {n} tréninku', other: 'Kalendář docházky, {n} tréninků' },
     'info.photo': 'Ilustrace cviku {name}',
+    'hist.edit': 'Upravit', 'edit.title': 'Upravit trénink', 'edit.name': 'Název', 'edit.start': 'Začátek', 'edit.duration': 'Délka (min)',
+    'edit.save': 'Uložit změny', 'edit.saved': 'Trénink upraven', 'edit.needSet': 'Nech aspoň jednu sérii s opakováním nebo časem.',
+    'edit.future': 'Začátek nemůže být v budoucnu.', 'edit.discard': 'Zahodit provedené změny?', 'edit.discardOk': 'Zahodit', 'undo.workoutEdit': 'úprava tréninku',
   },
 };
 

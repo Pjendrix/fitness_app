@@ -64,11 +64,14 @@ const firebaseBackend = {
       },
       saveTemplate: (tpl) => setDoc(ref('templates', tpl.id), clean(tpl)),
       deleteTemplate: (id) => deleteDoc(ref('templates', id)),
-      // Trénink + změněné rekordy atomicky v jednom batchi
+      // Trénink (nový i upravený) + změněné rekordy ({key: pr | null}) atomicky v jednom batchi
       saveWorkout(w, prUpdates = {}) {
         const batch = writeBatch(db);
         batch.set(ref('workouts', w.id), clean(w));
-        for (const [key, pr] of Object.entries(prUpdates)) batch.set(ref('prs', key), clean(pr));
+        for (const [key, pr] of Object.entries(prUpdates)) {
+          if (pr) batch.set(ref('prs', key), clean(pr));
+          else batch.delete(ref('prs', key));
+        }
         return batch.commit();
       },
       // Smazání tréninku + přepočtené rekordy ({key: pr | null}) atomicky
@@ -117,7 +120,7 @@ const demoBackend = {
       subscribeWorkouts(cb) { listeners.add(cb); emit(); return () => listeners.delete(cb); },
       async saveTemplate(t) { edit((d) => { d.templates = [...d.templates.filter((x) => x.id !== t.id), t]; }); },
       async deleteTemplate(id) { edit((d) => { d.templates = d.templates.filter((x) => x.id !== id); }); },
-      async saveWorkout(w, prUpdates = {}) { edit((d) => { d.workouts = [...d.workouts.filter((x) => x.id !== w.id), w]; d.prs = { ...d.prs, ...prUpdates }; }); emit(); },
+      async saveWorkout(w, prUpdates = {}) { edit((d) => { d.workouts = [...d.workouts.filter((x) => x.id !== w.id), w]; for (const [k, v] of Object.entries(prUpdates)) { if (v) d.prs[k] = v; else delete d.prs[k]; } }); emit(); },
       async deleteWorkout(id, prChanges = {}) {
         edit((d) => {
           d.workouts = d.workouts.filter((x) => x.id !== id);

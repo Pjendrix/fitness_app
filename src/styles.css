@@ -468,3 +468,27 @@ html[data-theme='dark'] .card-hero .btn-primary { background: var(--ink); color:
 html[data-theme='dark'] .card-hero .seg { background: var(--paper); }
 html[data-theme='dark'] .card-hero .seg button.is-on { background: var(--ink); color: var(--paper); }
 html[data-theme='dark'] .rest-bar { box-shadow: 0 0 0 1px var(--hairline); }
+
+/* Profil Chiara – světlý vzhled s jemným růžovým podbarvením (poznáš, v čím profilu jsi) */
+html[data-theme='light'][data-profile='chiara'] {
+  --paper: #fcecf2;
+  --white: #fff6f9;
+  --hairline: #f2d3e0;
+  --ash: #d9aec0;
+  --shade: rgba(190, 60, 110, 0.08);
+}
+html[data-theme='light'][data-profile='chiara'] .prof-badge { background: #b83c6e; }
+
+/* Úprava tréninku z historie */
+.edit-sheet { height: min(92dvh, 860px); }
+.edit-body { flex: 1; overflow-y: auto; margin: 0 -16px; padding: 4px 16px 12px; display: flex; flex-direction: column; gap: 12px; }
+.edit-when { display: grid; grid-template-columns: 1fr 110px; gap: 8px; }
+.edit-when input[type='datetime-local'] { min-height: 44px; }
+.edit-ex-card { display: flex; flex-direction: column; gap: 6px; padding-top: 12px; border-top: 1px solid var(--hairline); }
+.edit-set { display: grid; grid-template-columns: 20px 1fr 1fr 32px; gap: 6px; align-items: center; }
+.edit-set-head span:nth-child(2), .edit-set-head span:nth-child(3) { text-align: center; }
+.edit-set .numfield input { width: 100%; min-width: 0; border: 0; background: transparent; text-align: center; font-family: var(--mono); font-size: 17px; outline: none; padding: 10px 0; }
+.edit-set .icon-btn { width: 32px; }
+.edit-add-set { align-self: flex-start; }
+.edit-foot { display: flex; flex-direction: column; gap: 6px; padding-top: 8px; border-top: 1px solid var(--hairline); }
+.edit-body .mini .input { text-align: left; font-family: var(--sans); padding: 11px 12px; }

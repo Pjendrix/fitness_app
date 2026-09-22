@@ -4,9 +4,11 @@ import { better } from './util.js';
 const prOf = (s, name, date) => ({ weight: s.weight, reps: s.reps, ...(s.time ? { time: s.time } : {}), name, date });
 
 // Nejlepší série cviku napříč tréninky (nebo null).
+// Prochází od nejstaršího, takže při shodě zůstane datum prvního dosažení (stejně jako při zápisu).
+const chrono = (workouts) => [...workouts].sort((a, b) => a.finishedAt - b.finishedAt);
 export const bestSet = (workouts, key) => {
   let best = null;
-  for (const w of workouts) for (const e of w.exercises) if (e.key === key)
+  for (const w of chrono(workouts)) for (const e of w.exercises) if (e.key === key)
     for (const s of e.sets) if (better(s, best)) best = prOf(s, e.name, w.finishedAt);
   return best;
 };
@@ -41,4 +43,17 @@ export const applyChanges = (prs, changes) => {
   const n = { ...prs };
   for (const [k, v] of Object.entries(changes)) { if (v) n[k] = v; else delete n[k]; }
   return n;
+};
+
+// Přepočet vybraných cviků z celé (načtené) historie → jen skutečné změny { [key]: pr | null }.
+// Pozn.: počítá z načtených tréninků (limit 1000); starší rekord mimo okno by se tu nezohlednil.
+const samePr = (a, b) => a.weight === b.weight && a.reps === b.reps && (a.time || 0) === (b.time || 0) && a.date === b.date && a.name === b.name;
+export const recomputeKeys = (keys, workouts, prs) => {
+  const out = {};
+  for (const k of keys) {
+    const b = bestSet(workouts, k), cur = prs[k];
+    if (!b) { if (cur) out[k] = null; continue; }
+    if (!cur || !samePr(cur, b)) out[k] = b;
+  }
+  return out;
 };

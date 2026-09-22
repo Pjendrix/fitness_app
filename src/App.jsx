@@ -1,4 +1,4 @@
-import { lazy, memo, Suspense, useCallback, useState } from 'react';
+import { lazy, memo, Suspense, useCallback, useEffect, useState } from 'react';
 import { StoreProvider, useStore } from './lib/store.jsx';
 import { DialogProvider } from './components/Dialog.jsx';
 import BottomNav from './components/BottomNav.jsx';
@@ -11,6 +11,7 @@ import Login from './screens/Login.jsx';
 import Home from './screens/Home.jsx';
 import Workout from './screens/Workout.jsx';
 import { useLang } from './lib/i18n.js';
+import { syncThemeColor } from './lib/theme.js';
 
 // Home a Trénink hned, zbytek líně (menší první načtení)
 const History = lazy(() => import('./screens/History.jsx'));
@@ -24,7 +25,14 @@ const Nav = memo(BottomNav);
 const Undo = memo(UndoButton);
 
 function Shell() {
-  const { user, live } = useStore();
+  const { user, live, profile } = useStore();
+  // Profil na <html> → Chiara má ve světlém vzhledu růžové podbarvení (styles.css)
+  useEffect(() => {
+    const root = document.documentElement;
+    if (user && profile) root.dataset.profile = profile;
+    else delete root.dataset.profile;
+    syncThemeColor();
+  }, [user, profile]);
   const { lang } = useLang(); // překreslit při změně jazyka
   const [tab, setTab] = useState('home');
   const go = useCallback((t) => {

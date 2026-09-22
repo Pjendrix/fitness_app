@@ -40,3 +40,20 @@ describe('records', () => {
     expect(bestSet([w('a', 1, [{ weight: 0, reps: 0, time: 2 }, { weight: 0, reps: 0, time: 3 }], 'plank')], 'plank').time).toBe(3);
   });
 });
+
+import { recomputeKeys } from './records.js';
+describe('recomputeKeys (edit)', () => {
+  it('lowers PR after editing a typo and keeps unchanged keys out', () => {
+    const a = w('a', 1, [{ weight: 80, reps: 5 }]);
+    const typo = w('b', 2, [{ weight: 1000, reps: 5 }]);
+    const prs = applyWorkout(typo, applyWorkout(a, {}).next).next;
+    const fixed = { ...typo, exercises: [{ key: 'bench', name: 'Bench', sets: [{ weight: 85, reps: 5 }] }] };
+    const ch = recomputeKeys(['bench'], [fixed, a], prs);
+    expect(ch.bench).toMatchObject({ weight: 85, date: 2 });
+    expect(recomputeKeys(['bench'], [fixed, a], applyChanges(prs, ch))).toEqual({});
+  });
+  it('tie keeps the first date', () => {
+    const a = w('a', 1, [{ weight: 80, reps: 5 }]), b = w('b', 2, [{ weight: 80, reps: 5 }]);
+    expect(recomputeKeys(['bench'], [b, a], {}).bench.date).toBe(1);
+  });
+});

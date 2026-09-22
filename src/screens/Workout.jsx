@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useState } from 'react';
 import { useSession } from '../lib/store.jsx';
 import { better, countUnchecked, uid, DECIMAL_INPUT, fmtClock, fmtSet, INT_INPUT, isDone, num } from '../lib/util.js';
+import NumField, { oneStep, weightStep } from '../components/NumField.jsx';
 import { primeAudio } from '../lib/rest.js';
 import { CheckIcon, PlusIcon, TrashIcon } from '../components/Icons.jsx';
 import ExercisePicker from '../components/ExercisePicker.jsx';
@@ -8,14 +9,6 @@ import SwipeRow from '../components/SwipeRow.jsx';
 import { InfoButton } from '../components/ExerciseInfo.jsx';
 import { useDialog } from '../components/Dialog.jsx';
 import { t } from '../lib/i18n.js';
-
-// Chytrý krok váhy: malé jednoručky 0,5 kg, střed 1 kg, osa 2,5 kg.
-const weightStep = (w, dir) => {
-  const x = dir < 0 ? w - 0.001 : w;
-  return x < 10 ? 0.5 : x < 40 ? 1 : 2.5;
-};
-const oneStep = () => 1;
-const fmtV = (n) => String(Math.round(n * 100) / 100);
 
 // Časovač tréninku jako samostatná komponenta – tik každou sekundu nepřekresluje série.
 function Elapsed({ since }) {
@@ -27,33 +20,16 @@ function Elapsed({ since }) {
   return <>{fmtClock(now - since)}</>;
 }
 
-// Číselné pole s −/+; psaní je filtrované (jen čísla, max 3 cifry a 2 desetinná místa).
-function NumField({ label, value, onChange, step, placeholder, mode, pattern }) {
-  const bump = (dir) => {
-    const cur = num(value);
-    const next = Math.min(999, Math.max(0, cur + dir * step(cur, dir)));
-    onChange(next ? fmtV(next) : '');
-  };
-  return (
-    <div className="numfield">
-      <button type="button" tabIndex={-1} aria-label={t('wo.dec', { what: label })} onClick={() => bump(-1)} disabled={!(num(value) > 0)}>−</button>
-      <input aria-label={label} inputMode={mode} enterKeyHint="done" autoComplete="off" placeholder={placeholder} value={value}
-        onFocus={(ev) => ev.target.select()}
-        onChange={(ev) => { const v = ev.target.value; if (v === '' || pattern.test(v)) onChange(v); }} />
-      <button type="button" tabIndex={-1} aria-label={t('wo.inc', { what: label })} onClick={() => bump(1)}>+</button>
-    </div>
-  );
-}
-
+// Pořadí sloupců: opakování (nebo minuty) vlevo, váha vpravo.
 const SetRow = memo(function SetRow({ exId, set, n, timed, pb, onPatch, onToggle, onRemove }) {
   const newPb = set.done && pb && better({ weight: num(set.weight), reps: timed ? 0 : num(set.reps), time: timed ? num(set.time) : 0 }, pb);
   return (
     <SwipeRow onDelete={() => onRemove(exId, set.id)} deleteLabel={t('wo.delSet', { n })} className={'set' + (set.done ? ' is-done' : '')}>
       <span className="set-n">{n}</span>
-      <NumField label={t('wo.weight', { n })} placeholder="BW" mode="decimal" pattern={DECIMAL_INPUT} value={set.weight} step={weightStep} onChange={(v) => onPatch(exId, set.id, { weight: v })} />
       {timed
         ? <NumField label={t('wo.time', { n })} placeholder="0" mode="decimal" pattern={DECIMAL_INPUT} value={set.time || ''} step={oneStep} onChange={(v) => onPatch(exId, set.id, { time: v })} />
         : <NumField label={t('wo.reps', { n })} placeholder="0" mode="numeric" pattern={INT_INPUT} value={set.reps} step={oneStep} onChange={(v) => onPatch(exId, set.id, { reps: v })} />}
+      <NumField label={t('wo.weight', { n })} placeholder="BW" mode="decimal" pattern={DECIMAL_INPUT} value={set.weight} step={weightStep} onChange={(v) => onPatch(exId, set.id, { weight: v })} />
       <button className="check" aria-label={set.done ? t('wo.uncheck') : t('wo.check')} aria-pressed={set.done} onClick={() => onToggle(exId, set, timed)}>
         <CheckIcon width={20} height={20} />
       </button>
@@ -73,7 +49,7 @@ const ExerciseCard = memo(function ExerciseCard({ ex, index, count, pb, handlers
         </div>
         {pb && <span className="pb" title={t('wo.pb')}>PB {fmtSet(pb.weight, pb.reps, pb.time)}</span>}
       </div>
-      <div className="set-cols label" aria-hidden="true"><span>{t('wo.col.set')}</span><span>{t('wo.col.kg')}</span><span>{timed ? t('wo.col.min') : t('wo.col.reps')}</span><span /></div>
+      <div className="set-cols label" aria-hidden="true"><span>{t('wo.col.set')}</span><span>{timed ? t('wo.col.min') : t('wo.col.reps')}</span><span>{t('wo.col.kg')}</span><span /></div>
       {ex.sets.map((s, si) => (
         <SetRow key={s.id} exId={ex.id} set={s} n={si + 1} timed={timed} pb={pb} onPatch={handlers.patchSet} onToggle={handlers.toggle} onRemove={handlers.removeSet} />
       ))}
