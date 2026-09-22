@@ -7,6 +7,7 @@ import Toast from './components/Toast.jsx';
 import RestBar from './components/RestBar.jsx';
 import SyncBadge from './components/SyncBadge.jsx';
 import UpdatePrompt from './components/UpdatePrompt.jsx';
+import DemoBar from './components/DemoBar.jsx';
 import Login from './screens/Login.jsx';
 import Home from './screens/Home.jsx';
 import Workout from './screens/Workout.jsx';
@@ -51,6 +52,7 @@ function Shell() {
           <Screen go={go} />
         </Suspense>
       </main>
+      <DemoBar />
       <SyncBadge />
       <Undo />
       <RestBar />

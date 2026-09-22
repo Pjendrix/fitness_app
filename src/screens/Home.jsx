@@ -8,7 +8,7 @@ import { fmtDate, fmtNum, fmtSet, startOfWeek, workoutVolume } from '../lib/util
 import { t } from '../lib/i18n.js';
 
 export default function Home({ go }) {
-  const { user, workouts, prs, templates, startWorkout, startEmptyWorkout, profile, setProfile, loading, main, groupLabel, groupSub } = useStore();
+  const { user, workouts, prs, templates, startWorkout, startEmptyWorkout, profile, setProfile, loading, main, groupLabel, groupSub, mode } = useStore();
   const { active } = useSession();
   // Groups that have at least one template
   const G = useMemo(() => main.groups.map((g) => g.id).filter((id) => main.templates.some((x) => x.group === id)), [main]);
@@ -50,7 +50,7 @@ export default function Home({ go }) {
           <h2>{t('prof.pick')}</h2>
           <p className="muted small">{t('prof.pickSub')}</p>
           <div className="row-actions">
-            {Object.values(PROFILES).map((p) => <button key={p.id} className="btn btn-primary" onClick={() => setProfile(p.id)}>{p.name}</button>)}
+            {Object.values(PROFILES).map((p) => <button key={p.id} className="btn btn-primary" onClick={() => setProfile(p.id)}>{mode === 'demo' ? t(p.id === 'krystof' ? 'prof.demoA' : 'prof.demoB') : p.name}</button>)}
           </div>
         </section>
       )}

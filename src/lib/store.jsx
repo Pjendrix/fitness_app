@@ -461,15 +461,17 @@ export function StoreProvider({ children }) {
     setCustom([]); setWorkouts([]); setPrs({}); setLibrary(EXERCISES); setProfileState(null); setMainStore({}); setUndoStack([]);
   }, [flushDraft]);
 
+  const startDemo = useCallback(() => backend.startDemo(), []);
+  const resetDemo = useCallback(() => { backend.resetDemo(); window.location.reload(); }, []);
   const live = Boolean(active);
   const loading = metaLoading || (Boolean(user) && !workoutsReady);
   const data = useMemo(() => ({
-    user, denied, loading, mode: backend.mode, signIn, signOut, live, sync, online,
+    user, denied, loading, mode: backend.mode, signIn, signOut, startDemo, resetDemo, live, sync, online,
     templates, workouts, prs, deleteWorkout, updateWorkout, saveTemplate, deleteTemplate, startWorkout, startEmptyWorkout,
     library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf,
     profile, prof, setProfile, weeklyGoal, setWeeklyGoal, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, resetMain,
     undoStack, undo, notify,
-  }), [user, denied, loading, signIn, signOut, live, sync, online, templates, workouts, prs, deleteWorkout, updateWorkout, saveTemplate, deleteTemplate, startWorkout, startEmptyWorkout,
+  }), [user, denied, loading, signIn, signOut, startDemo, resetDemo, live, sync, online, templates, workouts, prs, deleteWorkout, updateWorkout, saveTemplate, deleteTemplate, startWorkout, startEmptyWorkout,
     library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf, profile, prof, setProfile, weeklyGoal, setWeeklyGoal, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, resetMain, undoStack, undo, notify]);
 
   const session = useMemo(() => ({

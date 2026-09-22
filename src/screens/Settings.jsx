@@ -9,7 +9,9 @@ import { getRestDefault, REST_OPTIONS, setRestDefault } from '../lib/rest.js';
 import { useState } from 'react';
 
 export default function Settings({ go }) {
-  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, notify, profile, setProfile, resetMain } = useStore();
+  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, notify, profile, setProfile, resetMain, resetDemo } = useStore();
+  const demo = mode === 'demo';
+  const pName = (p) => (demo ? t(p.id === 'krystof' ? 'prof.demoA' : 'prof.demoB') : p.name);
   const { lang, setLang } = useLang();
   const { theme, setTheme } = useTheme();
   const dialog = useDialog();
@@ -33,14 +35,14 @@ export default function Settings({ go }) {
         {user.photo ? <img src={user.photo} alt="" referrerPolicy="no-referrer" className="avatar" /> : <div className="avatar avatar-fallback">{(user.name || '?')[0]}</div>}
         <div>
           <div>{user.name || t('set.user')}</div>
-          <div className="muted small">{user.email}</div>
+          <div className="muted small">{demo ? t('demo.local') : user.email}</div>
         </div>
       </section>
 
       <section className="card list">
         <div className="row"><span>{t('prof.title')}</span>
           <div className="seg seg-sm seg-inline" role="radiogroup">
-            {Object.values(PROFILES).map((p) => <button key={p.id} role="radio" aria-checked={profile === p.id} className={profile === p.id ? 'is-on' : ''} onClick={() => { setProfile(p.id); notify(t('prof.saved', { name: p.name })); }}>{p.name}</button>)}
+            {Object.values(PROFILES).map((p) => <button key={p.id} role="radio" aria-checked={profile === p.id} className={profile === p.id ? 'is-on' : ''} onClick={() => { setProfile(p.id); notify(t('prof.saved', { name: pName(p) })); }}>{pName(p)}</button>)}
           </div>
         </div>
         <div className="row"><span>{t('set.lang')}</span>
@@ -74,7 +76,8 @@ export default function Settings({ go }) {
       </section>
 
       <button className="btn btn-ghost btn-block" onClick={exportData}>{t('set.export')}</button>
-      <button className="btn btn-danger btn-block" onClick={signOut}>{t('set.logout')}</button>
+      {demo && <button className="btn btn-ghost btn-block" onClick={async () => { if (await dialog.confirm(t('demo.resetConfirm'), { danger: true, ok: t('demo.reset') })) resetDemo(); }}>{t('demo.reset')}</button>}
+      <button className="btn btn-danger btn-block" onClick={signOut}>{demo ? t('demo.exit') : t('set.logout')}</button>
     </div>
   );
 }

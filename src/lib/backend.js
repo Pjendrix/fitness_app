@@ -12,6 +12,7 @@ import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, limit, onSnap
 import { isFirebaseConfigured, auth, db, provider } from './firebase.js';
 import { isAllowed } from './access.js';
 import { clean } from './util.js';
+import { generateDemo } from './demoData.js';
 
 export const HISTORY_LIMIT = 1000;
 const toUser = (u) => ({ uid: u.uid, name: u.displayName || '', email: u.email || '', photo: u.photoURL || '' });
@@ -108,7 +109,7 @@ const LS = 'forge:demo';
 const empty = () => ({ templates: [], workouts: [], prs: {}, exercises: [] });
 const readLS = () => { try { return JSON.parse(localStorage.getItem(LS)) || empty(); } catch { return empty(); } };
 const writeLS = (d) => localStorage.setItem(LS, JSON.stringify(d));
-const DEMO_USER = { uid: 'demo', name: 'Demo', email: 'lokální režim', photo: '' };
+const DEMO_USER = { uid: 'demo', name: 'Demo', email: '', photo: '' };
 const listeners = new Set();
 const emit = () => { const w = [...readLS().workouts].sort((a, b) => b.startedAt - a.startedAt); listeners.forEach((f) => f(w, { pending: false, fromCache: false })); };
 const edit = (fn) => { const d = readLS(); fn(d); writeLS(d); };
@@ -148,4 +149,35 @@ const demoBackend = {
   },
 };
 
-export const backend = isFirebaseConfigured ? firebaseBackend : demoBackend;
+// ——— Veřejné demo (tlačítko „Demo“ na přihlášení) ———
+// Na Firebase vůbec nesahá: data jsou jen v tomto prohlížeči (localStorage) a zůstávají tam.
+const SANDBOX = 'forge:sandbox';
+const real = isFirebaseConfigured ? firebaseBackend : demoBackend;
+let sandbox = isFirebaseConfigured && (() => { try { return localStorage.getItem(SANDBOX) === '1'; } catch { return false; } })();
+let authCb = null;
+const seedIfEmpty = () => { if (!localStorage.getItem(LS)) writeLS(generateDemo()); };
+
+export const backend = {
+  get mode() { return sandbox ? 'demo' : real.mode; },
+  get sandbox() { return sandbox; },
+  onAuth(cb, onDenied) {
+    authCb = cb;
+    const unsub = real.onAuth((u) => { if (!sandbox) cb(u); }, onDenied);
+    if (sandbox) { seedIfEmpty(); cb(DEMO_USER); }
+    return unsub;
+  },
+  signIn: () => real.signIn(),
+  async signOut() {
+    if (sandbox) { sandbox = false; localStorage.removeItem(SANDBOX); authCb?.(null); return; }
+    return real.signOut();
+  },
+  async startDemo() {
+    seedIfEmpty();
+    localStorage.setItem(SANDBOX, '1');
+    sandbox = true;
+    authCb?.(DEMO_USER);
+  },
+  // Nová ukázková data (přepíše změny v demu)
+  resetDemo() { writeLS(generateDemo()); },
+  data(uid) { return sandbox ? demoBackend.data(uid) : real.data(uid); },
+};

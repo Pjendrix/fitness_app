@@ -6,7 +6,7 @@ import { t } from '../lib/i18n.js';
 
 // Přihlášení: černá stránka, logo, jedno tlačítko.
 export default function Login() {
-  const { signIn, mode, denied } = useStore();
+  const { signIn, mode, denied, startDemo } = useStore();
 
   // Černý stavový řádek jen na přihlášení
   useEffect(() => {
@@ -28,6 +28,7 @@ export default function Login() {
         <button className="lx-btn" onClick={signIn}>
           {mode === 'firebase' ? (<><GoogleIcon /> {t('login.google')}</>) : t('login.demo')}
         </button>
+        {mode === 'firebase' && <button className="lx-demo" onClick={startDemo}>{t('login.demoBtn')}</button>}
         {denied && <p className="lx-error" role="alert">{t('login.denied', { email: denied })}</p>}
         {mode === 'demo' && <p className="lx-note">{t('login.demoNote')}</p>}
       </div>
