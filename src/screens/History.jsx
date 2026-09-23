@@ -6,10 +6,37 @@ import { locale, t } from '../lib/i18n.js';
 import { ArrowIcon, ChevronIcon, TrashIcon } from '../components/Icons.jsx';
 import { useDialog } from '../components/Dialog.jsx';
 import WorkoutEditor from '../components/WorkoutEditor.jsx';
+import { computeMetrics, previousSame } from '../lib/metrics.js';
 
 const dayKey = (ms) => new Date(ms).toDateString();
 
-function WorkoutCard({ w, color, open, onToggle, onDelete, onEdit }) {
+// Srovnání s minulým stejným tréninkem
+function Compare({ cur, prev, prevDate }) {
+  const pct = (a, b) => (a != null && b ? Math.round((a / b - 1) * 100) : null);
+  const rows = [
+    { l: t('wl.m.volume'), v: `${fmtNum(Math.round(cur.volume))} kg`, d: pct(cur.volume, prev.volume), u: ' %' },
+    { l: t('wl.m.sets'), v: fmtNum(cur.sets), d: cur.sets - prev.sets, u: '' },
+    { l: t('wl.m.density'), v: cur.density != null ? `${Math.round(cur.density)} kg/min` : '–', d: pct(cur.density, prev.density), u: ' %' },
+    { l: t('wl.m.intensity'), v: cur.intensity != null ? `${Math.round(cur.intensity)} %` : '–', d: cur.intensity != null && prev.intensity != null ? Math.round(cur.intensity - prev.intensity) : null, u: ` ${t('wl.pts')}` },
+    { l: t('wl.m.minutes'), v: `${Math.round(cur.minutes)} min`, d: Math.round(cur.minutes - prev.minutes), u: ' min', neutral: true },
+  ];
+  return (
+    <div className="hist-compare">
+      <div className="muted small">{t('wl.vsPrev', { name: prev.name, d: prevDate })}</div>
+      {rows.map((r) => (
+        <div key={r.l} className="hist-cmp-row">
+          <span>{r.l}</span>
+          <span className="mono">{r.v}{' '}
+            {r.d != null && <span className={r.d === 0 || r.neutral ? 'muted' : r.d > 0 ? 'wl-up' : 'wl-down'}>{r.d > 0 ? '+' : r.d < 0 ? '−' : '±'}{Math.abs(r.d)}{r.u}</span>}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function WorkoutCard({ w, color, open, onToggle, onDelete, onEdit, metrics, all }) {
+  const prev = open ? previousSame(w, all) : null;
   const dialog = useDialog();
   const sets = w.exercises.reduce((n, e) => n + e.sets.length, 0);
   return (
@@ -29,6 +56,7 @@ function WorkoutCard({ w, color, open, onToggle, onDelete, onEdit }) {
               <div className="mono muted small sets-line">{e.sets.map((s) => fmtSet(s.weight, s.reps, s.time)).join('  ·  ')}</div>
             </div>
           ))}
+          {prev && metrics.get(w.id) && metrics.get(prev.id) && <Compare cur={metrics.get(w.id)} prev={metrics.get(prev.id)} prevDate={fmtDate(prev.startedAt)} />}
           <div className="row-actions">
           <button className="btn btn-ghost btn-sm" onClick={() => onEdit(w)}>{t('hist.edit')}</button>
           <button className="btn btn-danger btn-sm" onClick={async () => (await dialog.confirm(t('hist.confirmDelete'), { danger: true, ok: t('hist.delete') })) && onDelete(w.id)}>
@@ -93,6 +121,7 @@ export default function History({ go }) {
   const [filter, setFilter] = useState('all');
   const [day, setDay] = useState(dayKey(Date.now()));
 
+  const metrics = useMemo(() => computeMetrics(workouts), [workouts]);
   const colorById = useMemo(() => new Map(templates.map((x) => [x.id, colorHex(x.color)])), [templates]);
   const colorOf = (w) => colorById.get(w.templateId);
   // Filter options = workout names that exist in history (template renames keep their own entry)
@@ -121,7 +150,7 @@ export default function History({ go }) {
       {!workouts.length && <p className="empty">{loading ? t('hist.loading') : t('hist.empty')}</p>}
       {workouts.length > 0 && !shown.length && <p className="empty">{view === 'calendar' ? t('hist.dayEmpty') : t('hist.noMatch')}</p>}
       {shown.map((w) => (
-        <WorkoutCard key={w.id} w={w} color={colorOf(w)} open={open === w.id || (view === 'calendar' && shown.length === 1)} onToggle={() => setOpen(open === w.id ? null : w.id)} onDelete={deleteWorkout} onEdit={setEditing} />
+        <WorkoutCard key={w.id} w={w} color={colorOf(w)} open={open === w.id || (view === 'calendar' && shown.length === 1)} onToggle={() => setOpen(open === w.id ? null : w.id)} onDelete={deleteWorkout} onEdit={setEditing} metrics={metrics} all={workouts} />
       ))}
       {editing && <WorkoutEditor key={editing.id} workout={editing} onClose={() => setEditing(null)} />}
     </div>

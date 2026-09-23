@@ -560,3 +560,22 @@ textarea.demo-input { resize: vertical; min-height: 96px; }
 .demo-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 .demo-sheet .form { display: flex; flex-direction: column; gap: 10px; }
 @media (max-width: 380px) { .demo-text { display: none; } }
+
+/* Náročnost tréninků */
+.wl-tabs { display: flex; gap: 2px; overflow-x: auto; padding: 2px; margin: 2px 0 12px; border-radius: 9999px; background: var(--paper); box-shadow: 0 0 0 1px var(--hairline); scrollbar-width: none; }
+.wl-tabs::-webkit-scrollbar { display: none; }
+.wl-tabs button { flex: none; border: 0; background: none; padding: 7px 12px; border-radius: 9999px; font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--stone); min-height: 32px; }
+.wl-tabs button.is-on { background: var(--ink); color: var(--paper); }
+.wl-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.wl-up { color: var(--green); }
+.wl-down { color: var(--red); }
+.wl-bars { display: flex; align-items: flex-end; gap: 4px; height: 120px; }
+.wl-bar { flex: 1; min-width: 0; height: 100%; display: flex; align-items: flex-end; border: 0; background: none; padding: 0; }
+.wl-bar i { display: block; width: 100%; border-radius: 3px; background: color-mix(in srgb, var(--ink) 22%, transparent); }
+.wl-bar i.empty { background: var(--hairline); }
+.wl-bar.sel i { background: var(--ink); }
+.wl-hint { margin-top: 8px; }
+.wl-detail { margin-top: 10px; padding: 10px 12px; border-radius: var(--r); background: var(--paper); display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.hist-compare { display: flex; flex-direction: column; gap: 2px; padding: 10px 0 4px; border-top: 1px solid var(--hairline); }
+.hist-cmp-row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 5px 0; border-bottom: 1px solid var(--hairline); }
+.hist-cmp-row:last-child { border-bottom: 0; }

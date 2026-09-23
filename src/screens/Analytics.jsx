@@ -4,6 +4,8 @@ import { CATEGORIES } from '../data/exercises.js';
 import { locale, t } from '../lib/i18n.js';
 import { BarChart, HBars, LineChart } from '../components/Charts.jsx';
 import WeeklyGoal from '../components/WeeklyGoal.jsx';
+import WorkoutLoad from '../components/WorkoutLoad.jsx';
+import { computeMetrics } from '../lib/metrics.js';
 import { better, fmtDate, fmtDuration, fmtNum, fmtSet, workoutVolume } from '../lib/util.js';
 
 const WEEK = 7 * 864e5;
@@ -51,6 +53,10 @@ export default function Analytics() {
     }
     return Object.entries(m).map(([c, value]) => ({ label: t('cat.' + c), value })).sort((a, b) => b.value - a.value);
   }, [inRange, catOf]);
+
+  // Globální metriky tréninků (intenzita potřebuje celou historii, zobrazí se jen vybrané období)
+  const allMetrics = useMemo(() => computeMetrics(workouts), [workouts]);
+  const loadMetrics = useMemo(() => inRange.map((w) => allMetrics.get(w.id)).filter(Boolean).sort((a, b) => a.startedAt - b.startedAt), [inRange, allMetrics]);
 
   // Cvičení seřazená podle počtu tréninků
   const exList = useMemo(() => {
@@ -144,6 +150,7 @@ export default function Analytics() {
           )}
         </section>
 
+        <WorkoutLoad metrics={loadMetrics} />
         <section className="card"><div className="card-head"><h2>{t('an.weeklyVol')}</h2><span className="label">kg</span></div><BarChart label={t('an.weeklyVol')} data={weekly.vol} unit=" kg" format={(v) => (v >= 1000 ? fmtNum(Math.round(v / 100) / 10) + 'k' : fmtNum(Math.round(v)))} /></section>
         <section className="card"><div className="card-head"><h2>{t('an.weeklyN')}</h2></div><BarChart label={t('an.weeklyN')} data={weekly.n} format={(v) => fmtNum(Math.round(v * 10) / 10)} /></section>
         <section className="card"><div className="card-head"><h2>{t('an.muscles')}</h2></div><HBars data={muscles} /></section>
