@@ -22,3 +22,6 @@ export const ArrowIcon = I(<path d="M15 6l-6 6 6 6" />);
 export const CopyIcon = I(<><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" /></>);
 export const PencilIcon = I(<path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4" />);
 export const UndoIcon = I(<><path d="M9 14L4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-3" /></>);
+export const RedoIcon = I(<><path d="M15 14l5-5-5-5" /><path d="M20 9H10a6 6 0 0 0 0 12h3" /></>);
+export const SwapIcon = I(<><path d="M7 4L4 7l3 3" /><path d="M4 7h13" /><path d="M17 14l3 3-3 3" /><path d="M20 17H7" /></>);
+export const FlagIcon = I(<><path d="M5 21V4" /><path d="M5 4h11l-2 4 2 4H5" /></>);

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Sheet from './Sheet.jsx';
 import { fromDb, loadDb } from '../lib/exerciseDb.js';
 import { CATEGORIES } from '../data/exercises.js';
+import { alternativesFor } from '../data/alternatives.js';
 import { useStore } from '../lib/store.jsx';
 import { exKey, sanitizeName } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
@@ -16,8 +17,9 @@ export function TypeTag({ type }) {
 }
 
 // mode 'db' = browse the exercise database only (Exercises tab)
-export default function ExercisePicker({ onPick, onClose, exclude = [], mode }) {
-  const { library, addToLibrary, prs, typeOf, infoOf } = useStore();
+// replacing = exercise being swapped in the active workout → suggestions first, then the usual search
+export default function ExercisePicker({ onPick, onClose, exclude = [], mode, replacing }) {
+  const { library, addToLibrary, prs, typeOf, infoOf, catOf } = useStore();
   const [db, setDb] = useState(null);
   const [dbErr, setDbErr] = useState(false);
   const [q, setQ] = useState('');
@@ -44,6 +46,28 @@ export default function ExercisePicker({ onPick, onClose, exclude = [], mode }) 
     .sort((a, b) => a.name.localeCompare(b.name));
   const exact = library.some((e) => norm(e.name) === query) || dbList.some((e) => e.n === query);
   const skip = new Set(exclude);
+  const alts = useMemo(
+    () => (replacing ? alternativesFor(replacing.name, { library, catOf, prs, exclude }) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [replacing, library, catOf, prs],
+  );
+  const showAlts = alts && !query && cat === 'all' && (alts.similar.length > 0 || alts.sameCat.length > 0);
+
+  const row = (e, keyPrefix = '') => {
+    const key = exKey(e.name);
+    const pb = prs[key];
+    return (
+      <button key={keyPrefix + e.name} className="pick" disabled={skip.has(key)} onClick={() => onPick(e)}>
+        <span>{e.name}</span>
+        <span className="pick-meta">
+          <span className="label">{skip.has(key) ? t('pick.inWorkout') : pb ? `PB ${pb.weight || 'BW'}×${pb.reps}` : t('cat.' + e.cat)}</span>
+          {!infoOf(e.name) && <span className="custom-tag">{t('info.custom')}</span>}
+          <TypeTag type={typeOf(e.name)} />
+        </span>
+      </button>
+    );
+  };
+  const title = replacing ? t('rep.title') : dbOnly ? t('ex.browse') : t('pick.title');
 
   const createCustom = () => {
     const name = sanitizeName(q);
@@ -54,33 +78,28 @@ export default function ExercisePicker({ onPick, onClose, exclude = [], mode }) 
   };
 
   return (
-    <Sheet label={dbOnly ? t('ex.browse') : t('pick.title')} onClose={onClose}>
+    <Sheet label={title} onClose={onClose}>
         <div className="sheet-head">
-          <h2>{dbOnly ? t('ex.browse') : t('pick.title')}</h2>
+          <div>
+            <h2>{title}</h2>
+            {replacing && <p className="muted small rep-of">{replacing.name}</p>}
+          </div>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>{t('pick.close')}</button>
         </div>
-        <input className="input" autoFocus maxLength={80} type="search" aria-label={t('pick.search')} placeholder={t('pick.search')} value={q} onChange={(e) => setQ(e.target.value)} />
+        {/* Při nahrazování bez autofocusu – klávesnice by zakryla návrhy */}
+        <input className="input" autoFocus={!replacing} maxLength={80} type="search" aria-label={t('pick.search')} placeholder={t('pick.search')} value={q} onChange={(e) => setQ(e.target.value)} />
         <div className="chips">
           {['all', ...CATEGORIES].map((c) => (
             <button key={c} className={'chip' + (cat === c ? ' is-on' : '')} onClick={() => setCat(c)}>{c === 'all' ? t('pick.all') : t('cat.' + c)}</button>
           ))}
         </div>
         <div className="sheet-list">
-          {!dbOnly && wantDb && list.length > 0 && <p className="label pick-section">{t('pick.mine')}</p>}
-          {list.map((e) => {
-            const key = exKey(e.name);
-            const pb = prs[key];
-            return (
-              <button key={e.name} className="pick" disabled={skip.has(key)} onClick={() => onPick(e)}>
-                <span>{e.name}</span>
-                <span className="pick-meta">
-                  <span className="label">{skip.has(key) ? t('pick.inWorkout') : pb ? `PB ${pb.weight || 'BW'}×${pb.reps}` : t('cat.' + e.cat)}</span>
-                  {!infoOf(e.name) && <span className="custom-tag">{t('info.custom')}</span>}
-                  <TypeTag type={typeOf(e.name)} />
-                </span>
-              </button>
-            );
-          })}
+          {showAlts && alts.similar.length > 0 && <p className="label pick-section">{t('rep.similar')}</p>}
+          {showAlts && alts.similar.map((e) => row(e, 'alt:'))}
+          {showAlts && alts.sameCat.length > 0 && <p className="label pick-section">{t('rep.sameCat', { cat: t('cat.' + catOf(replacing.name)) })}</p>}
+          {showAlts && alts.sameCat.map((e) => row(e, 'cat:'))}
+          {((!dbOnly && wantDb && list.length > 0) || (showAlts && list.length > 0)) && <p className="label pick-section">{showAlts ? t('rep.all') : t('pick.mine')}</p>}
+          {list.map((e) => row(e))}
           {!dbOnly && !wantDb && <p className="muted small pick-hint">{t('pick.dbHint')}</p>}
           {wantDb && (dbList.length > 0 || dbErr || !db) && <p className="label pick-section">{t('pick.db')}</p>}
           {wantDb && !db && !dbErr && <p className="empty">{t('hist.loading')}</p>}

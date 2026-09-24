@@ -3,7 +3,7 @@ import { useSession } from '../lib/store.jsx';
 import { better, countUnchecked, uid, DECIMAL_INPUT, fmtClock, fmtSet, INT_INPUT, isDone, num } from '../lib/util.js';
 import NumField, { oneStep, weightStep } from '../components/NumField.jsx';
 import { primeAudio } from '../lib/rest.js';
-import { CheckIcon, PlusIcon, TrashIcon } from '../components/Icons.jsx';
+import { CheckIcon, FlagIcon, PlusIcon, SwapIcon, TrashIcon } from '../components/Icons.jsx';
 import ExercisePicker from '../components/ExercisePicker.jsx';
 import SwipeRow from '../components/SwipeRow.jsx';
 import { InfoButton } from '../components/ExerciseInfo.jsx';
@@ -55,6 +55,7 @@ const ExerciseCard = memo(function ExerciseCard({ ex, index, count, pb, handlers
       ))}
       <div className="ex-actions">
         <button className="btn btn-ghost btn-sm" onClick={() => handlers.addSet(ex.id)}><PlusIcon width={16} height={16} /> {t('wo.addSet')}</button>
+        <button className="btn btn-ghost btn-sm replace-btn" onClick={() => handlers.replace(ex.id)}><SwapIcon width={16} height={16} /> {t('rep.btn')}</button>
         <span className="spacer" />
         <button className="icon-btn" aria-label={t('wo.up')} disabled={index === 0} onClick={() => handlers.move(ex.id, -1)}>↑</button>
         <button className="icon-btn" aria-label={t('wo.down')} disabled={index === count - 1} onClick={() => handlers.move(ex.id, 1)}>↓</button>
@@ -65,9 +66,11 @@ const ExerciseCard = memo(function ExerciseCard({ ex, index, count, pb, handlers
 });
 
 export default function Workout({ go }) {
-  const { active, patchActive, prs, finishWorkout, discardWorkout, notify, addExerciseToActive, startRest, stopRest } = useSession();
+  const { active, patchActive, prs, finishWorkout, discardWorkout, notify, addExerciseToActive, replaceExerciseInActive, startRest, stopRest } = useSession();
   const dialog = useDialog();
   const [picking, setPicking] = useState(() => Boolean(active && !active.exercises.length));
+  const [replacingId, setReplacingId] = useState(null);
+  const replacing = active?.exercises.find((e) => e.id === replacingId) || null;
   const live = Boolean(active);
 
   // Displej nezhasne během tréninku
@@ -149,7 +152,7 @@ export default function Workout({ go }) {
   }), [patchActive]);
 
   const [handlers] = useState(() => ({}));
-  Object.assign(handlers, { patchSet, toggle, addSet, removeSet, removeExercise, move }); // stabilní objekt, aktuální funkce
+  Object.assign(handlers, { patchSet, toggle, addSet, removeSet, removeExercise, move, replace: setReplacingId }); // stabilní objekt, aktuální funkce
 
   if (!active) {
     return (
@@ -198,7 +201,7 @@ export default function Workout({ go }) {
           <h1>{active.name}</h1>
           <p className="label"><Elapsed since={active.startedAt} /> · {t('wo.sets', { done: doneCount, total })}</p>
         </div>
-        <button className="btn btn-primary" onClick={finish}>{t('wo.finish')}</button>
+        <button className="btn btn-finish" onClick={finish}>{t('wo.finish')}</button>
       </header>
       <div className="progress" aria-hidden="true"><i style={{ width: `${total ? (doneCount / total) * 100 : 0}%` }} /></div>
       {active.exercises.length > 0 && <p className="muted small swipe-hint">{t('wo.swipeHint')}</p>}
@@ -209,6 +212,9 @@ export default function Workout({ go }) {
 
       {!active.exercises.length && <p className="empty">{t('wo.addFirst')}</p>}
       <button className={'btn btn-block ' + (active.exercises.length ? 'btn-ghost' : 'btn-primary')} onClick={() => setPicking(true)}><PlusIcon width={16} height={16} /> {t('wo.addEx')}</button>
+      {active.exercises.length > 0 && (
+        <button className="btn btn-finish btn-lg btn-block finish-bottom" onClick={finish}><FlagIcon width={18} height={18} /> {t('wo.finishLong')}</button>
+      )}
       <button className="btn btn-danger btn-block discard-btn" onClick={discard}>{t('wo.discard')}</button>
 
       {picking && (
@@ -216,6 +222,14 @@ export default function Workout({ go }) {
           exclude={active.exercises.map((e) => e.key)}
           onClose={() => setPicking(false)}
           onPick={(ex) => { addExerciseToActive(ex); setPicking(false); }}
+        />
+      )}
+      {replacing && (
+        <ExercisePicker
+          replacing={replacing}
+          exclude={active.exercises.map((e) => e.key)}
+          onClose={() => setReplacingId(null)}
+          onPick={(ex) => { replaceExerciseInActive(replacing.id, ex); setReplacingId(null); }}
         />
       )}
     </div>

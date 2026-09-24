@@ -80,6 +80,7 @@ export function StoreProvider({ children }) {
   const [profile, setProfileState] = useState(null);
   const [mainStore, setMainStore] = useState({});
   const [undoStack, setUndoStack] = useState([]);
+  const [redoStack, setRedoStack] = useState([]);
   const [active, setActive] = useState(null);
   const [toast, setToast] = useState(null);
   const [sync, setSync] = useState({ pending: false, fromCache: false });
@@ -196,50 +197,78 @@ export function StoreProvider({ children }) {
   }, [mainStore, prof]);
   const templates = useMemo(() => [...main.templates, ...custom], [main, custom]);
 
-  // ——— Undo (posledních 5 změn šablon, knihovny a historie) ———
+  // ——— Undo / Redo (posledních 5 změn šablon, knihovny a historie) ———
+  // Položka = snímek stavu; `drop` = id tréninků, které obnova přidala (a zrušení obnovy je má zase smazat).
   const snap = useRef({});
   snap.current = { custom, library, mainStore, workouts, prs };
   const remember = useCallback((label) => {
     const { custom: c, library: l, mainStore: m, workouts: w } = snap.current;
-    setUndoStack((st) => [...st.slice(-4), { label, custom: c, library: l, mainStore: m, workouts: w }]);
+    setUndoStack((st) => [...st.slice(-4), { label, custom: c, library: l, mainStore: m, workouts: w, drop: [] }]);
+    setRedoStack([]); // nová změna zahodí historii „Znovu“
   }, []);
-  const stackRef = useRef(undoStack);
-  stackRef.current = undoStack;
-  const undo = useCallback(() => {
-    const st = stackRef.current;
-    const last = st[st.length - 1];
-    if (!last || !api) return;
-    setUndoStack(st.slice(0, -1));
+  const stackRef = useRef({ undo: undoStack, redo: redoStack });
+  stackRef.current = { undo: undoStack, redo: redoStack };
+
+  // Vrátí stav na snímek `target`; vrací protipoložku (aktuální stav) pro opačný zásobník.
+  const restore = useCallback((target) => {
     const now = snap.current;
-    const before = new Map(last.custom.map((x) => [x.id, x]));
+    const counter = { label: target.label, custom: now.custom, library: now.library, mainStore: now.mainStore, workouts: now.workouts, drop: [] };
+    const before = new Map(target.custom.map((x) => [x.id, x]));
     for (const x of now.custom) if (!before.has(x.id)) api.deleteTemplate(x.id).catch(fail('err.delete'));
-    for (const x of last.custom) if (JSON.stringify(x) !== JSON.stringify(now.custom.find((y) => y.id === x.id))) api.saveTemplate(x).catch(fail('err.save'));
-    setCustom(last.custom);
-    if (last.library !== now.library) { setLibrary(last.library); api.saveExercises(last.library).catch(fail('err.save')); }
-    if (last.mainStore !== now.mainStore) {
-      setMainStore(last.mainStore);
-      for (const id of new Set([...Object.keys(last.mainStore), ...Object.keys(now.mainStore)])) {
-        if (last.mainStore[id] !== now.mainStore[id]) api.saveMain(id, last.mainStore[id] || null).catch(fail('err.save'));
+    for (const x of target.custom) if (JSON.stringify(x) !== JSON.stringify(now.custom.find((y) => y.id === x.id))) api.saveTemplate(x).catch(fail('err.save'));
+    setCustom(target.custom);
+    if (target.library !== now.library) { setLibrary(target.library); api.saveExercises(target.library).catch(fail('err.save')); }
+    if (target.mainStore !== now.mainStore) {
+      setMainStore(target.mainStore);
+      for (const id of new Set([...Object.keys(target.mainStore), ...Object.keys(now.mainStore)])) {
+        if (target.mainStore[id] !== now.mainStore[id]) api.saveMain(id, target.mainStore[id] || null).catch(fail('err.save'));
       }
     }
-    if (last.workouts !== now.workouts) {
-      // Vrátit smazané i upravené tréninky; tréninky dokončené mezitím zůstanou.
+    if (target.workouts !== now.workouts) {
+      // Obnovit smazané/upravené tréninky; tréninky dokončené mezitím zůstanou.
       const nowById = new Map(now.workouts.map((w) => [w.id, w]));
-      const lastIds = new Set(last.workouts.map((w) => w.id));
-      const merged = byStart([...last.workouts, ...now.workouts.filter((w) => !lastIds.has(w.id))]);
-      const changed = last.workouts.filter((w) => JSON.stringify(nowById.get(w.id)) !== JSON.stringify(w));
+      const targetIds = new Set(target.workouts.map((w) => w.id));
+      const drop = new Set(target.drop || []);
+      const removed = now.workouts.filter((w) => !targetIds.has(w.id) && drop.has(w.id));
+      const merged = byStart([...target.workouts, ...now.workouts.filter((w) => !targetIds.has(w.id) && !drop.has(w.id))]);
+      const changed = target.workouts.filter((w) => JSON.stringify(nowById.get(w.id)) !== JSON.stringify(w));
+      counter.drop = target.workouts.filter((w) => !nowById.has(w.id)).map((w) => w.id);
       const keys = new Set();
-      for (const w of changed) {
+      for (const w of [...changed, ...removed]) {
         w.exercises.forEach((e) => keys.add(e.key));
         nowById.get(w.id)?.exercises.forEach((e) => keys.add(e.key));
       }
       const changes = recomputeKeys(keys, merged, now.prs);
-      changed.forEach((w, i) => api.saveWorkout(w, i === 0 ? changes : {}).catch(fail('err.save')));
+      let first = true;
+      const take = () => { if (!first) return {}; first = false; return changes; }; // změny PB jen s prvním zápisem
+      changed.forEach((w) => api.saveWorkout(w, take()).catch(fail('err.save')));
+      removed.forEach((w) => api.deleteWorkout(w.id, take()).catch(fail('err.delete')));
       setPrs(applyChanges(now.prs, changes));
       setWorkouts(merged);
     }
-    notify(t('undo.done', { what: t(last.label) }));
-  }, [api, fail, notify]);
+    return counter;
+  }, [api, fail]);
+
+  const actions = useRef({});
+  const undo = useCallback(() => {
+    const { undo: st, redo: rs } = stackRef.current;
+    const last = st[st.length - 1];
+    if (!last || !api) return;
+    const counter = restore(last);
+    setUndoStack(st.slice(0, -1));
+    setRedoStack([...rs.slice(-4), counter]);
+    notify(t('undo.done', { what: t(last.label) }), { action: { label: t('undo.redoBtn'), run: () => actions.current.redo() } });
+  }, [api, restore, notify]);
+  const redo = useCallback(() => {
+    const { undo: st, redo: rs } = stackRef.current;
+    const last = rs[rs.length - 1];
+    if (!last || !api) return;
+    const counter = restore(last);
+    setRedoStack(rs.slice(0, -1));
+    setUndoStack([...st.slice(-4), counter]);
+    notify(t('undo.redone', { what: t(last.label) }), { action: { label: t('undo.btn'), run: () => actions.current.undo() } });
+  }, [api, restore, notify]);
+  actions.current = { undo, redo };
 
   const writeMain = useCallback((cfg) => {
     setMainStore((ms) => ({ ...ms, [prof.id]: cfg }));
@@ -444,6 +473,44 @@ export function StoreProvider({ children }) {
     patchActive((a) => ({ ...a, exercises: [...a.exercises, { id: uid(), key, name: ex.name, type, plan: '', hint: '', note: '', sets }] }));
   }, [lastSets, patchActive, typeOf]);
 
+  // Nahrazení cviku v aktivním tréninku (obsazené stanoviště).
+  // Bez odškrtnutých sérií → výměna na místě. S odškrtnutými → hotové série zůstanou u původního cviku,
+  // náhrada se vloží hned pod něj se zbývajícím počtem sérií.
+  const replaceExerciseInActive = useCallback((exId, ex) => {
+    const old = active?.exercises.find((e) => e.id === exId);
+    if (!old) return;
+    const key = exKey(ex.name);
+    if (key === old.key) return;
+    const type = ex.type || typeOf(ex.name);
+    const last = lastSets(key);
+    const done = old.sets.filter(isDone);
+    const count = Math.max(1, old.sets.length - done.length);
+    const sets = Array.from({ length: count }, (_, i) => newSet(last ? last[Math.min(i, last.length - 1)] : {}));
+    const plan = type === (old.type || 'reps') ? old.plan : type === 'time' ? t('count.sets', { n: count }) : '';
+    const fresh = { id: uid(), key, name: ex.name, type, plan, hint: '', note: '', sets };
+    const split = done.length > 0;
+    patchActive((a) => {
+      const i = a.exercises.findIndex((e) => e.id === exId);
+      if (i < 0) return a;
+      const list = [...a.exercises];
+      if (split) list.splice(i, 1, { ...a.exercises[i], sets: a.exercises[i].sets.filter(isDone) }, fresh);
+      else list.splice(i, 1, fresh);
+      return { ...a, exercises: list };
+    });
+    notify(t(split ? 'rep.doneSplit' : 'rep.done', { from: old.name, to: ex.name }), {
+      duration: 6000,
+      action: {
+        label: t('undo.btn'),
+        run: () => patchActive((a) => {
+          const list = a.exercises.filter((e) => e.id !== fresh.id);
+          const at = list.findIndex((e) => e.id === old.id);
+          if (at >= 0) list[at] = old; else list.push(old);
+          return { ...a, exercises: list };
+        }),
+      },
+    });
+  }, [active, lastSets, typeOf, patchActive, notify]);
+
   // ——— Pauza ———
   const startRest = useCallback(() => {
     const total = getRestDefault();
@@ -458,7 +525,7 @@ export function StoreProvider({ children }) {
     draftOwner.current = null; // draft zůstane uložený pro svého majitele
     await backend.signOut();
     setActive(null); setRest(null);
-    setCustom([]); setWorkouts([]); setPrs({}); setLibrary(EXERCISES); setProfileState(null); setMainStore({}); setUndoStack([]);
+    setCustom([]); setWorkouts([]); setPrs({}); setLibrary(EXERCISES); setProfileState(null); setMainStore({}); setUndoStack([]); setRedoStack([]);
   }, [flushDraft]);
 
   const startDemo = useCallback(() => backend.startDemo(), []);
@@ -470,13 +537,13 @@ export function StoreProvider({ children }) {
     templates, workouts, prs, deleteWorkout, updateWorkout, saveTemplate, deleteTemplate, startWorkout, startEmptyWorkout,
     library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf,
     profile, prof, setProfile, weeklyGoal, setWeeklyGoal, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, resetMain,
-    undoStack, undo, notify,
+    undoStack, undo, redoStack, redo, notify,
   }), [user, denied, loading, signIn, signOut, startDemo, resetDemo, live, sync, online, templates, workouts, prs, deleteWorkout, updateWorkout, saveTemplate, deleteTemplate, startWorkout, startEmptyWorkout,
-    library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf, profile, prof, setProfile, weeklyGoal, setWeeklyGoal, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, resetMain, undoStack, undo, notify]);
+    library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf, profile, prof, setProfile, weeklyGoal, setWeeklyGoal, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, resetMain, undoStack, undo, redoStack, redo, notify]);
 
   const session = useMemo(() => ({
-    active, patchActive, finishWorkout, discardWorkout, addExerciseToActive, prs, notify, rest, startRest, adjustRest, stopRest,
-  }), [active, patchActive, finishWorkout, discardWorkout, addExerciseToActive, prs, notify, rest, startRest, adjustRest, stopRest]);
+    active, patchActive, finishWorkout, discardWorkout, addExerciseToActive, replaceExerciseInActive, prs, notify, rest, startRest, adjustRest, stopRest,
+  }), [active, patchActive, finishWorkout, discardWorkout, addExerciseToActive, replaceExerciseInActive, prs, notify, rest, startRest, adjustRest, stopRest]);
 
   const toastValue = useMemo(() => ({ toast, notify, dismissToast }), [toast, notify, dismissToast]);
 
