@@ -13,7 +13,7 @@ const TABS = [
   { id: 'exercises', Icon: ListIcon, desktop: true },
   { id: 'settings', Icon: SettingsIcon },
 ];
-const PARENT = { stats: 'history', exercises: 'settings' };
+const PARENT = { stats: 'history', statsFull: 'history', exercises: 'settings' };
 
 export default function BottomNav({ tab, go, live }) {
   const current = (id) => tab === id || PARENT[tab] === id;

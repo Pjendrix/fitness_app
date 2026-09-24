@@ -60,6 +60,7 @@ const loadLibrary = (d) => {
   const have = new Set(EXERCISES.map((e) => exKey(e.name)));
   return [...EXERCISES, ...list.filter((e) => !have.has(exKey(e.name)))];
 };
+const MAX_PINS = 5;
 const byStart = (list) => [...list].sort((a, b) => b.startedAt - a.startedAt);
 const newSet = (s = {}) => ({ id: uid(), weight: String(s.weight || ''), reps: String(s.reps || ''), time: String(s.time || ''), done: false });
 
@@ -87,6 +88,7 @@ export function StoreProvider({ children }) {
   const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
   const [rest, setRest] = useState(null); // {until, total}
   const [weeklyGoal, setWeeklyGoalState] = useState(3);
+  const [pinnedLifts, setPinnedLifts] = useState([]);
 
   const api = useMemo(() => (user ? backend.data(user.uid) : null), [user]);
 
@@ -127,6 +129,9 @@ export function StoreProvider({ children }) {
         setMainStore(d.main || {});
         const cached = parseInt(localStorage.getItem(`forge:goal:${user.uid}`), 10);
         setWeeklyGoalState(d.settings?.weeklyGoal || cached || 3);
+        let pins = d.settings?.pinnedLifts;
+        if (!Array.isArray(pins)) { try { pins = JSON.parse(localStorage.getItem(`forge:pins:${user.uid}`)); } catch { pins = null; } }
+        setPinnedLifts(Array.isArray(pins) ? pins.filter((k) => typeof k === 'string').slice(0, MAX_PINS) : []);
       })
       .catch(fail('err.load'))
       .finally(() => !cancelled && setMetaLoading(false));
@@ -302,6 +307,16 @@ export function StoreProvider({ children }) {
     try { localStorage.setItem(`forge:goal:${user?.uid}`, String(v)); } catch { /* ignore */ }
     api?.saveSettings({ weeklyGoal: v }).catch((e) => console.warn('settings', e));
   }, [api, user?.uid]);
+  // Připnuté „Key lifts“ v mobilních statistikách (max 5); účet + lokální kopie jako u týdenního cíle
+  const togglePin = useCallback((key) => {
+    const has = pinnedLifts.includes(key);
+    if (!has && pinnedLifts.length >= MAX_PINS) { notify(t('ms.pinMax', { n: MAX_PINS })); return false; }
+    const next = has ? pinnedLifts.filter((k) => k !== key) : [...pinnedLifts, key];
+    setPinnedLifts(next);
+    try { localStorage.setItem(`forge:pins:${user?.uid}`, JSON.stringify(next)); } catch { /* ignore */ }
+    api?.saveSettings({ pinnedLifts: next }).catch((e) => console.warn('settings', e));
+    return true;
+  }, [pinnedLifts, api, user?.uid, notify]);
   const setProfile = useCallback((id) => {
     setProfileState(id);
     api.saveProfile(id).catch(fail('err.save'));
@@ -525,7 +540,7 @@ export function StoreProvider({ children }) {
     draftOwner.current = null; // draft zůstane uložený pro svého majitele
     await backend.signOut();
     setActive(null); setRest(null);
-    setCustom([]); setWorkouts([]); setPrs({}); setLibrary(EXERCISES); setProfileState(null); setMainStore({}); setUndoStack([]); setRedoStack([]);
+    setCustom([]); setWorkouts([]); setPrs({}); setLibrary(EXERCISES); setProfileState(null); setMainStore({}); setUndoStack([]); setRedoStack([]); setPinnedLifts([]);
   }, [flushDraft]);
 
   const startDemo = useCallback(() => backend.startDemo(), []);
@@ -536,10 +551,10 @@ export function StoreProvider({ children }) {
     user, denied, loading, mode: backend.mode, signIn, signOut, startDemo, resetDemo, live, sync, online,
     templates, workouts, prs, deleteWorkout, updateWorkout, saveTemplate, deleteTemplate, startWorkout, startEmptyWorkout,
     library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf,
-    profile, prof, setProfile, weeklyGoal, setWeeklyGoal, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, resetMain,
+    profile, prof, setProfile, weeklyGoal, setWeeklyGoal, pinnedLifts, togglePin, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, resetMain,
     undoStack, undo, redoStack, redo, notify,
   }), [user, denied, loading, signIn, signOut, startDemo, resetDemo, live, sync, online, templates, workouts, prs, deleteWorkout, updateWorkout, saveTemplate, deleteTemplate, startWorkout, startEmptyWorkout,
-    library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf, profile, prof, setProfile, weeklyGoal, setWeeklyGoal, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, resetMain, undoStack, undo, redoStack, redo, notify]);
+    library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf, profile, prof, setProfile, weeklyGoal, setWeeklyGoal, pinnedLifts, togglePin, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, resetMain, undoStack, undo, redoStack, redo, notify]);
 
   const session = useMemo(() => ({
     active, patchActive, finishWorkout, discardWorkout, addExerciseToActive, replaceExerciseInActive, prs, notify, rest, startRest, adjustRest, stopRest,

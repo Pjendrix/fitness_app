@@ -13,6 +13,7 @@ import Home from './screens/Home.jsx';
 import Workout from './screens/Workout.jsx';
 import { useLang } from './lib/i18n.js';
 import { syncThemeColor } from './lib/theme.js';
+import { useViewMode } from './lib/viewMode.js';
 
 // Home a Trénink hned, zbytek líně (menší první načtení)
 const History = lazy(() => import('./screens/History.jsx'));
@@ -20,7 +21,13 @@ const Templates = lazy(() => import('./screens/Templates.jsx'));
 const Settings = lazy(() => import('./screens/Settings.jsx'));
 const Analytics = lazy(() => import('./screens/Analytics.jsx'));
 const Exercises = lazy(() => import('./screens/Exercises.jsx'));
-const SCREENS = { home: Home, workout: Workout, history: History, templates: Templates, settings: Settings, stats: Analytics, exercises: Exercises };
+const MobileStats = lazy(() => import('./screens/MobileStats.jsx'));
+// Statistiky: desktop = plná analytika, mobil = zjednodušený přehled (plná verze přes „statsFull“)
+function Stats({ go }) {
+  const { desktop } = useViewMode();
+  return desktop ? <Analytics go={go} /> : <MobileStats go={go} />;
+}
+const SCREENS = { home: Home, workout: Workout, history: History, templates: Templates, settings: Settings, stats: Stats, statsFull: Analytics, exercises: Exercises };
 
 const Nav = memo(BottomNav);
 const Undo = memo(UndoButton);

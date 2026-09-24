@@ -24,4 +24,6 @@ export const PencilIcon = I(<path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4" />);
 export const UndoIcon = I(<><path d="M9 14L4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-3" /></>);
 export const RedoIcon = I(<><path d="M15 14l5-5-5-5" /><path d="M20 9H10a6 6 0 0 0 0 12h3" /></>);
 export const SwapIcon = I(<><path d="M7 4L4 7l3 3" /><path d="M4 7h13" /><path d="M17 14l3 3-3 3" /><path d="M20 17H7" /></>);
+export const StarIcon = I(<path d="M12 3.8l2.5 5.2 5.6.7-4.1 3.9 1 5.6-5-2.7-5 2.7 1-5.6-4.1-3.9 5.6-.7z" />);
+export const MonitorIcon = I(<><rect x="3" y="4" width="18" height="12" rx="1.5" /><path d="M8 20h8M12 16v4" /></>);
 export const FlagIcon = I(<><path d="M5 21V4" /><path d="M5 4h11l-2 4 2 4H5" /></>);

@@ -6,6 +6,8 @@ import { BarChart, HBars, LineChart } from '../components/Charts.jsx';
 import WeeklyGoal from '../components/WeeklyGoal.jsx';
 import WorkoutLoad from '../components/WorkoutLoad.jsx';
 import { computeMetrics } from '../lib/metrics.js';
+import { useViewMode } from '../lib/viewMode.js';
+import { ArrowIcon } from '../components/Icons.jsx';
 import { better, fmtDate, fmtDuration, fmtNum, fmtSet, workoutVolume } from '../lib/util.js';
 
 const WEEK = 7 * 864e5;
@@ -15,7 +17,10 @@ const GROUP_FALLBACK = { PUSH: 'chest', PULL: 'back', LEGS: 'legs', UPPER: 'back
 
 const monday = (t) => { const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); };
 
-export default function Analytics() {
+export default function Analytics({ go }) {
+  const { desktop } = useViewMode();
+  // Na mobilu se sem jde z mobilních statistik → odkaz zpět
+  const back = !desktop && go ? <button className="back-link" onClick={() => go('stats')}><ArrowIcon width={14} height={14} /> {t('ms.title')}</button> : null;
   const { workouts, prs, catOf, weeklyGoal, setWeeklyGoal, main } = useStore();
   const [range, setRange] = useState(12);
 
@@ -86,6 +91,7 @@ export default function Analytics() {
   if (!workouts.length) {
     return (
       <div className="screen screen-wide">
+        {back}
         <header className="screen-head"><h1>{t('an.title')}</h1></header>
         <p className="empty">{t('an.empty')}</p>
       </div>
@@ -97,6 +103,7 @@ export default function Analytics() {
 
   return (
     <div className="screen screen-wide">
+      {back}
       <header className="screen-head row-between">
         <h1>{t('an.title')}</h1>
         <div className="seg seg-sm seg-inline" role="radiogroup" aria-label={t('an.period')}>

@@ -72,8 +72,11 @@ service cloud.firestore {
         (doc == 'profile' && request.resource.data.keys().hasOnly(['id']) && request.resource.data.id in ['krystof', 'chiara'])
         || (doc == 'exercises' && request.resource.data.keys().hasOnly(['list', 'v']) && request.resource.data.list is list && request.resource.data.list.size() <= 1500)
         || (doc == 'main' && request.resource.data.keys().hasOnly(['krystof', 'chiara']))
-        || (doc == 'settings' && request.resource.data.keys().hasOnly(['weeklyGoal'])
-            && request.resource.data.weeklyGoal is int && request.resource.data.weeklyGoal >= 1 && request.resource.data.weeklyGoal <= 7)
+        || (doc == 'settings' && request.resource.data.keys().hasOnly(['weeklyGoal', 'pinnedLifts'])
+            && (!('weeklyGoal' in request.resource.data)
+                || (request.resource.data.weeklyGoal is int && request.resource.data.weeklyGoal >= 1 && request.resource.data.weeklyGoal <= 7))
+            && (!('pinnedLifts' in request.resource.data)
+                || (request.resource.data.pinnedLifts is list && request.resource.data.pinnedLifts.size() <= 5)))
       );
     }
   }
