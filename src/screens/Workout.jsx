@@ -1,9 +1,16 @@
-import { memo, useCallback, useEffect, useState } from 'react';
-import { useSession } from '../lib/store.jsx';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { useSession, useStore } from '../lib/store.jsx';
 import { better, countUnchecked, uid, DECIMAL_INPUT, fmtClock, fmtSet, INT_INPUT, isDone, num } from '../lib/util.js';
 import NumField, { oneStep, weightStep } from '../components/NumField.jsx';
 import { primeAudio } from '../lib/rest.js';
-import { CheckIcon, FlagIcon, PlusIcon, SwapIcon, TrashIcon } from '../components/Icons.jsx';
+import { ArrowDownIcon, ArrowUpIcon, CheckIcon, FlagIcon, FlameIcon, LinkIcon, MoreIcon, PencilIcon, PlateIcon, PlusIcon, SwapIcon, TrashIcon } from '../components/Icons.jsx';
+import Sheet from '../components/Sheet.jsx';
+import PlateCalc from '../components/PlateCalc.jsx';
+import ExerciseSheet from '../components/ExerciseSheet.jsx';
+import WorkoutSummary from '../components/WorkoutSummary.jsx';
+import { nextTarget } from '../lib/progress.js';
+import { templateDiffers } from '../lib/templateSync.js';
+import { markGuide } from '../lib/guide.js';
 import ExercisePicker from '../components/ExercisePicker.jsx';
 import SwipeRow from '../components/SwipeRow.jsx';
 import { InfoButton } from '../components/ExerciseInfo.jsx';
@@ -20,55 +27,128 @@ function Elapsed({ since }) {
   return <>{fmtClock(now - since)}</>;
 }
 
+const ssLetter = (active, ss) => {
+  const ids = [];
+  for (const e of active.exercises) if (e.ss && !ids.includes(e.ss)) ids.push(e.ss);
+  return 'ABCDEFGH'[ids.indexOf(ss)] || '';
+};
+
 // Pořadí sloupců: opakování (nebo minuty) vlevo, váha vpravo.
-const SetRow = memo(function SetRow({ exId, set, n, timed, pb, onPatch, onToggle, onRemove }) {
-  const newPb = set.done && pb && better({ weight: num(set.weight), reps: timed ? 0 : num(set.reps), time: timed ? num(set.time) : 0 }, pb);
+// Pod sérií: „minule“ a cíl progrese (W1/W2). Klepnutí na číslo série = rozcvička (W8).
+const SetRow = memo(function SetRow({ exId, set, n, timed, pb, prev, target, onPatch, onToggle, onRemove }) {
+  const warm = Boolean(set.warm);
+  const newPb = !warm && set.done && pb && better({ weight: num(set.weight), reps: timed ? 0 : num(set.reps), time: timed ? num(set.time) : 0 }, pb);
+  const hit = target && set.done && num(set.weight) >= target.weight && num(set.reps) >= target.reps;
   return (
-    <SwipeRow onDelete={() => onRemove(exId, set.id)} deleteLabel={t('wo.delSet', { n })} className={'set' + (set.done ? ' is-done' : '')}>
-      <span className="set-n">{n}</span>
+    <SwipeRow onDelete={() => onRemove(exId, set.id)} deleteLabel={t('wo.delSet', { n })} className={'set' + (set.done ? ' is-done' : '') + (warm ? ' is-warm' : '')}>
+      <button type="button" className="set-n" aria-pressed={warm} aria-label={warm ? t('wo.warmOff') : t('wo.warmOn')} title={warm ? t('wo.warmOff') : t('wo.warmOn')} onClick={() => onPatch(exId, set.id, { warm: !warm })}>{warm ? 'W' : n}</button>
       {timed
         ? <NumField label={t('wo.time', { n })} placeholder="0" mode="decimal" pattern={DECIMAL_INPUT} value={set.time || ''} step={oneStep} onChange={(v) => onPatch(exId, set.id, { time: v })} />
         : <NumField label={t('wo.reps', { n })} placeholder="0" mode="numeric" pattern={INT_INPUT} value={set.reps} step={oneStep} onChange={(v) => onPatch(exId, set.id, { reps: v })} />}
-      <NumField label={t('wo.weight', { n })} placeholder="BW" mode="decimal" pattern={DECIMAL_INPUT} value={set.weight} step={weightStep} onChange={(v) => onPatch(exId, set.id, { weight: v })} />
+      <NumField label={t('wo.weight', { n })} placeholder={timed ? '–' : 'BW'} mode="decimal" pattern={DECIMAL_INPUT} value={set.weight} step={weightStep} onChange={(v) => onPatch(exId, set.id, { weight: v })} />
       <button className="check" aria-label={set.done ? t('wo.uncheck') : t('wo.check')} aria-pressed={set.done} onClick={() => onToggle(exId, set, timed)}>
         <CheckIcon width={20} height={20} />
       </button>
       {newPb && <span className="new-pb">{t('wo.newPb')}</span>}
+      {!warm && (prev || target) && (
+        <span className="set-sub">
+          {prev && <span>{t('wo.last')} {fmtSet(prev.weight, prev.reps, prev.time)}</span>}
+          {target && <span className={hit ? 'is-hit' : ''}>{hit ? '✓ ' : ''}{t('wo.goal')} {fmtSet(target.weight, target.reps)}</span>}
+        </span>
+      )}
+      {warm && <span className="set-sub"><span>{t('wo.warmNote')}</span></span>}
     </SwipeRow>
   );
 });
 
-const ExerciseCard = memo(function ExerciseCard({ ex, index, count, pb, handlers }) {
+const ExerciseCard = memo(function ExerciseCard({ ex, pb, ssLabel, ssEnd, handlers }) {
   const timed = ex.type === 'time';
+  let j = -1; // pořadí pracovní série (rozcvičky se nečíslují)
   return (
-    <section className="card ex">
+    <section className={'card ex' + (ex.ss ? ' in-ss' : '') + (ex.ss && !ssEnd ? ' ss-open' : '')}>
+      {ssLabel && <span className="ss-tag">{t('ss.label', { l: ssLabel })}</span>}
       <div className="ex-head">
         <div className="ex-title">
-          <h2>{ex.name} <InfoButton name={ex.name} /></h2>
+          <h2><button className="ex-name" onClick={() => handlers.detail(ex.key)}>{ex.name}</button> <InfoButton name={ex.name} /></h2>
           <p className="muted small">{[ex.plan, ex.hint && t('wo.recommended', { w: ex.hint }), ex.note].filter(Boolean).join(' · ')}</p>
         </div>
         {pb && <span className="pb" title={t('wo.pb')}>PB {fmtSet(pb.weight, pb.reps, pb.time)}</span>}
       </div>
       <div className="set-cols label" aria-hidden="true"><span>{t('wo.col.set')}</span><span>{timed ? t('wo.col.min') : t('wo.col.reps')}</span><span>{t('wo.col.kg')}</span><span /></div>
-      {ex.sets.map((s, si) => (
-        <SetRow key={s.id} exId={ex.id} set={s} n={si + 1} timed={timed} pb={pb} onPatch={handlers.patchSet} onToggle={handlers.toggle} onRemove={handlers.removeSet} />
-      ))}
+      {ex.sets.map((s) => {
+        if (!s.warm) j++;
+        const prev = !s.warm && ex.prev ? ex.prev[j] || null : null;
+        const spec = ex.specs ? ex.specs[j] : ex.spec;
+        const target = prev && !timed ? nextTarget(prev, spec) : null;
+        return <SetRow key={s.id} exId={ex.id} set={s} n={j + 1} timed={timed} pb={pb} prev={prev} target={target} onPatch={handlers.patchSet} onToggle={handlers.toggle} onRemove={handlers.removeSet} />;
+      })}
+      {(ex.rpe || ex.memo) && (
+        <button className="ex-memo" onClick={() => handlers.menu(ex.id, 'note')}>
+          {ex.rpe ? <span className="mono">RPE {ex.rpe}</span> : null}{ex.memo ? <span>{ex.memo}</span> : null}
+        </button>
+      )}
       <div className="ex-actions">
         <button className="btn btn-ghost btn-sm" onClick={() => handlers.addSet(ex.id)}><PlusIcon width={16} height={16} /> {t('wo.addSet')}</button>
         <button className="btn btn-ghost btn-sm replace-btn" onClick={() => handlers.replace(ex.id)}><SwapIcon width={16} height={16} /> {t('rep.btn')}</button>
         <span className="spacer" />
-        <button className="icon-btn" aria-label={t('wo.up')} disabled={index === 0} onClick={() => handlers.move(ex.id, -1)}>↑</button>
-        <button className="icon-btn" aria-label={t('wo.down')} disabled={index === count - 1} onClick={() => handlers.move(ex.id, 1)}>↓</button>
-        <button className="icon-btn danger" aria-label={t('wo.removeEx')} onClick={() => handlers.removeExercise(ex.id)}><TrashIcon width={18} height={18} /></button>
+        <button className="icon-btn ex-more" aria-label={t('wo.more', { name: ex.name })} onClick={() => handlers.menu(ex.id)}><MoreIcon width={20} height={20} /></button>
       </div>
     </section>
   );
 });
 
+// Menu cviku (W10: velké cíle 44 px): rozcvička, poznámka + RPE, kotouče, superset, pořadí, odebrat.
+function ExerciseMenu({ ex, index, count, next, view, onClose, act }) {
+  const [mode, setMode] = useState(view || 'menu');
+  const [memo, setMemo] = useState(ex.memo || '');
+  const [rpe, setRpe] = useState(ex.rpe || '');
+  if (mode === 'note') {
+    return (
+      <Sheet label={t('wo.noteTitle')} onClose={onClose} className="sheet-short">
+        <div className="sheet-head"><h2>{t('wo.noteTitle')}</h2><button className="btn btn-ghost btn-sm" onClick={onClose}>{t('pick.close')}</button></div>
+        <p className="muted small">{ex.name}</p>
+        <span className="label">{t('wo.rpe')}</span>
+        <div className="rpe-row" role="radiogroup" aria-label={t('wo.rpe')}>
+          {[6, 7, 8, 9, 10].map((v) => <button key={v} role="radio" aria-checked={Number(rpe) === v} className={'chip' + (Number(rpe) === v ? ' is-on' : '')} onClick={() => setRpe(Number(rpe) === v ? '' : v)}>{v}</button>)}
+        </div>
+        <p className="muted small">{t('wo.rpeHelp')}</p>
+        <textarea className="input" rows={3} maxLength={200} placeholder={t('wo.notePh')} value={memo} onChange={(e) => setMemo(e.target.value)} />
+        <button className="btn btn-primary btn-block" onClick={() => { act.patch(ex.id, { memo: memo.trim(), rpe }); onClose(); }}>{t('tpl.save')}</button>
+      </Sheet>
+    );
+  }
+  if (mode === 'plates') return <PlateCalc initial={num((ex.sets.find((s) => !s.done && !s.warm) || ex.sets[0] || {}).weight)} onClose={onClose} />;
+  const row = (Icon, label, fn, cls = '') => (
+    <button className={'menu-row ' + cls} onClick={fn}><Icon width={20} height={20} /><span>{label}</span></button>
+  );
+  const inSs = Boolean(ex.ss);
+  return (
+    <Sheet label={ex.name} onClose={onClose} className="sheet-short">
+      <div className="sheet-head"><h2>{ex.name}</h2><button className="btn btn-ghost btn-sm" onClick={onClose}>{t('pick.close')}</button></div>
+      <div className="menu-list">
+        {row(FlameIcon, t('wo.addWarm'), () => { act.addWarm(ex.id); onClose(); })}
+        {row(PencilIcon, t('wo.noteTitle'), () => setMode('note'))}
+        {ex.type !== 'time' && row(PlateIcon, t('plate.title'), () => setMode('plates'))}
+        {next && !(inSs && next.ss === ex.ss) && row(LinkIcon, t('ss.link', { name: next.name }), () => { act.link(ex.id); onClose(); })}
+        {inSs && row(LinkIcon, t('ss.unlink'), () => { act.unlink(ex.id); onClose(); })}
+        {row(ArrowUpIcon, t('wo.up'), () => { act.move(ex.id, -1); onClose(); }, index === 0 ? 'is-disabled' : '')}
+        {row(ArrowDownIcon, t('wo.down'), () => { act.move(ex.id, 1); onClose(); }, index === count - 1 ? 'is-disabled' : '')}
+        {row(TrashIcon, t('wo.removeEx'), () => { act.remove(ex.id); onClose(); }, 'is-danger')}
+      </div>
+    </Sheet>
+  );
+}
+
 export default function Workout({ go }) {
   const { active, patchActive, prs, finishWorkout, discardWorkout, notify, addExerciseToActive, replaceExerciseInActive, startRest, stopRest } = useSession();
+  const { templates, syncTemplate } = useStore();
   const dialog = useDialog();
   const [picking, setPicking] = useState(() => Boolean(active && !active.exercises.length));
+  const [menu, setMenu] = useState(null); // { id, view }
+  const [detailKey, setDetailKey] = useState(null);
+  const [summary, setSummary] = useState(null);
+  const activeRef = useRef(active);
+  activeRef.current = active;
   const [replacingId, setReplacingId] = useState(null);
   const replacing = active?.exercises.find((e) => e.id === replacingId) || null;
   const live = Boolean(active);
@@ -93,8 +173,38 @@ export default function Workout({ go }) {
     navigator.vibrate?.(12);
     primeAudio();
     patchSet(exId, set.id, { done: !set.done });
-    if (!set.done) startRest(); else stopRest();
+    if (set.done) return stopRest();
+    markGuide('set');
+    if (set.warm) return; // po rozcvičce bez pauzy
+    // Superset: pauza až po posledním cviku skupiny
+    const list = activeRef.current?.exercises || [];
+    const i = list.findIndex((e) => e.id === exId);
+    const cur = list[i], nx = list[i + 1];
+    if (cur?.ss && nx?.ss === cur.ss) { stopRest(); return; }
+    startRest();
   }, [notify, patchSet, startRest, stopRest]);
+
+  // Rozcvičková série na začátek (cca polovina pracovní váhy)
+  const addWarm = useCallback((exId) => mapEx(exId, (e) => {
+    const w = num((e.sets.find((s) => !s.warm) || {}).weight);
+    const half = w > 0 ? Math.round(w / 2 / 2.5) * 2.5 : '';
+    return { ...e, sets: [{ id: uid(), weight: half ? String(half) : '', reps: '10', time: '', done: false, warm: true }, ...e.sets] };
+  }), [mapEx]);
+
+  // Superset s následujícím cvikem / zrušení
+  const link = useCallback((exId) => patchActive((a) => {
+    const i = a.exercises.findIndex((e) => e.id === exId), nx = a.exercises[i + 1];
+    if (i < 0 || !nx) return a;
+    const id = a.exercises[i].ss || nx.ss || uid().slice(0, 6);
+    return { ...a, exercises: a.exercises.map((e, k) => (k === i || k === i + 1 || (e.ss && (e.ss === a.exercises[i].ss || e.ss === nx.ss)) ? { ...e, ss: id } : e)) };
+  }), [patchActive]);
+  const unlink = useCallback((exId) => patchActive((a) => {
+    const ss = a.exercises.find((e) => e.id === exId)?.ss;
+    let list = a.exercises.map((e) => (e.id === exId ? { ...e, ss: '' } : e));
+    if (list.filter((e) => e.ss === ss).length < 2) list = list.map((e) => (e.ss === ss ? { ...e, ss: '' } : e));
+    return { ...a, exercises: list };
+  }), [patchActive]);
+  const patchEx = useCallback((exId, patch) => mapEx(exId, (e) => ({ ...e, ...patch })), [mapEx]);
 
   const addSet = useCallback((exId) => mapEx(exId, (e) => {
     const prev = e.sets[e.sets.length - 1] || {};
@@ -152,8 +262,12 @@ export default function Workout({ go }) {
   }), [patchActive]);
 
   const [handlers] = useState(() => ({}));
-  Object.assign(handlers, { patchSet, toggle, addSet, removeSet, removeExercise, move, replace: setReplacingId }); // stabilní objekt, aktuální funkce
+  Object.assign(handlers, {
+    patchSet, toggle, addSet, removeSet, removeExercise, move, replace: setReplacingId,
+    menu: (id, view) => setMenu({ id, view }), detail: setDetailKey,
+  }); // stabilní objekt, aktuální funkce
 
+  if (summary) return <WorkoutSummary done={summary} onClose={() => { setSummary(null); go('history'); }} />;
   if (!active) {
     return (
       <div className="screen">
@@ -182,10 +296,28 @@ export default function Workout({ go }) {
       if (!choice) return;
       includeUnchecked = choice === 'tick';
     }
+    // W4: změnila se struktura oproti šabloně → nabídnout aktualizaci
+    const tpl = templates.find((x) => x.id === active.templateId);
+    let sync = false;
+    if (tpl && templateDiffers(tpl, active)) {
+      const c = await dialog.choose({
+        title: t('wo.syncTitle', { name: tpl.name }),
+        message: t('wo.syncMsg'),
+        actions: [
+          { value: 'yes', label: t('wo.syncYes'), primary: true },
+          { value: 'no', label: t('wo.syncNo') },
+          { value: null, label: t('dlg.cancel') },
+        ],
+      });
+      if (!c) return;
+      sync = c === 'yes';
+    }
+    const snapshot = active;
     const r = finishWorkout({ includeUnchecked });
     if (r.empty) return notify(t('wo.needOne'));
-    notify(r.beaten ? t('wo.savedPb', { n: r.beaten }) : t('wo.saved'));
-    go('history');
+    if (sync && syncTemplate(tpl.id, snapshot)) notify(t('wo.synced', { name: tpl.name }));
+    window.scrollTo({ top: 0 });
+    setSummary(r.done);
   };
   const discard = async () => {
     if (await dialog.confirm(t('wo.confirmDiscard'), { danger: true, ok: t('wo.discard') })) discardWorkout();
@@ -206,9 +338,11 @@ export default function Workout({ go }) {
       <div className="progress" aria-hidden="true"><i style={{ width: `${total ? (doneCount / total) * 100 : 0}%` }} /></div>
       {active.exercises.length > 0 && <p className="muted small swipe-hint">{t('wo.swipeHint')}</p>}
 
-      {active.exercises.map((e, ei) => (
-        <ExerciseCard key={e.id} ex={e} index={ei} count={active.exercises.length} pb={prs[e.key]} handlers={handlers} />
-      ))}
+      {active.exercises.map((e, ei) => {
+        const prevEx = active.exercises[ei - 1], nextEx = active.exercises[ei + 1];
+        const first = e.ss && prevEx?.ss !== e.ss;
+        return <ExerciseCard key={e.id} ex={e} pb={prs[e.key]} ssLabel={first ? ssLetter(active, e.ss) : ''} ssEnd={!e.ss || nextEx?.ss !== e.ss} handlers={handlers} />;
+      })}
 
       {!active.exercises.length && <p className="empty">{t('wo.addFirst')}</p>}
       <button className={'btn btn-block ' + (active.exercises.length ? 'btn-ghost' : 'btn-primary')} onClick={() => setPicking(true)}><PlusIcon width={16} height={16} /> {t('wo.addEx')}</button>
@@ -224,6 +358,15 @@ export default function Workout({ go }) {
           onPick={(ex) => { addExerciseToActive(ex); setPicking(false); }}
         />
       )}
+      {menu && (() => {
+        const i = active.exercises.findIndex((e) => e.id === menu.id);
+        if (i < 0) return null;
+        return (
+          <ExerciseMenu key={menu.id + (menu.view || '')} ex={active.exercises[i]} index={i} count={active.exercises.length} next={active.exercises[i + 1]} view={menu.view}
+            onClose={() => setMenu(null)} act={{ addWarm, link, unlink, move, remove: removeExercise, patch: patchEx }} />
+        );
+      })()}
+      {detailKey && <ExerciseSheet exKey={detailKey} onClose={() => setDetailKey(null)} />}
       {replacing && (
         <ExercisePicker
           replacing={replacing}

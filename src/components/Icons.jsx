@@ -26,4 +26,14 @@ export const RedoIcon = I(<><path d="M15 14l5-5-5-5" /><path d="M20 9H10a6 6 0 0
 export const SwapIcon = I(<><path d="M7 4L4 7l3 3" /><path d="M4 7h13" /><path d="M17 14l3 3-3 3" /><path d="M20 17H7" /></>);
 export const StarIcon = I(<path d="M12 3.8l2.5 5.2 5.6.7-4.1 3.9 1 5.6-5-2.7-5 2.7 1-5.6-4.1-3.9 5.6-.7z" />);
 export const MonitorIcon = I(<><rect x="3" y="4" width="18" height="12" rx="1.5" /><path d="M8 20h8M12 16v4" /></>);
+export const MoreIcon = I(<><circle cx="5.5" cy="12" r="1.2" /><circle cx="12" cy="12" r="1.2" /><circle cx="18.5" cy="12" r="1.2" /></>);
+export const ArrowUpIcon = I(<path d="M12 19V5M6 11l6-6 6 6" />);
+export const ArrowDownIcon = I(<path d="M12 5v14M6 13l6 6 6-6" />);
+export const FlameIcon = I(<path d="M12 21c3.9 0 6.5-2.6 6.5-6.2 0-3.2-2.2-5.4-3.6-7.3-.4 1.7-1.3 2.9-2.4 3.5.3-2.8-1-5.6-3.4-7.5.1 3-1.5 4.8-3 6.6C4.8 11.8 5.5 13 5.5 14.8 5.5 18.4 8.1 21 12 21z" />);
+export const LinkIcon = I(<><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" /><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></>);
+export const PlateIcon = I(<><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="2.2" /></>);
+export const RepeatIcon = I(<><path d="M17 3l3 3-3 3" /><path d="M4 11V9a3 3 0 0 1 3-3h13" /><path d="M7 21l-3-3 3-3" /><path d="M20 13v2a3 3 0 0 1-3 3H4" /></>);
+export const SearchIcon = I(<><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4.2-4.2" /></>);
+export const UploadIcon = I(<><path d="M12 16V4M7 9l5-5 5 5" /><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" /></>);
+export const TrophyIcon = I(<><path d="M8 4h8v5a4 4 0 0 1-8 0V4z" /><path d="M8 6H5v1a3 3 0 0 0 3 3M16 6h3v1a3 3 0 0 1-3 3" /><path d="M12 13v4M9 20h6" /></>);
 export const FlagIcon = I(<><path d="M5 21V4" /><path d="M5 4h11l-2 4 2 4H5" /></>);

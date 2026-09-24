@@ -6,10 +6,11 @@ import { t, useLang } from '../lib/i18n.js';
 import { useDialog } from '../components/Dialog.jsx';
 import { useTheme } from '../lib/theme.js';
 import { getRestDefault, REST_OPTIONS, setRestDefault } from '../lib/rest.js';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { UploadIcon } from '../components/Icons.jsx';
 
 export default function Settings({ go }) {
-  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, notify, profile, setProfile, resetMain, resetDemo } = useStore();
+  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, notify, profile, setProfile, resetMain, resetDemo, importData } = useStore();
   const demo = mode === 'demo';
   const pName = (p) => (demo ? t(p.id === 'krystof' ? 'prof.demoA' : 'prof.demoB') : p.name);
   const { lang, setLang } = useLang();
@@ -20,6 +21,21 @@ export default function Settings({ go }) {
   const exportData = () => {
     download('forge-export.json', JSON.stringify({ exportedAt: new Date().toISOString(), workouts, prs, templates: templates.filter((x) => !x.builtin), library }, null, 2), 'application/json');
     notify(t('set.exported'));
+  };
+  // S3: import zálohy – sloučí se s existujícími daty
+  const fileRef = useRef(null);
+  const onImport = async (ev) => {
+    const file = ev.target.files?.[0];
+    ev.target.value = '';
+    if (!file) return;
+    let json;
+    try { json = JSON.parse(await file.text()); } catch { return notify(t('set.importBad')); }
+    if (!json || !Array.isArray(json.workouts)) return notify(t('set.importBad'));
+    if (!(await dialog.confirm(t('set.importConfirm', { n: json.workouts.length }), { ok: t('set.import') }))) return;
+    try {
+      const r = await importData(json);
+      notify(t('set.importDone', { w: r.workouts, t: r.templates, e: r.exercises }), { duration: 6000 });
+    } catch (e) { console.error(e); notify(t('set.importBad')); }
   };
   const reset = async () => {
     if (!(await dialog.confirm(t('set.confirmReset'), { danger: true, ok: t('set.reset') }))) return;
@@ -40,7 +56,7 @@ export default function Settings({ go }) {
       </section>
 
       <section className="card list">
-        <div className="row"><span>{t('prof.title')}</span>
+        <div className="row"><span>{t('prof.title')}{demo && <span className="muted small row-sub">{t('prof.demoSub')}</span>}</span>
           <div className="seg seg-sm seg-inline" role="radiogroup">
             {Object.values(PROFILES).map((p) => <button key={p.id} role="radio" aria-checked={profile === p.id} className={profile === p.id ? 'is-on' : ''} onClick={() => { setProfile(p.id); notify(t('prof.saved', { name: pName(p) })); }}>{pName(p)}</button>)}
           </div>
@@ -62,21 +78,33 @@ export default function Settings({ go }) {
         </div>
         <div className="row"><span>{t('set.view')}</span><ViewToggle full /></div>
         <div className="row"><span>{t('set.storage')}</span><span className="muted">{mode === 'firebase' ? t('set.cloud') : t('set.local')}</span></div>
-        <div className="row"><span>{t('set.units')}</span><span className="muted">kg</span></div>
-        <div className="row"><span>{t('set.done')}</span><span className="muted">{workouts.length}</span></div>
       </section>
 
       <section className="card list">
         <div className="row"><span>{t('set.library')}</span><span className="muted">{t('ex.count', { n: library.length })}</span></div>
         <div className="row row-btns">
           <button className="btn btn-ghost btn-sm" onClick={() => go('exercises')}>{t('set.openLibrary')}</button>
-          <button className="btn btn-ghost btn-sm" onClick={reset}>{t('set.reset')}</button>
-          <button className="btn btn-ghost btn-sm" onClick={async () => { if (await dialog.confirm(t('set.confirmResetTpl'), { danger: true, ok: t('set.resetTpl') })) { resetMain(); notify(t('set.resetTplDone')); } }}>{t('set.resetTpl')}</button>
         </div>
       </section>
 
-      <button className="btn btn-ghost btn-block" onClick={exportData}>{t('set.export')}</button>
-      {demo && <button className="btn btn-ghost btn-block" onClick={async () => { if (await dialog.confirm(t('demo.resetConfirm'), { danger: true, ok: t('demo.reset') })) resetDemo(); }}>{t('demo.reset')}</button>}
+      <section className="card list">
+        <div className="row"><span>{t('set.backup')}<span className="muted small row-sub">{t('set.backupSub')}</span></span></div>
+        <div className="row row-btns">
+          <button className="btn btn-ghost btn-sm" onClick={exportData}>{t('set.export')}</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => fileRef.current?.click()}><UploadIcon width={16} height={16} /> {t('set.import')}</button>
+          <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={onImport} />
+        </div>
+      </section>
+
+      <section className="card list danger-zone">
+        <div className="row"><span className="dz-title">{t('set.danger')}<span className="muted small row-sub">{t('set.dangerSub')}</span></span></div>
+        <div className="row row-btns">
+          <button className="btn btn-danger btn-sm" onClick={reset}>{t('set.reset')}</button>
+          <button className="btn btn-danger btn-sm" onClick={async () => { if (await dialog.confirm(t('set.confirmResetTpl'), { danger: true, ok: t('set.resetTpl') })) { resetMain(); notify(t('set.resetTplDone')); } }}>{t('set.resetTpl')}</button>
+          {demo && <button className="btn btn-danger btn-sm" onClick={async () => { if (await dialog.confirm(t('demo.resetConfirm'), { danger: true, ok: t('demo.reset') })) resetDemo(); }}>{t('demo.reset')}</button>}
+        </div>
+      </section>
+
       <button className="btn btn-danger btn-block" onClick={signOut}>{demo ? t('demo.exit') : t('set.logout')}</button>
     </div>
   );

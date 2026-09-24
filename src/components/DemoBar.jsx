@@ -24,7 +24,7 @@ export default function DemoBar() {
   );
 }
 
-function ContactSheet({ onClose }) {
+export function ContactSheet({ onClose }) {
   const [state, setState] = useState('idle'); // idle | sending | sent | error
   const submit = async (e) => {
     e.preventDefault();

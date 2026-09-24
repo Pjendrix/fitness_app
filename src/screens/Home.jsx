@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react';
 import Sheet from '../components/Sheet.jsx';
 import { useSession, useStore } from '../lib/store.jsx';
-import ViewToggle from '../components/ViewToggle.jsx';
+import { ArrowIcon, XIcon } from '../components/Icons.jsx';
+import { guideState, hideGuide } from '../lib/guide.js';
 import ProfileBadge from '../components/ProfileBadge.jsx';
 import { colorHex, PROFILES } from '../data/defaultTemplates.js';
 import { fmtDate, fmtNum, fmtSet, startOfWeek, workoutVolume } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
 
 export default function Home({ go }) {
-  const { user, workouts, prs, templates, startWorkout, startEmptyWorkout, profile, setProfile, loading, main, groupLabel, groupSub, mode } = useStore();
+  const { user, workouts, prs, templates, startWorkout, startEmptyWorkout, profile, setProfile, loading, main, groupLabel, groupSub, mode, weeklyGoal } = useStore();
+  const [guide, setGuide] = useState(guideState);
   const { active } = useSession();
   // Groups that have at least one template
   const G = useMemo(() => main.groups.map((g) => g.id).filter((id) => main.templates.some((x) => x.group === id)), [main]);
@@ -41,9 +43,20 @@ export default function Home({ go }) {
   return (
     <div className="screen">
       <header className="screen-head">
-        <div className="row-between home-top"><p className="muted hi"><span className="mobile-badge"><ProfileBadge /></span>{first ? t('home.hiName', { name: first }) : t('home.hi')}</p><ViewToggle /></div>
+        <div className="row-between home-top"><p className="muted hi"><span className="mobile-badge"><ProfileBadge /></span>{first ? t('home.hiName', { name: first }) : t('home.hi')}</p></div>
         <h1>{t('home.title')}</h1>
       </header>
+
+      {guide.show && (mode === 'demo' || workouts.length < 5) && (
+        <section className="card guide" aria-label={t('guide.title')}>
+          <div className="row-between"><h2>{t('guide.title')}</h2><button className="icon-btn" aria-label={t('guide.hide')} onClick={() => { hideGuide(); setGuide(guideState()); }}><XIcon width={16} height={16} /></button></div>
+          <ol className="guide-steps">
+            {['start', 'set', 'stats'].map((k, i) => (
+              <li key={k} className={guide[k] ? 'is-done' : ''}><span className="guide-n">{guide[k] ? '✓' : i + 1}</span><span><b>{t('guide.' + k)}</b><span className="muted small">{t('guide.' + k + 'Sub')}</span></span></li>
+            ))}
+          </ol>
+        </section>
+      )}
 
       {!profile && !loading && (
         <section className="card profile-pick">
@@ -81,14 +94,15 @@ export default function Home({ go }) {
       )}
 
       <section className="stats" onClick={() => go('stats')} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), go('stats'))} role="button" tabIndex={0} aria-label={t('home.openStats')}>
-        <div className="card stat"><span className="num">{week.count}</span><span className="muted small">{t('home.weekWorkouts')}</span></div>
+        <div className="card stat"><span className="num">{week.count}<small> / {weeklyGoal}</small></span><span className="muted small">{t('home.weekGoal')}</span></div>
         <div className="card stat"><span className="num">{week.volume ? fmtNum(Math.round(week.volume / 100) / 10) : 0}<small> t</small></span><span className="muted small">{t('home.weekVolume')}</span></div>
         <div className="card stat"><span className="num">{workouts.length}</span><span className="muted small">{t('home.total')}</span></div>
+        <span className="stats-more label">{t('home.allStats')} <ArrowIcon width={12} height={12} style={{ transform: 'rotate(180deg)' }} /></span>
       </section>
 
       {!active && (
         <>
-          <button className="btn btn-primary btn-block btn-lg" onClick={() => { startEmptyWorkout(); go('workout'); }}>{t('home.empty')}</button>
+          <button className="btn btn-ghost btn-block btn-lg" onClick={() => { startEmptyWorkout(); go('workout'); }}>{t('home.empty')}</button>
           <button className="btn btn-ghost btn-block btn-lg" onClick={() => (mine.length ? setPickMine(true) : go('templates'))}>{t('home.mine')}</button>
         </>
       )}

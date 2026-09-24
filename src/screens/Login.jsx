@@ -24,11 +24,23 @@ export default function Login() {
             <path d="M18 24v16M10 29v6M46 24v16M54 29v6M18 32h28" />
           </svg>
         </div>
-        <h1>Let’s Workout!</h1>
-        <button className="lx-btn" onClick={signIn}>
-          {mode === 'firebase' ? (<><GoogleIcon /> {t('login.google')}</>) : t('login.demo')}
-        </button>
-        {mode === 'firebase' && <button className="lx-demo" onClick={startDemo}>{t('login.demoBtn')}</button>}
+        <div className="lx-copy">
+          <p className="lx-eyebrow">{t('login.eyebrow')}</p>
+          <h1>{t('login.title1')} <span>{t('login.title2')}</span></h1>
+          <p className="lx-sub">{t('login.sub')}</p>
+        </div>
+        <ul className="lx-features" aria-label={t('login.featuresAria')}>
+          {[1, 2, 3].map((i) => (
+            <li key={i}><b>{t('login.f' + i)}</b><span>{t('login.f' + i + 'd')}</span></li>
+          ))}
+        </ul>
+        <div className="lx-actions">
+          <button className="lx-btn" onClick={signIn}>
+            {mode === 'firebase' ? (<><GoogleIcon /> {t('login.google')}</>) : t('login.demo')}
+          </button>
+          {mode === 'firebase' && <button className="lx-btn lx-btn-2" onClick={startDemo}>{t('login.demoBtn')}</button>}
+          {mode === 'firebase' && <p className="lx-note">{t('login.footer')}</p>}
+        </div>
         {denied && <p className="lx-error" role="alert">{t('login.denied', { email: denied })}</p>}
         {mode === 'demo' && <p className="lx-note">{t('login.demoNote')}</p>}
       </div>

@@ -77,4 +77,4 @@ export const INT_INPUT = /^\d{0,3}$/;
 // Série vyplněná, ale neodškrtnutá
 export const hasValue = (s, timed) => (timed ? num(s.time) > 0 : num(s.reps) > 0);
 export const countUnchecked = (active) =>
-  (active?.exercises || []).reduce((n, e) => n + e.sets.filter((s) => !s.done && hasValue(s, e.type === 'time')).length, 0);
+  (active?.exercises || []).reduce((n, e) => n + e.sets.filter((s) => !s.done && !s.warm && hasValue(s, e.type === "time")).length, 0);

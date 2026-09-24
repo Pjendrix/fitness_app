@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { markGuide } from '../lib/guide.js';
 import { useStore } from '../lib/store.jsx';
 import { CATEGORIES } from '../data/exercises.js';
 import { locale, t } from '../lib/i18n.js';
@@ -19,6 +20,7 @@ const monday = (t) => { const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate
 
 export default function Analytics({ go }) {
   const { desktop } = useViewMode();
+  useEffect(() => { markGuide('stats'); }, []);
   // Na mobilu se sem jde z mobilních statistik → odkaz zpět
   const back = !desktop && go ? <button className="back-link" onClick={() => go('stats')}><ArrowIcon width={14} height={14} /> {t('ms.title')}</button> : null;
   const { workouts, prs, catOf, weeklyGoal, setWeeklyGoal, main } = useStore();

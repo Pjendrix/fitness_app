@@ -2,11 +2,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { LineChart } from '../components/Charts.jsx';
-import { ArrowIcon, MonitorIcon, StarIcon } from '../components/Icons.jsx';
+import { ArrowIcon, MonitorIcon, SearchIcon, StarIcon } from '../components/Icons.jsx';
 import { CATEGORIES } from '../data/exercises.js';
 import { e1rm } from '../lib/metrics.js';
 import { fmtDate, fmtDuration, fmtNum, fmtSet, num, startOfWeek, workoutVolume } from '../lib/util.js';
 import { locale, t } from '../lib/i18n.js';
+import { exerciseRecords, nextTarget, specFromTemplates } from '../lib/progress.js';
+import Sheet from '../components/Sheet.jsx';
+import { markGuide } from '../lib/guide.js';
+import { norm } from '../components/ExercisePicker.jsx';
 
 const DAY = 864e5, WEEK = 7 * DAY;
 const RANGES = [4, 12, 26, 52];
@@ -51,6 +55,7 @@ function BackLink({ label, onClick }) {
 
 export default function MobileStats({ go }) {
   const [detail, setDetail] = useState(null);
+  useEffect(() => { markGuide('stats'); }, []);
   useEffect(() => { window.scrollTo({ top: 0 }); }, [detail]);
   if (detail) return <ExerciseDetail exKey={detail} onBack={() => setDetail(null)} />;
   return <Overview go={go} open={setDetail} />;
@@ -60,6 +65,15 @@ function Overview({ go, open }) {
   const { workouts, prs, catOf, weeklyGoal, main, groupLabel, pinnedLifts } = useStore();
   const [range, setRange] = useState(12);
   const [mMode, setMMode] = useState('sets');
+  const [allOpen, setAllOpen] = useState(false);
+  const allList = useMemo(() => {
+    const m = new Map();
+    for (const w of workouts) for (const e of w.exercises) {
+      const cur = m.get(e.key);
+      if (cur) cur.n++; else m.set(e.key, { key: e.key, name: e.name, n: 1, last: w.startedAt });
+    }
+    return [...m.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [workouts]);
 
   const data = useMemo(() => {
     const now = Date.now();
@@ -213,8 +227,10 @@ function Overview({ go, open }) {
             <ArrowIcon width={14} height={14} className="ms-chev" />
           </button>
         ))}
+        <button className="ms-all" onClick={() => setAllOpen(true)}><SearchIcon width={16} height={16} /> {t('ms.allEx', { n: allList.length })}</button>
         <p className="muted small ms-pad ms-foot">{t('ms.pinHint')}</p>
       </section>
+      {allOpen && <AllExercises list={allList} onClose={() => setAllOpen(false)} onPick={(k) => { setAllOpen(false); open(k); }} />}
 
       <section className="card">
         <div className="card-head">
@@ -264,14 +280,15 @@ function Overview({ go, open }) {
   );
 }
 
-function ExerciseDetail({ exKey, onBack }) {
-  const { workouts, prs, catOf, pinnedLifts, togglePin } = useStore();
+export function ExerciseDetail({ exKey, onBack, embedded = false }) {
+  const { workouts, prs, catOf, pinnedLifts, togglePin, templates } = useStore();
+  const recs = useMemo(() => exerciseRecords(workouts, exKey), [workouts, exKey]);
   const { list, kind } = useMemo(() => sessionsOf(workouts, exKey), [workouts, exKey]);
   const options = kind === 'e1' ? ['e1', 'top', 'vol'] : [kind];
   const [metric, setMetric] = useState(options[0]);
   const m = options.includes(metric) ? metric : options[0];
 
-  if (!list.length) return <div className="screen"><BackLink label={t('ms.title')} onClick={onBack} /><p className="empty">{t('an.fewData')}</p></div>;
+  if (!list.length) return <div className={embedded ? 'ms-embed' : 'screen'}>{!embedded && <BackLink label={t('ms.title')} onClick={onBack} />}<p className="empty">{t('an.fewData')}</p></div>;
 
   const last = list[list.length - 1], first = list[0];
   const name = last.name;
@@ -282,18 +299,17 @@ function ExerciseDetail({ exKey, onBack }) {
   const now = val(last), change = now - val(first);
   const cat = catOf(name);
 
-  const t0 = last.top;
+  // Cíl podle stejného pravidla jako v tréninku (rozsah opakování ze šablony, jinak 8–12)
+  const tg = nextTarget(last.top, specFromTemplates(templates, exKey));
   const target = kind === 'time'
-    ? { main: `${fmtNum(t0.time + 1)} min`, alt: null }
-    : kind === 'reps'
-      ? { main: `BW × ${t0.reps + 1}`, alt: null }
-      : { main: `${fmtNum(t0.weight)} × ${t0.reps + 1}`, alt: `${fmtNum(t0.weight + 2.5)} × ${t0.reps}` };
+    ? { main: '–', alt: null }
+    : tg ? { main: fmtSet(tg.weight, tg.reps), alt: null } : { main: '–', alt: null };
   const pb = prs[exKey];
 
   return (
-    <div className="screen ms">
+    <div className={embedded ? 'ms ms-embed' : 'screen ms'}>
       <header className="screen-head ms-head">
-        <BackLink label={t('ms.title')} onClick={onBack} />
+        {!embedded && <BackLink label={t('ms.title')} onClick={onBack} />}
         <div className="ms-title ms-title-ex">
           <h1>{name}</h1>
           <button className={'icon-btn ms-star' + (pinned ? ' is-on' : '')} aria-pressed={pinned} aria-label={pinned ? t('ms.unpin') : t('ms.pin')} title={pinned ? t('ms.unpin') : t('ms.pin')} onClick={() => togglePin(exKey)}>
@@ -318,8 +334,18 @@ function ExerciseDetail({ exKey, onBack }) {
 
       <section className="kpis">
         <div className="card kpi"><span className="label">{t('an.pb')}</span><span className="num ms-set">{pb ? fmtSet(pb.weight, pb.reps, pb.time) : '–'}</span><span className="muted small">{pb ? shortDate(pb.date) : ''}</span></div>
-        <div className="card kpi"><span className="label">{t('ms.target')}</span><span className="num ms-set">{target.main}</span><span className="muted small">{target.alt ? t('ms.or', { s: target.alt }) : t('ms.targetSub')}</span></div>
+        <div className="card kpi"><span className="label">{t('ms.target')}</span><span className="num ms-set">{target.main}</span><span className="muted small">{t('ms.targetSub')}</span></div>
       </section>
+
+      {(recs.e1 || recs.reps.length > 0) && (
+        <section className="card ms-flush">
+          <div className="card-head ms-pad"><h2>{t('rec.title')}</h2></div>
+          {recs.e1 && <div className="ms-sess"><div className="row-between"><span>{t('an.e1rm')}</span><span className="mono">{fmtNum(recs.e1.value)} kg</span></div><span className="mono small muted">{fmtSet(recs.e1.weight, recs.e1.reps)} · {shortDate(recs.e1.date)}</span></div>}
+          {recs.reps.map((r) => (
+            <div key={r.weight} className="ms-sess"><div className="row-between"><span>{t('rec.mostAt', { w: fmtNum(r.weight) })}</span><span className="mono">{t('rec.nReps', { n: r.reps })}</span></div><span className="mono small muted">{shortDate(r.date)}</span></div>
+          ))}
+        </section>
+      )}
 
       <section className="card ms-flush">
         <div className="card-head ms-pad"><h2>{t('ms.recent')}</h2><span className="label">{t('an.top')}</span></div>
@@ -331,5 +357,28 @@ function ExerciseDetail({ exKey, onBack }) {
         ))}
       </section>
     </div>
+  );
+}
+
+// H7: všechny cviky z historie s vyhledáváním
+function AllExercises({ list, onClose, onPick }) {
+  const { prs } = useStore();
+  const [q, setQ] = useState('');
+  const query = norm(q.trim());
+  const shown = list.filter((e) => norm(e.name).includes(query));
+  return (
+    <Sheet label={t('ms.allTitle')} onClose={onClose}>
+      <div className="sheet-head"><h2>{t('ms.allTitle')}</h2><button className="btn btn-ghost btn-sm" onClick={onClose}>{t('pick.close')}</button></div>
+      <input className="input" type="search" maxLength={80} placeholder={t('pick.search')} aria-label={t('pick.search')} value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="sheet-list">
+        {shown.map((e) => (
+          <button key={e.key} className="pick" onClick={() => onPick(e.key)}>
+            <span>{e.name}</span>
+            <span className="pick-meta"><span className="label">{prs[e.key] ? `PB ${fmtSet(prs[e.key].weight, prs[e.key].reps, prs[e.key].time)}` : t('ms.nSessions', { n: e.n })}</span></span>
+          </button>
+        ))}
+        {!shown.length && <p className="empty">{t('pick.none')}</p>}
+      </div>
+    </Sheet>
   );
 }
