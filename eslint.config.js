@@ -18,6 +18,7 @@ export default [
     rules: {
       ...js.configs.recommended.rules,
       'react/jsx-uses-vars': 'error',
+      'react/jsx-no-undef': 'error', // nedefinovaná komponenta v JSX (jinak spadne až za běhu)
       'react/jsx-uses-react': 'off',
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',

@@ -62,15 +62,44 @@ const firebaseBackend = {
     const col = (n) => collection(db, 'users', uid, n);
     const ref = (n, id) => doc(db, 'users', uid, n, id);
     return {
-      async loadAll() {
-        const [t, p, ex, pr, mn, st] = await Promise.all([
-          getDocs(col('templates')), getDocs(col('prs')),
-          getDoc(ref('meta', 'exercises')), getDoc(ref('meta', 'profile')), getDoc(ref('meta', 'main')),
-          getDoc(ref('meta', 'settings')).catch(() => null),
-        ]);
-        const prs = {};
-        p.forEach((d) => (prs[d.id] = d.data()));
-        return { templates: t.docs.map((d) => d.data()), prs, library: ex.exists() ? ex.data() : null, profile: pr.exists() ? pr.data().id : null, main: mn.exists() ? mn.data() : {}, settings: st?.exists() ? st.data() : null };
+      // Šablony, rekordy a nastavení živě (D1). Z offline cache hned – bez čekání až ~10 s na server při slabém signálu –
+      // a změny z jiného zařízení se projeví bez reloadu. Na zařízení, které ještě nikdy nemělo data ze serveru,
+      // se na server počká (prázdná cache ≠ prázdný účet, jinak by se ukázal výběr splitu a mohl přepsat šablony).
+      subscribeMeta(cb, onError) {
+        const syncedKey = `forge:metaSynced:${uid}`;
+        let trustCache = false;
+        try { trustCache = localStorage.getItem(syncedKey) === '1'; } catch { /* ignore */ }
+        const parts = {};
+        const names = ['templates', 'prs', 'exercises', 'profile', 'main', 'settings'];
+        let ready = false;
+        const emit = () => {
+          if (!ready) {
+            if (!names.every((n) => parts[n] && (parts[n].server || trustCache))) return;
+            ready = true;
+          }
+          const server = names.every((n) => parts[n].server);
+          if (server) { try { localStorage.setItem(syncedKey, '1'); } catch { /* ignore */ } }
+          cb({
+            templates: parts.templates.value, prs: parts.prs.value, library: parts.exercises.value,
+            profile: parts.profile.value, main: parts.main.value, settings: parts.settings.value,
+          }, { fromCache: !server });
+        };
+        const listen = (name, src, map, fallback) => onSnapshot(src, { includeMetadataChanges: true },
+          (snap) => { parts[name] = { value: map(snap), server: !snap.metadata.fromCache }; emit(); },
+          (e) => {
+            parts[name] = { value: fallback, server: true };
+            if (name !== 'settings') onError?.(e); // settings mohou starší rules odmítnout – appka jede dál bez nich
+            emit();
+          });
+        const unsubs = [
+          listen('templates', col('templates'), (s) => s.docs.map((d) => d.data()), []),
+          listen('prs', col('prs'), (s) => { const o = {}; s.forEach((d) => (o[d.id] = d.data())); return o; }, {}),
+          listen('exercises', ref('meta', 'exercises'), (s) => (s.exists() ? s.data() : null), null),
+          listen('profile', ref('meta', 'profile'), (s) => (s.exists() ? s.data().id : null), null),
+          listen('main', ref('meta', 'main'), (s) => (s.exists() ? s.data() : {}), {}),
+          listen('settings', ref('meta', 'settings'), (s) => (s.exists() ? s.data() : null), null),
+        ];
+        return () => unsubs.forEach((u) => u());
       },
       // Živý odběr historie: data z offline cache hned, pak ze serveru; metadata říkají, co ještě čeká na odeslání.
       subscribeWorkouts(cb, onError) {
@@ -140,9 +169,11 @@ const demoBackend = {
   async signOut() { localStorage.removeItem('forge:demo-user'); demoBackend._cb?.(null); },
   data() {
     return {
-      async loadAll() {
+      subscribeMeta(cb) {
         const d = readLS();
-        return { templates: d.templates, prs: d.prs, main: d.main || {}, settings: d.settings || null, profile: d.profile || null, library: d.library || (d.exercises?.length ? { list: d.exercises } : null) };
+        let live = true;
+        Promise.resolve().then(() => live && cb({ templates: d.templates, prs: d.prs, main: d.main || {}, settings: d.settings || null, profile: d.profile || null, library: d.library || (d.exercises?.length ? { list: d.exercises } : null) }, { fromCache: false }));
+        return () => { live = false; };
       },
       subscribeWorkouts(cb) { listeners.add(cb); emit(); return () => listeners.delete(cb); },
       async saveTemplate(t) { edit((d) => { d.templates = [...d.templates.filter((x) => x.id !== t.id), t]; }); },

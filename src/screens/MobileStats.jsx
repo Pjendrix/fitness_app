@@ -1,7 +1,7 @@
 // Mobilní statistiky: jednoduchý přehled + detail cviku. Plná analytika zůstává na desktopu (Analytics.jsx).
 import { useEffect, useMemo, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
-import { MonitorIcon, SearchIcon } from '../components/Icons.jsx';
+import { ArrowIcon, MonitorIcon, SearchIcon, StarIcon } from '../components/Icons.jsx';
 import { CATEGORIES } from '../data/exercises.js';
 import { fmtDate, fmtDuration, fmtNum, fmtSet, groupTags, startOfWeek, workoutVolume } from '../lib/util.js';
 import { t } from '../lib/i18n.js';

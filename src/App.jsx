@@ -1,4 +1,4 @@
-import { lazy, memo, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { StoreProvider, useStore } from './lib/store.jsx';
 import { DialogProvider } from './components/Dialog.jsx';
 import BottomNav from './components/BottomNav.jsx';
@@ -17,6 +17,7 @@ import { useViewMode } from './lib/viewMode.js';
 import { applyAppearance } from './lib/appearance.js';
 import Tour from './components/Tour.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
+import { initialTab, onTabPop, pushTab, replaceTab } from './lib/nav.js';
 
 // Home a Trénink hned, zbytek líně (menší první načtení)
 const History = lazy(() => import('./screens/History.jsx'));
@@ -43,17 +44,39 @@ function Shell() {
     syncThemeColor();
   }, [user, appearance]);
   const { lang } = useLang(); // překreslit při změně jazyka
-  const [tab, setTab] = useState('home');
-  const go = useCallback((t) => {
+  const [tab, setTab] = useState(initialTab);
+  const tabRef = useRef(tab);
+  tabRef.current = tab;
+  // C2: pozice scrollu pro každou záložku (návrat z Historie do rozcvičeného tréninku na stejné místo)
+  const scrolls = useRef({});
+  const switchTab = useCallback((t) => {
+    scrolls.current[tabRef.current] = window.scrollY;
     setTab(t);
-    window.scrollTo({ top: 0 });
   }, []);
+  const go = useCallback((t) => {
+    if (t === tabRef.current) { // klepnutí na aktuální záložku = nahoru
+      scrolls.current[t] = 0;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    pushTab(t);
+    switchTab(t);
+  }, [switchTab]);
+  useEffect(() => { replaceTab(tabRef.current); }, []);
+  useEffect(() => onTabPop(switchTab), [switchTab]); // systémové Zpět mezi obrazovkami (C5)
+  useLayoutEffect(() => {
+    const y = scrolls.current[tab] || 0;
+    window.scrollTo(0, y);
+    if (y) requestAnimationFrame(() => window.scrollTo(0, y)); // líně načtená obrazovka mohla být ještě nízká
+  }, [tab]);
+  // Nový trénink začíná nahoře, ne na pozici minulého
+  useEffect(() => { if (!live) scrolls.current.workout = 0; }, [live]);
   // Rozdělaný trénink po znovuotevření appky (iOS/Android ji v pozadí zavřou) → rovnou na Trénink, ne na Domů
   const resumed = useRef(false);
   useEffect(() => { resumed.current = false; }, [user?.uid]);
   useEffect(() => {
-    if (live && !resumed.current) { resumed.current = true; setTab('workout'); }
-  }, [live]);
+    if (live && !resumed.current) { resumed.current = true; if (tabRef.current !== 'workout') go('workout'); }
+  }, [live, go]);
 
   if (user === undefined) return <div className="splash" aria-busy="true">Forge</div>;
   if (!user) return <><Login /><Toast /></>;

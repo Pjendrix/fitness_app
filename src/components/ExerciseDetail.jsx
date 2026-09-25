@@ -8,6 +8,7 @@ import { e1rm } from '../lib/metrics.js';
 import { fmtDate, fmtNum, fmtSet, num } from '../lib/util.js';
 import { locale, t } from '../lib/i18n.js';
 import { exerciseRecords, exerciseTargets, specFromTemplates } from '../lib/progress.js';
+import { useBackClose } from '../lib/nav.js';
 
 export const signed = (n, unit = '') => (n > 0 ? '+' : n < 0 ? '−' : '±') + fmtNum(Math.round(Math.abs(n) * 10) / 10) + unit;
 export const trendClass = (n) => (n > 0 ? 'ms-up' : n < 0 ? 'ms-down' : 'muted');
@@ -46,6 +47,7 @@ export function ExerciseDetail({ exKey, onBack, embedded = false }) {
   const options = kind === 'e1' ? ['e1', 'top', 'vol'] : [kind];
   const [metric, setMetric] = useState(options[0]);
   const m = options.includes(metric) ? metric : options[0];
+  useBackClose(embedded ? null : onBack); // Zpět z detailu vrátí přehled statistik, ne předchozí obrazovku
 
   if (!list.length) return <div className={embedded ? 'ms-embed' : 'screen'}>{!embedded && <BackLink label={t('ms.title')} onClick={onBack} />}<p className="empty">{t('an.fewData')}</p></div>;
 

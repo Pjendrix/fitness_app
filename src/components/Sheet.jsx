@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useBackClose } from '../lib/nav.js';
 
 // Spodní panel / modál: aria-modal, zavření Esc a klepnutím mimo, focus trap, zámek scrollu, návrat focusu.
 const stack = [];
@@ -8,6 +9,7 @@ export default function Sheet({ label, onClose, className = '', children }) {
   const ref = useRef(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  useBackClose(() => closeRef.current?.()); // systémové Zpět zavře panel (C5)
 
   useEffect(() => {
     const id = {};

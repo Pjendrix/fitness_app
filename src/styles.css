@@ -829,3 +829,6 @@ html[data-theme='dark'][data-tint] {
 html[data-theme='dark'] { --gold: #e3c170; }
 .sum-rec svg { color: var(--gold); fill: color-mix(in srgb, var(--gold) 22%, transparent); }
 .pb-badge svg { color: #e3c170; }
+
+/* 4.6 – C2: posun na další cvik nechá nahoře místo (výřez, odznaky offline/zpět) */
+.card.ex { scroll-margin-top: calc(env(safe-area-inset-top) + 56px); }

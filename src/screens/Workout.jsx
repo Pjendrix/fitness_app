@@ -39,6 +39,8 @@ const SetRow = memo(function SetRow({ exId, set, n, timed, pb, prev, target, onP
   const warm = Boolean(set.warm);
   const newPb = !warm && set.done && pb && better({ weight: num(set.weight), reps: timed ? 0 : num(set.reps), time: timed ? num(set.time) : 0 }, pb);
   const hit = target && set.done && num(set.weight) >= target.weight && num(set.reps) >= target.reps;
+  // C3: „minule“ jen když se hodnoty v polích liší (předvyplnění z minula by se jinak jen opakovalo)
+  const showPrev = prev && (num(set.weight) !== prev.weight || (timed ? num(set.time) !== prev.time : num(set.reps) !== prev.reps));
   return (
     <SwipeRow onDelete={() => onRemove(exId, set.id)} deleteLabel={t('wo.delSet', { n })} className={'set' + (set.done ? ' is-done' : '') + (warm ? ' is-warm' : '')}>
       <button type="button" className="set-n" aria-pressed={warm} aria-label={warm ? t('wo.warmOff') : t('wo.warmOn')} title={warm ? t('wo.warmOff') : t('wo.warmOn')} onClick={() => onPatch(exId, set.id, { warm: !warm })}>{warm ? 'W' : n}</button>
@@ -50,9 +52,9 @@ const SetRow = memo(function SetRow({ exId, set, n, timed, pb, prev, target, onP
         <CheckIcon width={20} height={20} />
       </button>
       {newPb && <span className="new-pb">{t('wo.newPb')}</span>}
-      {!warm && (prev || target) && (
+      {!warm && (showPrev || target) && (
         <span className="set-sub">
-          {prev && <span>{t('wo.last')} {fmtSet(prev.weight, prev.reps, prev.time)}</span>}
+          {showPrev ? <span>{t('wo.last')} {fmtSet(prev.weight, prev.reps, prev.time)}</span> : <span />}
           {target && <span className={hit ? 'is-hit' : ''}>{hit ? '✓ ' : ''}{target.hold ? t('wo.hold') : t('wo.goal')} {fmtSet(target.weight, target.reps)}</span>}
         </span>
       )}
@@ -68,7 +70,7 @@ const ExerciseCard = memo(function ExerciseCard({ ex, pb, ssLabel, ssEnd, step, 
   const targets = !timed && working.length ? exerciseTargets(working, { specs: ex.specs, spec: ex.spec, to: ex.specTo, step }) : [];
   let j = -1; // pořadí pracovní série (rozcvičky se nečíslují)
   return (
-    <section className={'card ex' + (ex.ss ? ' in-ss' : '') + (ex.ss && !ssEnd ? ' ss-open' : '')}>
+    <section id={'ex-' + ex.id} className={'card ex' + (ex.ss ? ' in-ss' : '') + (ex.ss && !ssEnd ? ' ss-open' : '')}>
       {ssLabel && <span className="ss-tag">{t('ss.label', { l: ssLabel })}</span>}
       <div className="ex-head">
         <div className="ex-title">
@@ -196,6 +198,12 @@ export default function Workout({ go }) {
     const list = activeRef.current?.exercises || [];
     const i = list.findIndex((e) => e.id === exId);
     const cur = list[i], nx = list[i + 1];
+    // C2: poslední pracovní série cviku → plynule na další cvik (ne u supersetu, tam se střídá)
+    const lastOfEx = cur && !cur.ss && cur.sets.every((s) => s.id === set.id || s.warm || isDone(s));
+    if (lastOfEx && nx) {
+      const smooth = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      setTimeout(() => document.getElementById('ex-' + nx.id)?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' }), 350);
+    }
     if (cur?.ss && nx?.ss === cur.ss) { stopRest(); return; }
     startRest();
   }, [notify, patchSet, startRest, stopRest]);
