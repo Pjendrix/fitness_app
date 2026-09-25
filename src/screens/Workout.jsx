@@ -1,14 +1,14 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useSession, useStore } from '../lib/store.jsx';
-import { better, countUnchecked, uid, DECIMAL_INPUT, fmtClock, fmtSet, INT_INPUT, isDone, num } from '../lib/util.js';
+import { better, countUnchecked, uid, DECIMAL_INPUT, fmtClock, fmtNum, fmtSet, INT_INPUT, isDone, num } from '../lib/util.js';
 import NumField, { oneStep, weightStep } from '../components/NumField.jsx';
 import { primeAudio } from '../lib/rest.js';
-import { ArrowDownIcon, ArrowUpIcon, CheckIcon, FlagIcon, FlameIcon, LinkIcon, MoreIcon, PencilIcon, PlateIcon, PlusIcon, SwapIcon, TrashIcon } from '../components/Icons.jsx';
+import { StepIcon, ArrowDownIcon, ArrowUpIcon, CheckIcon, FlagIcon, FlameIcon, LinkIcon, MoreIcon, PencilIcon, PlateIcon, PlusIcon, SwapIcon, TrashIcon } from '../components/Icons.jsx';
 import Sheet from '../components/Sheet.jsx';
 import PlateCalc from '../components/PlateCalc.jsx';
 import ExerciseSheet from '../components/ExerciseSheet.jsx';
 import WorkoutSummary from '../components/WorkoutSummary.jsx';
-import { nextTarget } from '../lib/progress.js';
+import { exerciseTargets } from '../lib/progress.js';
 import { templateDiffers } from '../lib/templateSync.js';
 import { markGuide } from '../lib/guide.js';
 import ExercisePicker from '../components/ExercisePicker.jsx';
@@ -53,7 +53,7 @@ const SetRow = memo(function SetRow({ exId, set, n, timed, pb, prev, target, onP
       {!warm && (prev || target) && (
         <span className="set-sub">
           {prev && <span>{t('wo.last')} {fmtSet(prev.weight, prev.reps, prev.time)}</span>}
-          {target && <span className={hit ? 'is-hit' : ''}>{hit ? '✓ ' : ''}{t('wo.goal')} {fmtSet(target.weight, target.reps)}</span>}
+          {target && <span className={hit ? 'is-hit' : ''}>{hit ? '✓ ' : ''}{target.hold ? t('wo.hold') : t('wo.goal')} {fmtSet(target.weight, target.reps)}</span>}
         </span>
       )}
       {warm && <span className="set-sub"><span>{t('wo.warmNote')}</span></span>}
@@ -61,8 +61,11 @@ const SetRow = memo(function SetRow({ exId, set, n, timed, pb, prev, target, onP
   );
 });
 
-const ExerciseCard = memo(function ExerciseCard({ ex, pb, ssLabel, ssEnd, handlers }) {
+const ExerciseCard = memo(function ExerciseCard({ ex, pb, ssLabel, ssEnd, step, handlers }) {
   const timed = ex.type === 'time';
+  // Cíle pro celý cvik: váha až když všechny série dosáhly horní hranice rozsahu
+  const working = ex.prev || [];
+  const targets = !timed && working.length ? exerciseTargets(working, { specs: ex.specs, spec: ex.spec, to: ex.specTo, step }) : [];
   let j = -1; // pořadí pracovní série (rozcvičky se nečíslují)
   return (
     <section className={'card ex' + (ex.ss ? ' in-ss' : '') + (ex.ss && !ssEnd ? ' ss-open' : '')}>
@@ -78,8 +81,7 @@ const ExerciseCard = memo(function ExerciseCard({ ex, pb, ssLabel, ssEnd, handle
       {ex.sets.map((s) => {
         if (!s.warm) j++;
         const prev = !s.warm && ex.prev ? ex.prev[j] || null : null;
-        const spec = ex.specs ? ex.specs[j] : ex.spec;
-        const target = prev && !timed ? nextTarget(prev, spec) : null;
+        const target = prev ? targets[j] || null : null;
         return <SetRow key={s.id} exId={ex.id} set={s} n={j + 1} timed={timed} pb={pb} prev={prev} target={target} onPatch={handlers.patchSet} onToggle={handlers.toggle} onRemove={handlers.removeSet} />;
       })}
       {(ex.rpe || ex.memo) && (
@@ -117,6 +119,19 @@ function ExerciseMenu({ ex, index, count, next, view, onClose, act }) {
       </Sheet>
     );
   }
+  if (mode === 'step') {
+    const opts = [1, 1.25, 2, 2.5, 5, 10];
+    return (
+      <Sheet label={t('step.title')} onClose={onClose} className="sheet-short">
+        <div className="sheet-head"><h2>{t('step.title')}</h2><button className="btn btn-ghost btn-sm" onClick={onClose}>{t('pick.close')}</button></div>
+        <p className="muted small">{ex.name} · {t('step.help')}</p>
+        <div className="rpe-row" role="radiogroup" aria-label={t('step.title')}>
+          {opts.map((v) => <button key={v} role="radio" aria-checked={act.stepManual && act.step === v} className={'chip' + (act.stepManual && act.step === v ? ' is-on' : '')} onClick={() => { act.setStep(ex.name, v); onClose(); }}>{String(v)}</button>)}
+        </div>
+        <button className="btn btn-ghost btn-block" onClick={() => { act.setStep(ex.name, null); onClose(); }}>{t('step.auto')}{!act.stepManual ? ` · ${fmtNum(act.step)} kg` : ''}</button>
+      </Sheet>
+    );
+  }
   if (mode === 'plates') return <PlateCalc initial={num((ex.sets.find((s) => !s.done && !s.warm) || ex.sets[0] || {}).weight)} onClose={onClose} />;
   const row = (Icon, label, fn, cls = '') => (
     <button className={'menu-row ' + cls} onClick={fn}><Icon width={20} height={20} /><span>{label}</span></button>
@@ -129,6 +144,7 @@ function ExerciseMenu({ ex, index, count, next, view, onClose, act }) {
         {row(FlameIcon, t('wo.addWarm'), () => { act.addWarm(ex.id); onClose(); })}
         {row(PencilIcon, t('wo.noteTitle'), () => setMode('note'))}
         {ex.type !== 'time' && row(PlateIcon, t('plate.title'), () => setMode('plates'))}
+        {ex.type !== 'time' && row(StepIcon, t('step.row', { n: fmtNum(act.step) }), () => setMode('step'))}
         {next && !(inSs && next.ss === ex.ss) && row(LinkIcon, t('ss.link', { name: next.name }), () => { act.link(ex.id); onClose(); })}
         {inSs && row(LinkIcon, t('ss.unlink'), () => { act.unlink(ex.id); onClose(); })}
         {row(ArrowUpIcon, t('wo.up'), () => { act.move(ex.id, -1); onClose(); }, index === 0 ? 'is-disabled' : '')}
@@ -141,7 +157,7 @@ function ExerciseMenu({ ex, index, count, next, view, onClose, act }) {
 
 export default function Workout({ go }) {
   const { active, patchActive, prs, finishWorkout, discardWorkout, notify, addExerciseToActive, replaceExerciseInActive, startRest, stopRest } = useSession();
-  const { templates, syncTemplate } = useStore();
+  const { templates, syncTemplate, stepOf, stepIsManual, setStep } = useStore();
   const dialog = useDialog();
   const [picking, setPicking] = useState(() => Boolean(active && !active.exercises.length));
   const [menu, setMenu] = useState(null); // { id, view }
@@ -341,7 +357,7 @@ export default function Workout({ go }) {
       {active.exercises.map((e, ei) => {
         const prevEx = active.exercises[ei - 1], nextEx = active.exercises[ei + 1];
         const first = e.ss && prevEx?.ss !== e.ss;
-        return <ExerciseCard key={e.id} ex={e} pb={prs[e.key]} ssLabel={first ? ssLetter(active, e.ss) : ''} ssEnd={!e.ss || nextEx?.ss !== e.ss} handlers={handlers} />;
+        return <ExerciseCard key={e.id} ex={e} step={stepOf(e.name)} pb={prs[e.key]} ssLabel={first ? ssLetter(active, e.ss) : ''} ssEnd={!e.ss || nextEx?.ss !== e.ss} handlers={handlers} />;
       })}
 
       {!active.exercises.length && <p className="empty">{t('wo.addFirst')}</p>}
@@ -363,7 +379,7 @@ export default function Workout({ go }) {
         if (i < 0) return null;
         return (
           <ExerciseMenu key={menu.id + (menu.view || '')} ex={active.exercises[i]} index={i} count={active.exercises.length} next={active.exercises[i + 1]} view={menu.view}
-            onClose={() => setMenu(null)} act={{ addWarm, link, unlink, move, remove: removeExercise, patch: patchEx }} />
+            onClose={() => setMenu(null)} act={{ addWarm, link, unlink, move, remove: removeExercise, patch: patchEx, step: stepOf(active.exercises[i].name), stepManual: stepIsManual(active.exercises[i].name), setStep }} />
         );
       })()}
       {detailKey && <ExerciseSheet exKey={detailKey} onClose={() => setDetailKey(null)} />}

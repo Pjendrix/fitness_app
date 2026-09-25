@@ -6,6 +6,7 @@ import { better, exKey, firstNum, hasValue, isDone, LIMITS, planLabel, sanitizeN
 import { applyChanges, applyWorkout, changesAfterDelete, recomputeKeys } from './records.js';
 import { getRestDefault } from './rest.js';
 import { templateFromActive } from './templateSync.js';
+import { defaultStep, learnedSteps } from './progress.js';
 import { markGuide } from './guide.js';
 import { t } from './i18n.js';
 import { INFO_KEYS } from '../data/infoKeys.js';
@@ -70,7 +71,7 @@ const newSet = (s = {}) => ({ id: uid(), weight: String(s.weight || ''), reps: S
 
 const toLibEntry = (ex) => {
   const cat = normCat(ex.cat);
-  return { name: sanitizeName(ex.name), cat, ...(ex.type === 'time' || (!ex.type && cat === 'cardio') ? { type: 'time' } : {}), ...(ex.db ? { db: String(ex.db).slice(0, 120) } : {}) };
+  return { name: sanitizeName(ex.name), cat, ...(ex.type === 'time' || (!ex.type && cat === 'cardio') ? { type: 'time' } : {}), ...(ex.db ? { db: String(ex.db).slice(0, 120) } : {}), ...(Number(ex.step) > 0 ? { step: Math.min(50, Math.round(Number(ex.step) * 4) / 4) } : {}) };
 };
 
 export function StoreProvider({ children }) {
@@ -352,6 +353,17 @@ export function StoreProvider({ children }) {
   const libMap = useMemo(() => new Map(library.map((e) => [exKey(e.name), e])), [library]);
   const typeOf = useCallback((name) => libMap.get(exKey(name))?.type || defaultTypeOf(name), [libMap]);
   const catOf = useCallback((name) => libMap.get(exKey(name))?.cat || null, [libMap]);
+  // Krok váhy: ručně v knihovně → naučený z historie → podle vybavení v názvu
+  const learned = useMemo(() => learnedSteps(workouts), [workouts]);
+  const stepOf = useCallback((name) => {
+    const k = exKey(name);
+    const manual = libMap.get(k)?.step;
+    if (manual) return manual;
+    // Naučený krok jen pokud dává smysl pro vybavení (nejmenší rozdíl 1 kg u stroje po 5 kg je spíš překlep)
+    const d = defaultStep(name), l = learned.get(k);
+    return l && l >= d / 2 ? l : d;
+  }, [libMap, learned]);
+  const stepIsManual = useCallback((name) => Boolean(libMap.get(exKey(name))?.step), [libMap]);
   const infoOf = useCallback((name) => {
     const k = exKey(name);
     const e = libMap.get(k);
@@ -440,6 +452,18 @@ export function StoreProvider({ children }) {
     });
   }, [api, fail, remember]);
   const resetLibrary = useCallback(() => saveLibrary(EXERCISES), [saveLibrary]);
+  // Ruční krok váhy cviku (null = zase automaticky)
+  const setStep = useCallback((name, step) => {
+    const k = exKey(name);
+    setLibrary((lib) => {
+      const cur = lib.find((x) => exKey(x.name) === k) || { name, cat: catOf(name) || 'other', ...(typeOf(name) === 'time' ? { type: 'time' } : {}) };
+      const { step: _old, ...rest } = cur; void _old;
+      const entry = toLibEntry(step ? { ...rest, step } : rest);
+      const next = [...lib.filter((x) => exKey(x.name) !== k), entry].slice(0, LIMITS.library);
+      api.saveExercises(next).catch(fail('err.save'));
+      return next;
+    });
+  }, [api, fail, catOf, typeOf]);
 
   // ——— Aktivní trénink ———
   const startWorkout = useCallback((tpl) => {
@@ -457,7 +481,7 @@ export function StoreProvider({ children }) {
       // prev = minulé série (řádek „minule“), spec/specs = rozsah opakování pro cíl progrese, ss = superset skupina
       return {
         id: uid(), key, name: e.name, type, plan: type === 'time' ? t('count.sets', { n: e.sets }) : planLabel(e), hint: last ? '' : e.hint || '', note: e.note || '', sets,
-        prev: last ? last.map(prevOf) : null, spec: e.reps ?? '', specs: e.plan ? e.plan.map((p) => p.r) : null, ss: e.ss || '',
+        prev: last ? last.map(prevOf) : null, spec: e.reps ?? '', specTo: e.repsTo || null, specs: e.plan ? e.plan.map((p) => p.r) : null, ss: e.ss || '',
       };
     });
     setRest(null);
@@ -539,7 +563,7 @@ export function StoreProvider({ children }) {
     const count = Math.max(1, old.sets.length - done.length);
     const sets = Array.from({ length: count }, (_, i) => newSet(last ? last[Math.min(i, last.length - 1)] : {}));
     const plan = type === (old.type || 'reps') ? old.plan : type === 'time' ? t('count.sets', { n: count }) : '';
-    const fresh = { id: uid(), key, name: ex.name, type, plan, hint: '', note: '', sets, prev: last ? last.map(prevOf) : null, spec: type === (old.type || 'reps') ? old.spec : undefined, ss: old.ss || '' };
+    const fresh = { id: uid(), key, name: ex.name, type, plan, hint: '', note: '', sets, prev: last ? last.map(prevOf) : null, spec: type === (old.type || 'reps') ? old.spec : undefined, specTo: type === (old.type || 'reps') ? old.specTo : null, ss: old.ss || '' };
     const split = done.length > 0;
     patchActive((a) => {
       const i = a.exercises.findIndex((e) => e.id === exId);
@@ -640,11 +664,11 @@ export function StoreProvider({ children }) {
   const data = useMemo(() => ({
     user, denied, loading, mode: backend.mode, signIn, signOut, startDemo, resetDemo, live, sync, online,
     templates, workouts, prs, deleteWorkout, updateWorkout, saveTemplate, deleteTemplate, startWorkout, startEmptyWorkout,
-    library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf,
+    library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf, stepOf, stepIsManual, setStep,
     starter, chooseStarter, needsSetup, appearance, setAppearance, weeklyGoal, setWeeklyGoal, pinnedLifts, togglePin, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup,
     undoStack, undo, redoStack, redo, notify, syncTemplate, importData,
   }), [user, denied, loading, signIn, signOut, startDemo, resetDemo, live, sync, online, templates, workouts, prs, deleteWorkout, updateWorkout, saveTemplate, deleteTemplate, startWorkout, startEmptyWorkout,
-    library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf, starter, chooseStarter, needsSetup, appearance, setAppearance, weeklyGoal, setWeeklyGoal, pinnedLifts, togglePin, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, undoStack, undo, redoStack, redo, notify, syncTemplate, importData]);
+    library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf, stepOf, stepIsManual, setStep, starter, chooseStarter, needsSetup, appearance, setAppearance, weeklyGoal, setWeeklyGoal, pinnedLifts, togglePin, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, undoStack, undo, redoStack, redo, notify, syncTemplate, importData]);
 
   const session = useMemo(() => ({
     active, patchActive, finishWorkout, discardWorkout, addExerciseToActive, replaceExerciseInActive, prs, notify, rest, startRest, adjustRest, stopRest,

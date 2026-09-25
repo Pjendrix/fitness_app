@@ -58,8 +58,14 @@ export const startOfWeek = () => {
 
 export const clean = (o) => JSON.parse(JSON.stringify(o)); // Firestore rejects undefined
 
-export const planLabel = (e) =>
-  !e.reps || !/^(\d|max)/.test(e.reps) ? t('count.sets', { n: e.sets }) : `${e.sets}× ${e.reps}`;
+// Horní hranice rozsahu opakování, když ji šablona nemá: do 6 opak. +2, jinak +4
+export const defaultTop = (lo) => (lo <= 6 ? lo + 2 : lo + 4);
+export const planLabel = (e) => {
+  if (!e.reps || !/^(\d|max)/.test(e.reps)) return t('count.sets', { n: e.sets });
+  const lo = parseInt(e.reps, 10);
+  if (!(lo > 0) || /[-–]/.test(e.reps)) return `${e.sets}× ${e.reps}`;
+  return `${e.sets}× ${lo}–${e.repsTo >= lo ? e.repsTo : defaultTop(lo)}`;
+};
 
 // ——— Validace vstupů (poslední obrana před zápisem; rules hlídají strukturu) ———
 export const LIMITS = { weight: 500, reps: 200, time: 600, name: 80, variant: 40, exercises: 40, library: 1500 };

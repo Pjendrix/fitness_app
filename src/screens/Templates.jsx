@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { colorHex, TEMPLATE_COLORS } from '../data/defaultTemplates.js';
-import { DECIMAL_INPUT, exKey, LIMITS, planLabel, sanitizeName, uid } from '../lib/util.js';
+import { DECIMAL_INPUT, defaultTop, exKey, LIMITS, planLabel, sanitizeName, uid } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
 import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CopyIcon, LinkIcon, PencilIcon, PlusIcon, TrashIcon, XIcon } from '../components/Icons.jsx';
 import Sheet from '../components/Sheet.jsx';
@@ -139,11 +139,17 @@ function Editor({ initial, onSave, onClose, typeOf, isMain, groupLabel }) {
             </span>
             {e.reps === 'max'
               ? <div className="stepper stepper-max">{t('tpl.toFailure')}</div>
-              : <Stepper value={parseInt(e.reps, 10) || 8} min={1} max={50} onChange={(v) => updPlan(i, { reps: String(v) })} />}
+              : <Stepper value={parseInt(e.reps, 10) || 8} min={1} max={50} onChange={(v) => updPlan(i, { reps: String(v), ...(e.repsTo && e.repsTo < v ? { repsTo: undefined } : {}) })} />}
           </div>
           )}
           <label className="mini"><span className="label">{t('tpl.kg')}</span><input className="input" inputMode="decimal" value={e.weight ?? ''} placeholder="–" onChange={(ev) => { const v = ev.target.value; if (v === '' || DECIMAL_INPUT.test(v)) updPlan(i, { weight: v }); }} /></label>
           <button className="icon-btn" aria-label={t('tpl.remove')} onClick={() => setItems((l) => l.filter((_, j) => j !== i))}><XIcon width={16} height={16} /></button>
+          {e.type !== 'time' && e.reps !== 'max' && (
+            <div className="edit-range">
+              <span className="muted small">{t('tpl.range', { lo: parseInt(e.reps, 10) || 8 })}</span>
+              <Stepper value={e.repsTo || defaultTop(parseInt(e.reps, 10) || 8)} min={parseInt(e.reps, 10) || 8} max={60} onChange={(v) => upd(i, { repsTo: v })} />
+            </div>
+          )}
           <input className="input edit-note" maxLength={120} value={e.note || ''} placeholder={t('tpl.note')} onChange={(ev) => upd(i, { note: ev.target.value })} />
           {e.plan?.length > 0 && <p className="muted small edit-plan">{t('tpl.planIs', { p: e.plan.map((p) => (p.t ? `${p.w || 0}×${p.t} min` : `${p.w}×${p.r}`)).join(', ') })}</p>}
         </div>

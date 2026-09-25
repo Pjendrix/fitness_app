@@ -36,4 +36,5 @@ export const RepeatIcon = I(<><path d="M17 3l3 3-3 3" /><path d="M4 11V9a3 3 0 0
 export const SearchIcon = I(<><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4.2-4.2" /></>);
 export const UploadIcon = I(<><path d="M12 16V4M7 9l5-5 5 5" /><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" /></>);
 export const TrophyIcon = I(<><path d="M8 4h8v5a4 4 0 0 1-8 0V4z" /><path d="M8 6H5v1a3 3 0 0 0 3 3M16 6h3v1a3 3 0 0 1-3 3" /><path d="M12 13v4M9 20h6" /></>);
+export const StepIcon = I(<path d="M4 19h5v-5h5V9h6" />);
 export const FlagIcon = I(<><path d="M5 21V4" /><path d="M5 4h11l-2 4 2 4H5" /></>);

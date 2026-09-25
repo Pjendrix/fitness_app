@@ -1,24 +1,51 @@
 import { describe, expect, it } from 'vitest';
-import { nextTarget, recordsTimeline, repRange } from './progress.js';
+import { defaultStep, exerciseTargets, learnedSteps, recordsTimeline, repRange } from './progress.js';
 import { templateDiffers, templateFromActive } from './templateSync.js';
 import { platesFor } from '../components/PlateCalc.jsx';
 
 describe('repRange', () => {
-  it('single number → double progression +2', () => expect(repRange('8')).toEqual({ lo: 8, hi: 10 }));
-  it('explicit range', () => expect(repRange('6-8')).toEqual({ lo: 6, hi: 8 }));
+  it('up to 6 reps → +2', () => expect(repRange('6')).toEqual({ lo: 6, hi: 8 }));
+  it('8+ reps → +4', () => expect(repRange('8')).toEqual({ lo: 8, hi: 12 }));
+  it('explicit top from the template', () => expect(repRange('8', 10)).toEqual({ lo: 8, hi: 10 }));
+  it('written range', () => expect(repRange('6-8')).toEqual({ lo: 6, hi: 8 }));
   it('max / pyramid → null', () => { expect(repRange('max')).toBeNull(); expect(repRange('pyramid')).toBeNull(); });
 });
 
-describe('nextTarget', () => {
-  it('+1 rep below the top of the range', () => expect(nextTarget({ weight: 85, reps: 6 }, '6')).toEqual({ weight: 85, reps: 7 }));
-  it('+weight and back to the bottom at the top', () => expect(nextTarget({ weight: 85, reps: 8 }, '6')).toEqual({ weight: 87.5, reps: 6 }));
-  it('small dumbbells step 0.5 kg', () => expect(nextTarget({ weight: 8, reps: 10 }, '8')).toEqual({ weight: 8.5, reps: 8 }));
-  it('no template → 8–12', () => expect(nextTarget({ weight: 40, reps: 12 }, undefined)).toEqual({ weight: 42.5, reps: 8 }));
-  it('bodyweight / max → +1 rep', () => {
-    expect(nextTarget({ weight: 0, reps: 10 }, '8')).toEqual({ weight: 0, reps: 11 });
-    expect(nextTarget({ weight: 20, reps: 10 }, 'max')).toEqual({ weight: 20, reps: 11 });
+describe('exerciseTargets (double progression)', () => {
+  const prev = (list) => list.map(([weight, reps]) => ({ weight, reps }));
+  it('machine 3× 8: at 10 reps → +1 rep, same weight (no 21 kg)', () => {
+    expect(exerciseTargets(prev([[10, 10], [15, 10], [20, 10]]), { spec: '8', step: 5 }))
+      .toEqual([{ weight: 10, reps: 11 }, { weight: 15, reps: 11 }, { weight: 20, reps: 11 }]);
   });
-  it('timed → none', () => expect(nextTarget({ weight: 0, reps: 0, time: 5 }, '')).toBeNull());
+  it('sets at the top hold while others catch up', () => {
+    expect(exerciseTargets(prev([[20, 12], [20, 10]]), { spec: '8', step: 5 }))
+      .toEqual([{ weight: 20, reps: 12, hold: true }, { weight: 20, reps: 11 }]);
+  });
+  it('all sets at the top → + step, back to the bottom', () => {
+    expect(exerciseTargets(prev([[20, 12], [20, 12]]), { spec: '8', step: 5 }))
+      .toEqual([{ weight: 25, reps: 8 }, { weight: 25, reps: 8 }]);
+  });
+  it('barbell 4× 6 → 6–8, step 2.5', () => {
+    expect(exerciseTargets(prev([[85, 8], [85, 8]]), { spec: '6', step: 2.5 })).toEqual([{ weight: 87.5, reps: 6 }, { weight: 87.5, reps: 6 }]);
+  });
+  it('bodyweight / max → +1 rep', () => {
+    expect(exerciseTargets(prev([[0, 10]]), { spec: '8' })).toEqual([{ weight: 0, reps: 11 }]);
+    expect(exerciseTargets(prev([[20, 10]]), { spec: 'max' })).toEqual([{ weight: 20, reps: 11 }]);
+  });
+  it('timed → none', () => expect(exerciseTargets([{ weight: 0, reps: 0, time: 5 }], { spec: '' })).toEqual([null]));
+});
+
+describe('weight steps', () => {
+  it('by equipment', () => {
+    expect(defaultStep('Shoulder Press (Machine)')).toBe(5);
+    expect(defaultStep('Triceps Pushdown (Cable)')).toBe(5);
+    expect(defaultStep('Bicep Curl (Dumbbell)')).toBe(2);
+    expect(defaultStep('Bench Press (Barbell)')).toBe(2.5);
+  });
+  it('learned from history', () => {
+    const w = [{ exercises: [{ key: 'sp', sets: [{ weight: 10 }, { weight: 15 }, { weight: 20 }] }] }];
+    expect(learnedSteps(w).get('sp')).toBe(5);
+  });
 });
 
 describe('recordsTimeline', () => {

@@ -7,7 +7,7 @@ import { CATEGORIES } from '../data/exercises.js';
 import { e1rm } from '../lib/metrics.js';
 import { fmtDate, fmtDuration, fmtNum, fmtSet, num, startOfWeek, workoutVolume } from '../lib/util.js';
 import { locale, t } from '../lib/i18n.js';
-import { exerciseRecords, nextTarget, specFromTemplates } from '../lib/progress.js';
+import { exerciseRecords, exerciseTargets, specFromTemplates } from '../lib/progress.js';
 import Sheet from '../components/Sheet.jsx';
 import { markGuide } from '../lib/guide.js';
 import { norm } from '../components/ExercisePicker.jsx';
@@ -281,7 +281,7 @@ function Overview({ go, open }) {
 }
 
 export function ExerciseDetail({ exKey, onBack, embedded = false }) {
-  const { workouts, prs, catOf, pinnedLifts, togglePin, templates } = useStore();
+  const { workouts, prs, catOf, pinnedLifts, togglePin, templates, stepOf } = useStore();
   const recs = useMemo(() => exerciseRecords(workouts, exKey), [workouts, exKey]);
   const { list, kind } = useMemo(() => sessionsOf(workouts, exKey), [workouts, exKey]);
   const options = kind === 'e1' ? ['e1', 'top', 'vol'] : [kind];
@@ -299,11 +299,12 @@ export function ExerciseDetail({ exKey, onBack, embedded = false }) {
   const now = val(last), change = now - val(first);
   const cat = catOf(name);
 
-  // Cíl podle stejného pravidla jako v tréninku (rozsah opakování ze šablony, jinak 8–12)
-  const tg = nextTarget(last.top, specFromTemplates(templates, exKey));
-  const target = kind === 'time'
-    ? { main: '–', alt: null }
-    : tg ? { main: fmtSet(tg.weight, tg.reps), alt: null } : { main: '–', alt: null };
+  // Cíl podle stejného pravidla jako v tréninku (celý poslední trénink, rozsah ze šablony, krok váhy cviku)
+  const range = specFromTemplates(templates, exKey);
+  const tgs = kind === 'time' ? [] : exerciseTargets(last.sets, { spec: range.spec, to: range.to, step: stepOf(name) });
+  const topI = last.sets.reduce((bi, x, i, a) => (x.weight > a[bi].weight || (x.weight === a[bi].weight && x.reps > a[bi].reps) ? i : bi), 0);
+  const tg = tgs[topI];
+  const target = { main: tg ? fmtSet(tg.weight, tg.reps) : '–', alt: null };
   const pb = prs[exKey];
 
   return (
