@@ -14,7 +14,7 @@ function useWidth() {
   }, []);
   return [ref, w];
 }
-import { fmtNum } from '../lib/util.js';
+import { fmtNum, niceScale } from '../lib/util.js';
 import { locale, t } from '../lib/i18n.js';
 
 const niceMax = (v) => {
@@ -64,8 +64,7 @@ export function LineChart({ series, height = 200, unit = '', label = '' }) {
   if (!pts.length) return <p className="empty" ref={ref}>{t('an.fewData')}</p>;
   const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
   const x0 = Math.min(...xs), x1 = Math.max(...xs) || x0 + 1;
-  const yMin = Math.max(0, Math.floor(Math.min(...ys) * 0.9));
-  const yMax = niceMax(Math.max(...ys) * 1.02);
+  const { yMin, yMax, ticks } = niceScale(Math.min(...ys), Math.max(...ys));
   const iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
   const sx = (x) => pad.l + (x1 === x0 ? iw / 2 : ((x - x0) / (x1 - x0)) * iw);
   const sy = (y) => pad.t + ih * (1 - (y - yMin) / (yMax - yMin || 1));
@@ -84,15 +83,12 @@ export function LineChart({ series, height = 200, unit = '', label = '' }) {
         onPointerLeave={(e) => e.pointerType === 'mouse' && setHover(null)}
         onPointerDown={pick}
         onPointerMove={pick}>
-        {[0, 0.5, 1].map((f) => {
-          const v = yMin + (yMax - yMin) * f;
-          return (
-            <g key={f}>
-              <line x1={pad.l} x2={W - pad.r} y1={sy(v)} y2={sy(v)} className="grid" />
-              <text x={pad.l - 6} y={sy(v) + 3} className="axis" textAnchor="end">{fmtNum(Math.round(v))}</text>
-            </g>
-          );
-        })}
+        {ticks.map((v) => (
+          <g key={v}>
+            <line x1={pad.l} x2={W - pad.r} y1={sy(v)} y2={sy(v)} className="grid" />
+            <text x={pad.l - 6} y={sy(v) + 3} className="axis" textAnchor="end">{fmtNum(Math.round(v * 100) / 100)}</text>
+          </g>
+        ))}
         <text x={pad.l} y={H - 6} className="axis">{date(x0)}</text>
         <text x={W - pad.r} y={H - 6} className="axis" textAnchor="end">{date(x1)}</text>
         {series.map((s, si) => (

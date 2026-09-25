@@ -1,5 +1,5 @@
 import Sheet from './Sheet.jsx';
-import { ExerciseDetail } from '../screens/MobileStats.jsx';
+import { ExerciseDetail } from './ExerciseDetail.jsx';
 import { useStore } from '../lib/store.jsx';
 import { t } from '../lib/i18n.js';
 

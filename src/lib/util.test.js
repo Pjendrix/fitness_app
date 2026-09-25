@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { better, countUnchecked, DECIMAL_INPUT, exKey, INT_INPUT, num, sanitizeName, sanitizeSet } from './util.js';
+import { better, countUnchecked, DECIMAL_INPUT, exKey, groupTags, INT_INPUT, niceScale, num, sanitizeName, sanitizeSet } from './util.js';
 import { parseCsv, toCsv } from './csv.js';
 
 describe('util', () => {
@@ -9,7 +9,7 @@ describe('util', () => {
   });
   it('sanitizeSet clamps negative and absurd values', () => {
     expect(sanitizeSet({ weight: '-5', reps: '8' }, false)).toEqual({ weight: 0, reps: 8 });
-    expect(sanitizeSet({ weight: '9999', reps: '7.6' }, false)).toEqual({ weight: 500, reps: 8 });
+    expect(sanitizeSet({ weight: '9999', reps: '7.6' }, false)).toEqual({ weight: 1000, reps: 8 });
     expect(sanitizeSet({ weight: '0', time: '1000' }, true)).toEqual({ weight: 0, reps: 0, time: 600 });
   });
   it('sanitizeName trims, collapses and limits length', () => {
@@ -43,5 +43,25 @@ describe('csv', () => {
     expect(out).toContain(`"'=HYPERLINK(""x"")"`);
     const rows = parseCsv(out);
     expect(rows[2]).toEqual(['Row, cable', 'back']);
+  });
+});
+
+describe('groupTags', () => {
+  it('rozliší kolidující skupiny', () => {
+    const m = groupTags(['PUSH', 'PULL', 'LEGS']);
+    expect([m.get('PUSH'), m.get('PULL'), m.get('LEGS')]).toEqual(['PS', 'PL', 'L']);
+    const u = groupTags(['Upper A', 'Upper B', 'Lower A', 'Lower B', 'Abs & Cardio']);
+    expect([u.get('Upper A'), u.get('Upper B'), u.get('Lower A'), u.get('Lower B'), u.get('Abs & Cardio')]).toEqual(['UA', 'UB', 'LA', 'LB', 'A']);
+    expect(new Set(groupTags(['AB', 'A B', 'A']).values()).size).toBe(3);
+  });
+});
+
+describe('niceScale', () => {
+  it('osa těsně kolem dat', () => {
+    expect(niceScale(80, 102)).toMatchObject({ yMin: 80, yMax: 110, ticks: [80, 90, 100, 110] });
+    expect(niceScale(5, 7)).toMatchObject({ yMin: 5, yMax: 7 });
+    const flat = niceScale(100, 100);
+    expect(flat.yMax).toBeGreaterThan(flat.yMin);
+    expect(niceScale(0, 3).yMin).toBe(0);
   });
 });

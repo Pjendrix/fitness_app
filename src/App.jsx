@@ -1,4 +1,4 @@
-import { lazy, memo, Suspense, useCallback, useEffect, useState } from 'react';
+import { lazy, memo, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { StoreProvider, useStore } from './lib/store.jsx';
 import { DialogProvider } from './components/Dialog.jsx';
 import BottomNav from './components/BottomNav.jsx';
@@ -16,6 +16,7 @@ import { syncThemeColor } from './lib/theme.js';
 import { useViewMode } from './lib/viewMode.js';
 import { applyAppearance } from './lib/appearance.js';
 import Tour from './components/Tour.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 
 // Home a Trénink hned, zbytek líně (menší první načtení)
 const History = lazy(() => import('./screens/History.jsx'));
@@ -47,6 +48,12 @@ function Shell() {
     setTab(t);
     window.scrollTo({ top: 0 });
   }, []);
+  // Rozdělaný trénink po znovuotevření appky (iOS/Android ji v pozadí zavřou) → rovnou na Trénink, ne na Domů
+  const resumed = useRef(false);
+  useEffect(() => { resumed.current = false; }, [user?.uid]);
+  useEffect(() => {
+    if (live && !resumed.current) { resumed.current = true; setTab('workout'); }
+  }, [live]);
 
   if (user === undefined) return <div className="splash" aria-busy="true">Forge</div>;
   if (!user) return <><Login /><Toast /></>;
@@ -55,9 +62,11 @@ function Shell() {
   return (
     <div className="shell" data-lang={lang}>
       <main className="main">
-        <Suspense fallback={<div className="screen"><p className="empty" aria-busy="true">…</p></div>}>
-          <Screen go={go} />
-        </Suspense>
+        <ErrorBoundary key={tab} onHome={tab === 'home' ? null : () => go('home')}>
+          <Suspense fallback={<div className="screen"><p className="empty" aria-busy="true">…</p></div>}>
+            <Screen go={go} />
+          </Suspense>
+        </ErrorBoundary>
       </main>
       <DemoBar />
       <SyncBadge />
@@ -73,10 +82,12 @@ function Shell() {
 
 export default function App() {
   return (
-    <StoreProvider>
-      <DialogProvider>
-        <Shell />
-      </DialogProvider>
-    </StoreProvider>
+    <ErrorBoundary>
+      <StoreProvider>
+        <DialogProvider>
+          <Shell />
+        </DialogProvider>
+      </StoreProvider>
+    </ErrorBoundary>
   );
 }

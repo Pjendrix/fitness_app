@@ -1,5 +1,5 @@
 rules_version = '2';
-// Forge – přístup jen pro dva povolené Google účty; každý vidí a mění jen svá data.
+// Forge – přístup: pevní zakladatelé + účty, které přidal admin (access/{email}); každý vidí a mění jen svá data.
 // Vše, co tu není výslovně povolené, je zakázané.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -76,7 +76,7 @@ service cloud.firestore {
     function validPr(d) {
       return d.keys().hasOnly(['name', 'weight', 'reps', 'time', 'date'])
         && str(d.name, 80)
-        && num(d.weight, 0, 500)
+        && num(d.weight, 0, 1000)
         && num(d.reps, 0, 200)
         && (!('time' in d) || num(d.time, 0, 600))
         && d.date is int;

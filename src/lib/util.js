@@ -68,7 +68,7 @@ export const planLabel = (e) => {
 };
 
 // ——— Validace vstupů (poslední obrana před zápisem; rules hlídají strukturu) ———
-export const LIMITS = { weight: 500, reps: 200, time: 600, name: 80, variant: 40, exercises: 40, library: 1500 };
+export const LIMITS = { weight: 1000, reps: 200, time: 600, name: 80, variant: 40, exercises: 40, library: 1500 };
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 export const sanitizeSet = (s, timed) =>
   timed
@@ -84,3 +84,41 @@ export const INT_INPUT = /^\d{0,3}$/;
 export const hasValue = (s, timed) => (timed ? num(s.time) > 0 : num(s.reps) > 0);
 export const countUnchecked = (active) =>
   (active?.exercises || []).reduce((n, e) => n + e.sets.filter((s) => !s.done && !s.warm && hasValue(s, e.type === "time")).length, 0);
+
+// Krátké značky skupin do kolečka dne (C8): jedno písmeno, kolidující skupiny se rozliší prvním odlišným znakem.
+// PUSH/PULL/LEGS → PS/PL/L · Upper A/Upper B/Lower A → UA/UB/L… → Map(label → tag)
+export const groupTags = (labels) => {
+  const list = [...new Set(labels.filter(Boolean))];
+  const compact = (l) => l.toUpperCase().replace(/[^\p{L}\p{N}]/gu, '');
+  const out = new Map();
+  for (const l of list) {
+    const c = compact(l);
+    const rivals = list.filter((x) => x !== l).map(compact).filter((x) => x[0] === c[0]);
+    if (!c) { out.set(l, '•'); continue; }
+    if (!rivals.length) { out.set(l, c[0]); continue; }
+    let i = 1;
+    while (i < c.length && rivals.some((r) => r[i] === c[i])) i++;
+    out.set(l, c[0] + (c[i] || c[1] || ''));
+  }
+  // Pojistka pro shodné značky (např. „AB“ vs „A B“): pořadové číslo
+  const seen = new Map();
+  for (const [l, tag] of out) { const n = (seen.get(tag) || 0) + 1; seen.set(tag, n); if (n > 1) out.set(l, tag[0] + n); }
+  return out;
+};
+
+// Hezké dělení osy grafu (B3): ~count úseků po „kulatém“ kroku, osa těsně kolem dat (80–102 → 80–110 po 10).
+export const niceScale = (min, max, count = 3) => {
+  const lo = Math.min(min, max), hi = Math.max(min, max);
+  const span = hi - lo || Math.abs(hi) * 0.1 || 1;
+  const raw = span / count;
+  const p = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * p).find((m) => m >= raw - 1e-9);
+  const round = (v) => Math.round(v / step) * step;
+  let yMin = Math.floor(lo / step + 1e-9) * step;
+  let yMax = Math.ceil(hi / step - 1e-9) * step;
+  if (yMax === yMin) yMax = yMin + step;
+  if (lo >= 0 && yMin < 0) yMin = 0;
+  const ticks = [];
+  for (let v = yMin; v <= yMax + step / 2; v += step) ticks.push(Math.round(round(v) * 1000) / 1000);
+  return { yMin: ticks[0], yMax: ticks[ticks.length - 1], step, ticks };
+};

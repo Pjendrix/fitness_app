@@ -99,6 +99,7 @@ const D = {
     'set.resetTpl': 'Reset templates', 'set.confirmResetTpl': 'Restore the default main templates for this profile? My templates stay untouched.', 'set.resetTplDone': 'Main templates restored',
     // errors
     'err.load': 'Loading data failed: {m}', 'err.save': 'Saving failed: {m}', 'err.delete': 'Deleting failed: {m}', 'err.login': 'Sign-in failed: {m}',
+    'crash.title': 'Something broke on this screen', 'crash.msg': 'Your workout in progress is saved on this device. Reload the app to continue.', 'crash.reload': 'Reload app', 'crash.home': 'Back to Home',
 
     // v5
     'login.denied': 'The account {email} does not have access to this app.',
@@ -276,6 +277,7 @@ const D = {
     'tpl.renameGroup': 'Přejmenovat skupinu', 'tpl.groupName': 'Název skupiny', 'tpl.groupSub': 'Popis (volitelné)', 'tpl.lastInGroup': 'Ve skupině musí zůstat aspoň jedna šablona',
     'set.resetTpl': 'Obnovit šablony', 'set.confirmResetTpl': 'Obnovit výchozí hlavní šablony tohoto profilu? Moje šablony zůstanou.', 'set.resetTplDone': 'Hlavní šablony obnoveny',
     'err.load': 'Načtení dat selhalo: {m}', 'err.save': 'Uložení selhalo: {m}', 'err.delete': 'Smazání selhalo: {m}', 'err.login': 'Přihlášení selhalo: {m}',
+    'crash.title': 'Na téhle obrazovce se něco pokazilo', 'crash.msg': 'Rozdělaný trénink je uložený v zařízení. Znovu načti appku a pokračuj.', 'crash.reload': 'Znovu načíst', 'crash.home': 'Zpět na Domů',
 
     // v5
     'login.denied': 'Účet {email} nemá do appky přístup.',
@@ -319,7 +321,7 @@ const D = {
     'acc.removed': 'Přístup odebrán', 'acc.saveErr': 'Nepodařilo se uložit – zkontroluj, že jsou nasazená Firestore rules.', 'acc.loadErr': 'Nepodařilo se načíst seznam přístupů.',
     'pv.label': 'Náhled appky', 'pv.workout': 'Zápis série za pár vteřin', 'pv.workoutSub': 'Pod každou sérií minulý výkon a další cíl. Pauza se odpočítává sama.',
     'pv.summary': 'Každý rekord na očích', 'pv.summarySub': 'Souhrn po tréninku – nové rekordy a srovnání s minulým tréninkem.',
-    'pv.stats': 'Pokrok na první pohled', 'pv.statsSub': 'Série splněných týdnů, hlavní cviky a svalová rovnováha.',
+    'pv.stats': 'Pokrok na první pohled', 'pv.statsSub': 'Týdny se splněným cílem v řadě, hlavní cviky a svalová rovnováha.',
     'pv.exercise': 'Každý cvik do detailu', 'pv.exerciseSub': 'Graf odhadu 1RM, rekordy a další cíl.',
     'pv.looks': 'Appka podle tebe', 'pv.looksSub': 'Tvůj split, tvoje šablony, tvoje barvy.',
     'tour.start': 'Projít prohlídku (1 minuta)', 'tour.next': 'Další', 'tour.skip': 'Přeskočit', 'tour.close': 'Zavřít',
@@ -372,7 +374,7 @@ const D = {
     'wl.h.intensity': 'Průměrná váha série jako % tvého odhadovaného maxima (1RM) na daný cvik. První tréninky nového cviku se nepočítají.',
     'wl.vsPrev': 'Proti minulému {name} ({d})', 'wl.pts': 'b.',
     'wg.title': 'Týdenní cíl', 'wg.goal': '{n}× týdně', 'wg.goalAria': 'Týdenní cíl', 'wg.less': 'Snížit cíl', 'wg.more': 'Zvýšit cíl',
-    'wg.thisWeek': 'Tento týden', 'wg.streak': 'Série', 'wg.weeks': { one: 'týden', few: 'týdny', many: 'týdne', other: 'týdnů' }, 'wg.streakSub': 'cíl splněn v řadě',
+    'wg.thisWeek': 'Tento týden', 'wg.streak': 'V řadě', 'wg.weeks': { one: 'týden', few: 'týdny', many: 'týdne', other: 'týdnů' }, 'wg.streakSub': 'se splněným cílem',
     'wg.running': 'probíhá', 'wg.met': 'cíl splněn', 'wg.missed': 'cíl nesplněn', 'wg.weekAria': 'Týden od {d}: {n}',
     'wg.split': 'Rozložení splitu', 'wg.last30': 'posledních 30 dní', 'wg.lag': '{g} zaostává – naposledy před {n} dny', 'wg.lagNever': '{g} zatím necvičeno',
     'count.workouts': { one: '{n} trénink', few: '{n} tréninky', many: '{n} tréninku', other: '{n} tréninků' },
