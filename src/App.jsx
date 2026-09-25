@@ -15,6 +15,7 @@ import { useLang } from './lib/i18n.js';
 import { syncThemeColor } from './lib/theme.js';
 import { useViewMode } from './lib/viewMode.js';
 import { applyAppearance } from './lib/appearance.js';
+import Tour from './components/Tour.jsx';
 
 // Home a Trénink hned, zbytek líně (menší první načtení)
 const History = lazy(() => import('./screens/History.jsx'));
@@ -62,6 +63,7 @@ function Shell() {
       <SyncBadge />
       <Undo />
       <RestBar />
+      <Tour go={go} />
       <Toast />
       <UpdatePrompt />
       <Nav tab={tab} go={go} live={live} />

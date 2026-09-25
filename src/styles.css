@@ -796,3 +796,28 @@ html[data-theme='dark'][data-tint] {
 .access-add .input { flex: 1; min-width: 0; }
 .access-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; }
 .access-row .mono { overflow: hidden; text-overflow: ellipsis; }
+
+/* Průvodce demem */
+.tour { position: fixed; inset: 0; z-index: 58; pointer-events: none; }
+.tour-hole { position: fixed; border-radius: 10px; box-shadow: 0 0 0 200vmax rgba(10, 10, 10, 0.55), 0 0 0 2px var(--accent) inset; transition: top 0.2s, left 0.2s, width 0.2s, height 0.2s; }
+.tour-dim { position: fixed; inset: 0; background: rgba(10, 10, 10, 0.55); }
+.tour-bubble { position: fixed; pointer-events: auto; display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: 12px; background: var(--white); color: var(--ink); box-shadow: 0 12px 40px -8px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--hairline); animation: fade 0.2s; }
+.tour-bubble h3 { font-size: 16px; font-weight: 600; }
+.tour-bubble .small { color: var(--charcoal); line-height: 1.45; }
+.tour-count { color: var(--stone); }
+.tour-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+@media (prefers-reduced-motion: reduce) { .tour-hole { transition: none; } }
+
+/* Náhled appky na přihlášení */
+.pv { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+.pv-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; outline: none; }
+.pv-track::-webkit-scrollbar { display: none; }
+.pv-slide { flex: 0 0 100%; scroll-snap-align: center; margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.pv-phone { width: min(230px, 62vw); aspect-ratio: 390 / 844; border-radius: 30px; padding: 7px; background: linear-gradient(160deg, #2a2a2a, #0c0c0c); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), 0 30px 60px -20px rgba(0, 0, 0, 0.9); }
+.pv-phone img { width: 100%; height: 100%; display: block; border-radius: 23px; object-fit: cover; object-position: top; background: #111; }
+.pv-slide figcaption { display: flex; flex-direction: column; gap: 3px; max-width: 32ch; }
+.pv-slide figcaption b { font-weight: 500; font-size: 15px; }
+.pv-slide figcaption span { font-size: 13px; color: rgba(255, 255, 255, 0.6); }
+.pv-dots { display: flex; justify-content: center; gap: 6px; }
+.pv-dots button { width: 7px; height: 7px; padding: 0; border: 0; border-radius: 9999px; background: rgba(255, 255, 255, 0.28); cursor: pointer; transition: width 0.2s, background 0.2s; }
+.pv-dots button.is-on { width: 20px; background: #fff; }

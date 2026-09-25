@@ -20,10 +20,10 @@ export default function WorkoutSummary({ done, onClose }) {
   const cur = m.get(done.id), pm = prev ? m.get(prev.id) : null;
   const sets = done.exercises.reduce((n, e) => n + e.sets.length, 0);
   const vol = workoutVolume(done);
-  const delta = (a, b, unit = '') => {
+  const delta = (a, b, unit = '', neutral = false) => {
     if (b == null || a == null) return null;
     const d = Math.round((a - b) * 10) / 10;
-    return <span className={d > 0 ? 'ms-up' : d < 0 ? 'ms-down' : 'muted'}>{d > 0 ? '+' : d < 0 ? '−' : '±'}{fmtNum(Math.abs(d))}{unit}</span>;
+    return <span className={neutral || d === 0 ? 'muted' : d > 0 ? 'ms-up' : 'ms-down'}>{d > 0 ? '+' : d < 0 ? '−' : '±'}{fmtNum(Math.abs(d))}{unit}</span>;
   };
   return (
     <div className="screen summary">
@@ -33,7 +33,7 @@ export default function WorkoutSummary({ done, onClose }) {
         <p className="muted small">{fmtDate(done.startedAt)}</p>
       </header>
       <section className="kpis">
-        <div className="card kpi"><span className="label">{t('wl.m.minutes')}</span><span className="num">{fmtDuration(done.finishedAt - done.startedAt)}</span><span className="small">{pm && delta(cur?.minutes, pm.minutes, ' min')}</span></div>
+        <div className="card kpi"><span className="label">{t('wl.m.minutes')}</span><span className="num">{fmtDuration(done.finishedAt - done.startedAt)}</span><span className="small">{pm && delta(Math.round(cur?.minutes || 0), Math.round(pm.minutes), ' min', true)}</span></div>
         <div className="card kpi"><span className="label">{t('an.volume')}</span><span className="num">{fmtNum(Math.round(vol))}<small> kg</small></span><span className="small">{pm && delta(Math.round(vol), Math.round(pm.volume), ' kg')}</span></div>
         <div className="card kpi"><span className="label">{t('an.sets')}</span><span className="num">{sets}</span><span className="small">{pm && delta(sets, pm.sets)}</span></div>
         <div className="card kpi"><span className="label">{t('sum.records')}</span><span className="num">{records.length}</span><span className="muted small">{t('sum.recordsSub')}</span></div>

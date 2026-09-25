@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { useStore } from '../lib/store.jsx';
+import { queueTour } from '../components/Tour.jsx';
+import PreviewCarousel from '../components/PreviewCarousel.jsx';
 import { GoogleIcon } from '../components/Icons.jsx';
 import { syncThemeColor } from '../lib/theme.js';
 import { t } from '../lib/i18n.js';
@@ -29,16 +31,12 @@ export default function Login() {
           <h1>{t('login.title1')} <span>{t('login.title2')}</span></h1>
           <p className="lx-sub">{t('login.sub')}</p>
         </div>
-        <ul className="lx-features" aria-label={t('login.featuresAria')}>
-          {[1, 2, 3].map((i) => (
-            <li key={i}><b>{t('login.f' + i)}</b><span>{t('login.f' + i + 'd')}</span></li>
-          ))}
-        </ul>
+        <PreviewCarousel />
         <div className="lx-actions">
           <button className="lx-btn" onClick={signIn}>
             {mode === 'firebase' ? (<><GoogleIcon /> {t('login.google')}</>) : t('login.demo')}
           </button>
-          {mode === 'firebase' && <button className="lx-btn lx-btn-2" onClick={startDemo}>{t('login.demoBtn')}</button>}
+          {mode === 'firebase' && <button className="lx-btn lx-btn-2" onClick={() => { queueTour(); startDemo(); }}>{t('login.demoBtn')}</button>}
           {mode === 'firebase' && <p className="lx-note">{t('login.footer')}</p>}
         </div>
         {denied && <p className="lx-error" role="alert">{t('login.denied', { email: denied })}</p>}

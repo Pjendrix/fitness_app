@@ -3,6 +3,7 @@ import Sheet from '../components/Sheet.jsx';
 import { useSession, useStore } from '../lib/store.jsx';
 import { ArrowIcon, XIcon } from '../components/Icons.jsx';
 import { guideState, hideGuide } from '../lib/guide.js';
+import { useStartTour } from '../components/Tour.jsx';
 import ProfileBadge from '../components/ProfileBadge.jsx';
 import { colorHex, STARTER_IDS } from '../data/defaultTemplates.js';
 import { fmtDate, fmtNum, fmtSet, startOfWeek, workoutVolume } from '../lib/util.js';
@@ -11,6 +12,7 @@ import { t } from '../lib/i18n.js';
 export default function Home({ go }) {
   const { user, workouts, prs, templates, startWorkout, startEmptyWorkout, needsSetup, chooseStarter, main, groupLabel, groupSub, mode, weeklyGoal } = useStore();
   const [guide, setGuide] = useState(guideState);
+  const startTour = useStartTour(go);
   const { active } = useSession();
   // Groups that have at least one template
   const G = useMemo(() => main.groups.map((g) => g.id).filter((id) => main.templates.some((x) => x.group === id)), [main]);
@@ -64,6 +66,7 @@ export default function Home({ go }) {
       {guide.show && !needsSetup && (mode === 'demo' || workouts.length < 5) && (
         <section className="card guide" aria-label={t('guide.title')}>
           <div className="row-between"><h2>{t('guide.title')}</h2><button className="icon-btn" aria-label={t('guide.hide')} onClick={() => { hideGuide(); setGuide(guideState()); }}><XIcon width={16} height={16} /></button></div>
+          {mode === 'demo' && <button className="btn btn-primary btn-block" onClick={startTour}>{t('tour.start')}</button>}
           <ol className="guide-steps">
             {['start', 'set', 'stats'].map((k, i) => (
               <li key={k} className={guide[k] ? 'is-done' : ''}><span className="guide-n">{guide[k] ? '✓' : i + 1}</span><span><b>{t('guide.' + k)}</b><span className="muted small">{t('guide.' + k + 'Sub')}</span></span></li>
