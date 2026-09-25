@@ -34,7 +34,9 @@ export default function Settings({ go }) {
     let json;
     try { json = JSON.parse(await file.text()); } catch { return notify(t('set.importBad')); }
     if (!json || !Array.isArray(json.workouts)) return notify(t('set.importBad'));
-    if (!(await dialog.confirm(t('set.importConfirm', { n: json.workouts.length }), { ok: t('set.import') }))) return;
+    const nTpl = Array.isArray(json.templates) ? json.templates.filter((x) => x && !x.builtin).length : 0;
+    const msg = json.workouts.length ? t('set.importConfirm', { n: json.workouts.length }) : t('set.importTplConfirm', { n: nTpl });
+    if (!(await dialog.confirm(msg, { ok: t('set.import') }))) return;
     try {
       const r = await importData(json);
       notify(t('set.importDone', { w: r.workouts, t: r.templates, e: r.exercises }), { duration: 6000 });

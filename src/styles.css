@@ -823,3 +823,9 @@ html[data-theme='dark'][data-tint] {
 .pv-dots button.is-on { width: 20px; background: #fff; }
 .edit-range { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .edit-range .stepper { max-width: 150px; }
+
+/* Rekordy: zlatá trofej (souhrn + odznak v historii) */
+:root { --gold: #b8892b; }
+html[data-theme='dark'] { --gold: #e3c170; }
+.sum-rec svg { color: var(--gold); fill: color-mix(in srgb, var(--gold) 22%, transparent); }
+.pb-badge svg { color: #e3c170; }

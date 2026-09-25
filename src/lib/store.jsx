@@ -58,7 +58,7 @@ const migratePrs = (prs) => {
 const migrateTemplate = (tpl) => ({ ...tpl, exercises: tpl.exercises.map((e) => ({ ...e, name: modernName(e.name) })) });
 const loadLibrary = (d) => {
   if (!d) return EXERCISES;
-  const list = (d.list || []).map((e) => ({ name: modernName(e.name), cat: normCat(e.cat), ...(e.type === 'time' ? { type: 'time' } : {}), ...(e.db ? { db: e.db } : {}) }));
+  const list = (d.list || []).map((e) => ({ name: modernName(e.name), cat: normCat(e.cat), ...(e.type === 'time' ? { type: 'time' } : {}), ...(e.db ? { db: e.db } : {}), ...(Number(e.step) > 0 ? { step: Number(e.step) } : {}) }));
   if (d.v === 2) return list;
   const have = new Set(EXERCISES.map((e) => exKey(e.name)));
   return [...EXERCISES, ...list.filter((e) => !have.has(exKey(e.name)))];
