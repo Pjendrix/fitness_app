@@ -15,10 +15,11 @@ const apply = () => {
   syncThemeColor();
   listeners.forEach((f) => f());
 };
-// Barva stavového řádku = barva pozadí (respektuje i růžový profil Chiary)
+// Barva stavového řádku = skutečná barva pozadí (i s podbarvením účtu, které je color-mix)
 export const syncThemeColor = () => {
-  const bg = getComputedStyle(document.documentElement).getPropertyValue('--paper').trim() || '#fafafa';
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg);
+  const bg = getComputedStyle(document.body || document.documentElement).backgroundColor;
+  const ok = bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent';
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', ok ? bg : getComputedStyle(document.documentElement).getPropertyValue('--paper').trim() || '#fafafa');
 };
 export const setTheme = (m) => {
   try { localStorage.setItem(KEY, m); } catch { /* ignore */ }

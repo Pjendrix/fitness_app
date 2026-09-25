@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { backend, HISTORY_LIMIT } from './backend.js';
-import { profileOf } from '../data/defaultTemplates.js';
+import { starterConfig, starterId } from '../data/defaultTemplates.js';
 import { defaultTypeOf, EXERCISES, modernName, normCat } from '../data/exercises.js';
 import { better, exKey, firstNum, hasValue, isDone, LIMITS, planLabel, sanitizeName, sanitizeSet, uid } from './util.js';
 import { applyChanges, applyWorkout, changesAfterDelete, recomputeKeys } from './records.js';
@@ -63,6 +63,7 @@ const loadLibrary = (d) => {
   return [...EXERCISES, ...list.filter((e) => !have.has(exKey(e.name)))];
 };
 const MAX_PINS = 5;
+const LEGACY_PINK = { tint: '#e27aa3', strength: 70, accent: null };
 const byStart = (list) => [...list].sort((a, b) => b.startedAt - a.startedAt);
 const prevOf = (s) => ({ weight: Number(s.weight) || 0, reps: Number(s.reps) || 0, time: Number(s.time) || 0 });
 const newSet = (s = {}) => ({ id: uid(), weight: String(s.weight || ''), reps: String(s.reps || ''), time: String(s.time || ''), done: false });
@@ -76,13 +77,15 @@ export function StoreProvider({ children }) {
   const [user, setUser] = useState(undefined); // undefined = načítání, null = odhlášen
   const [denied, setDenied] = useState(null); // e-mail účtu bez přístupu
   const [metaLoading, setMetaLoading] = useState(false);
+  const [metaReady, setMetaReady] = useState(false); // meta načtená pro aktuální účet
   const [workoutsReady, setWorkoutsReady] = useState(false);
   const [custom, setCustom] = useState([]);
   const [workouts, setWorkouts] = useState([]);
   const [prs, setPrs] = useState({});
   const [library, setLibrary] = useState(EXERCISES);
-  const [profile, setProfileState] = useState(null);
-  const [mainStore, setMainStore] = useState({});
+  const [starter, setStarter] = useState(null);      // startovní split účtu (ppl / ul / fb)
+  const [mainCfg, setMainCfg] = useState(null);      // hlavní šablony účtu; null = nový účet → výběr splitu
+  const [appearance, setAppearanceState] = useState(null); // {tint, strength, accent}
   const [undoStack, setUndoStack] = useState([]);
   const [redoStack, setRedoStack] = useState([]);
   const [active, setActive] = useState(null);
@@ -121,6 +124,7 @@ export function StoreProvider({ children }) {
     if (!api) return;
     let cancelled = false;
     setMetaLoading(true);
+    setMetaReady(false);
     setWorkoutsReady(false);
     api.loadAll()
       .then((d) => {
@@ -128,8 +132,23 @@ export function StoreProvider({ children }) {
         setCustom(d.templates.map(migrateTemplate));
         setPrs(migratePrs(d.prs));
         setLibrary(loadLibrary(d.library));
-        setProfileState(d.profile || null);
-        setMainStore(d.main || {});
+        // Migrace z pevných profilů (krystof/chiara) na vlastní konfiguraci účtu – nic se nemaže
+        const sid = starterId(d.profile);
+        let cfg = d.main?.own || null;
+        if (!cfg && sid) {
+          cfg = (d.profile && d.main?.[d.profile]) || starterConfig(sid);
+          api.saveMain(cfg).catch((e) => console.warn('migrate main', e));
+          if (sid !== d.profile) api.saveProfile(sid).catch((e) => console.warn('migrate profile', e));
+        }
+        setStarter(sid);
+        setMainCfg(cfg);
+        let look = d.settings?.appearance || null;
+        if (!look && d.profile === 'chiara') {
+          look = LEGACY_PINK; // Chiara si nechá růžové podbarvení
+          api.saveSettings({ appearance: look }).catch((e) => console.warn('migrate appearance', e));
+        }
+        setAppearanceState(look);
+        setMetaReady(true);
         const cached = parseInt(localStorage.getItem(`forge:goal:${user.uid}`), 10);
         setWeeklyGoalState(d.settings?.weeklyGoal || cached || 3);
         let pins = d.settings?.pinnedLifts;
@@ -194,24 +213,23 @@ export function StoreProvider({ children }) {
     return () => { document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', flushDraft); };
   }, [flushDraft]);
 
-  // ——— Hlavní šablony ———
-  const prof = profileOf(profile);
+  // ——— Hlavní šablony (vlastní konfigurace účtu) ———
   const main = useMemo(() => {
-    const m = mainStore[prof.id];
-    const groups = m ? m.groups : prof.groups.map((id) => ({ id, label: id, sub: '' }));
-    const list = m ? m.templates.map((x) => ({ ...migrateTemplate(x), builtin: true })) : prof.templates;
+    const groups = mainCfg?.groups || [];
+    const list = (mainCfg?.templates || []).map((x) => ({ ...migrateTemplate(x), builtin: true }));
     const label = (id) => groups.find((g) => g.id === id)?.label || id;
     return { groups, templates: list.map((x) => ({ ...x, name: `${label(x.group)} ${x.variant || ''}`.trim() })) };
-  }, [mainStore, prof]);
+  }, [mainCfg]);
+  const needsSetup = Boolean(user) && metaReady && !mainCfg;
   const templates = useMemo(() => [...main.templates, ...custom], [main, custom]);
 
   // ——— Undo / Redo (posledních 5 změn šablon, knihovny a historie) ———
   // Položka = snímek stavu; `drop` = id tréninků, které obnova přidala (a zrušení obnovy je má zase smazat).
   const snap = useRef({});
-  snap.current = { custom, library, mainStore, workouts, prs };
+  snap.current = { custom, library, mainCfg, workouts, prs };
   const remember = useCallback((label) => {
-    const { custom: c, library: l, mainStore: m, workouts: w } = snap.current;
-    setUndoStack((st) => [...st.slice(-4), { label, custom: c, library: l, mainStore: m, workouts: w, drop: [] }]);
+    const { custom: c, library: l, mainCfg: m, workouts: w } = snap.current;
+    setUndoStack((st) => [...st.slice(-4), { label, custom: c, library: l, mainCfg: m, workouts: w, drop: [] }]);
     setRedoStack([]); // nová změna zahodí historii „Znovu“
   }, []);
   const stackRef = useRef({ undo: undoStack, redo: redoStack });
@@ -220,17 +238,15 @@ export function StoreProvider({ children }) {
   // Vrátí stav na snímek `target`; vrací protipoložku (aktuální stav) pro opačný zásobník.
   const restore = useCallback((target) => {
     const now = snap.current;
-    const counter = { label: target.label, custom: now.custom, library: now.library, mainStore: now.mainStore, workouts: now.workouts, drop: [] };
+    const counter = { label: target.label, custom: now.custom, library: now.library, mainCfg: now.mainCfg, workouts: now.workouts, drop: [] };
     const before = new Map(target.custom.map((x) => [x.id, x]));
     for (const x of now.custom) if (!before.has(x.id)) api.deleteTemplate(x.id).catch(fail('err.delete'));
     for (const x of target.custom) if (JSON.stringify(x) !== JSON.stringify(now.custom.find((y) => y.id === x.id))) api.saveTemplate(x).catch(fail('err.save'));
     setCustom(target.custom);
     if (target.library !== now.library) { setLibrary(target.library); api.saveExercises(target.library).catch(fail('err.save')); }
-    if (target.mainStore !== now.mainStore) {
-      setMainStore(target.mainStore);
-      for (const id of new Set([...Object.keys(target.mainStore), ...Object.keys(now.mainStore)])) {
-        if (target.mainStore[id] !== now.mainStore[id]) api.saveMain(id, target.mainStore[id] || null).catch(fail('err.save'));
-      }
+    if (target.mainCfg !== now.mainCfg) {
+      setMainCfg(target.mainCfg);
+      if (target.mainCfg) api.saveMain(target.mainCfg).catch(fail('err.save'));
     }
     if (target.workouts !== now.workouts) {
       // Obnovit smazané/upravené tréninky; tréninky dokončené mezitím zůstanou.
@@ -279,9 +295,9 @@ export function StoreProvider({ children }) {
   actions.current = { undo, redo };
 
   const writeMain = useCallback((cfg) => {
-    setMainStore((ms) => ({ ...ms, [prof.id]: cfg }));
-    api.saveMain(prof.id, cfg).catch(fail('err.save'));
-  }, [api, fail, prof.id]);
+    setMainCfg(cfg);
+    api.saveMain(cfg).catch(fail('err.save'));
+  }, [api, fail]);
   const cleanMainTpl = (x) => { const { builtin, ...rest } = x; void builtin; return rest; };
   const saveMainTemplate = useCallback((tpl) => {
     remember('undo.tpl');
@@ -296,11 +312,22 @@ export function StoreProvider({ children }) {
     remember('undo.group');
     writeMain({ groups: main.groups.map((g) => (g.id === id ? { ...g, label: sanitizeName(label, 20), sub: sanitizeName(sub) } : g)), templates: main.templates.map(cleanMainTpl) });
   }, [main, writeMain, remember]);
-  const resetMain = useCallback(() => {
-    remember('undo.reset');
-    setMainStore((ms) => { const n = { ...ms }; delete n[prof.id]; return n; });
-    api.saveMain(prof.id, null).catch(fail('err.save'));
-  }, [api, fail, prof.id, remember]);
+  // Hlavní šablony ze startovního splitu (první výběr nového účtu i „obnovit šablony“)
+  const chooseStarter = useCallback((id) => {
+    const sid = starterId(id) || 'ppl';
+    if (mainCfg) remember('undo.reset');
+    writeMain(starterConfig(sid));
+    setStarter(sid);
+    api.saveProfile(sid).catch(fail('err.save'));
+  }, [api, fail, mainCfg, remember, writeMain]);
+  // Vzhled účtu: podbarvení (tint + intenzita) a akcentní barva tlačítek
+  const setAppearance = useCallback((patch) => {
+    setAppearanceState((cur) => {
+      const next = { tint: null, strength: 50, accent: null, ...(cur || {}), ...patch };
+      api?.saveSettings({ appearance: next }).catch((e) => console.warn('settings', e));
+      return next;
+    });
+  }, [api]);
   const groupLabel = useCallback((id) => main.groups.find((g) => g.id === id)?.label || id, [main]);
   const groupSub = useCallback((id) => main.groups.find((x) => x.id === id)?.sub || t('groups.' + id), [main]);
   // Týdenní cíl: účet (meta/settings) + lokální kopie, kdyby zápis selhal (např. starší rules)
@@ -320,10 +347,6 @@ export function StoreProvider({ children }) {
     api?.saveSettings({ pinnedLifts: next }).catch((e) => console.warn('settings', e));
     return true;
   }, [pinnedLifts, api, user?.uid, notify]);
-  const setProfile = useCallback((id) => {
-    setProfileState(id);
-    api.saveProfile(id).catch(fail('err.save'));
-  }, [api, fail]);
 
   // Rychlé vyhledávání v knihovně (místo find + exKey v každém volání)
   const libMap = useMemo(() => new Map(library.map((e) => [exKey(e.name), e])), [library]);
@@ -607,7 +630,7 @@ export function StoreProvider({ children }) {
     draftOwner.current = null; // draft zůstane uložený pro svého majitele
     await backend.signOut();
     setActive(null); setRest(null);
-    setCustom([]); setWorkouts([]); setPrs({}); setLibrary(EXERCISES); setProfileState(null); setMainStore({}); setUndoStack([]); setRedoStack([]); setPinnedLifts([]);
+    setCustom([]); setWorkouts([]); setPrs({}); setLibrary(EXERCISES); setStarter(null); setMainCfg(null); setAppearanceState(null); setUndoStack([]); setRedoStack([]); setPinnedLifts([]);
   }, [flushDraft]);
 
   const startDemo = useCallback(() => backend.startDemo(), []);
@@ -618,10 +641,10 @@ export function StoreProvider({ children }) {
     user, denied, loading, mode: backend.mode, signIn, signOut, startDemo, resetDemo, live, sync, online,
     templates, workouts, prs, deleteWorkout, updateWorkout, saveTemplate, deleteTemplate, startWorkout, startEmptyWorkout,
     library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf,
-    profile, prof, setProfile, weeklyGoal, setWeeklyGoal, pinnedLifts, togglePin, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, resetMain,
+    starter, chooseStarter, needsSetup, appearance, setAppearance, weeklyGoal, setWeeklyGoal, pinnedLifts, togglePin, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup,
     undoStack, undo, redoStack, redo, notify, syncTemplate, importData,
   }), [user, denied, loading, signIn, signOut, startDemo, resetDemo, live, sync, online, templates, workouts, prs, deleteWorkout, updateWorkout, saveTemplate, deleteTemplate, startWorkout, startEmptyWorkout,
-    library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf, profile, prof, setProfile, weeklyGoal, setWeeklyGoal, pinnedLifts, togglePin, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, resetMain, undoStack, undo, redoStack, redo, notify, syncTemplate, importData]);
+    library, saveLibrary, addToLibrary, resetLibrary, catOf, typeOf, infoOf, starter, chooseStarter, needsSetup, appearance, setAppearance, weeklyGoal, setWeeklyGoal, pinnedLifts, togglePin, main, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, undoStack, undo, redoStack, redo, notify, syncTemplate, importData]);
 
   const session = useMemo(() => ({
     active, patchActive, finishWorkout, discardWorkout, addExerciseToActive, replaceExerciseInActive, prs, notify, rest, startRest, adjustRest, stopRest,

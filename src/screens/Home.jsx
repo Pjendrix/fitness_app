@@ -4,12 +4,12 @@ import { useSession, useStore } from '../lib/store.jsx';
 import { ArrowIcon, XIcon } from '../components/Icons.jsx';
 import { guideState, hideGuide } from '../lib/guide.js';
 import ProfileBadge from '../components/ProfileBadge.jsx';
-import { colorHex, PROFILES } from '../data/defaultTemplates.js';
+import { colorHex, STARTER_IDS } from '../data/defaultTemplates.js';
 import { fmtDate, fmtNum, fmtSet, startOfWeek, workoutVolume } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
 
 export default function Home({ go }) {
-  const { user, workouts, prs, templates, startWorkout, startEmptyWorkout, profile, setProfile, loading, main, groupLabel, groupSub, mode, weeklyGoal } = useStore();
+  const { user, workouts, prs, templates, startWorkout, startEmptyWorkout, needsSetup, chooseStarter, main, groupLabel, groupSub, mode, weeklyGoal } = useStore();
   const [guide, setGuide] = useState(guideState);
   const { active } = useSession();
   // Groups that have at least one template
@@ -47,7 +47,21 @@ export default function Home({ go }) {
         <h1>{t('home.title')}</h1>
       </header>
 
-      {guide.show && (mode === 'demo' || workouts.length < 5) && (
+      {needsSetup && (
+        <section className="card starter-pick">
+          <h2>{t('start.title')}</h2>
+          <p className="muted small">{t('start.sub')}</p>
+          <div className="starter-grid">
+            {STARTER_IDS.map((id) => (
+              <button key={id} className="starter" onClick={() => chooseStarter(id)}>
+                <b>{t('start.' + id)}</b><span className="muted small">{t('start.' + id + 'Sub')}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {guide.show && !needsSetup && (mode === 'demo' || workouts.length < 5) && (
         <section className="card guide" aria-label={t('guide.title')}>
           <div className="row-between"><h2>{t('guide.title')}</h2><button className="icon-btn" aria-label={t('guide.hide')} onClick={() => { hideGuide(); setGuide(guideState()); }}><XIcon width={16} height={16} /></button></div>
           <ol className="guide-steps">
@@ -58,15 +72,6 @@ export default function Home({ go }) {
         </section>
       )}
 
-      {!profile && !loading && (
-        <section className="card profile-pick">
-          <h2>{t('prof.pick')}</h2>
-          <p className="muted small">{t('prof.pickSub')}</p>
-          <div className="row-actions">
-            {Object.values(PROFILES).map((p) => <button key={p.id} className="btn btn-primary" onClick={() => setProfile(p.id)}>{mode === 'demo' ? t(p.id === 'krystof' ? 'prof.demoA' : 'prof.demoB') : p.name}</button>)}
-          </div>
-        </section>
-      )}
 
       {active ? (
         <section className="card card-hero">

@@ -1,7 +1,11 @@
 import { useStore } from '../lib/store.jsx';
 import ViewToggle from '../components/ViewToggle.jsx';
 import { download } from '../lib/csv.js';
-import { PROFILES } from '../data/defaultTemplates.js';
+import { STARTER_IDS } from '../data/defaultTemplates.js';
+import AppearanceCard from '../components/AppearanceCard.jsx';
+import AccessCard from '../components/AccessCard.jsx';
+import { isAdmin } from '../lib/access.js';
+import { backend } from '../lib/backend.js';
 import { t, useLang } from '../lib/i18n.js';
 import { useDialog } from '../components/Dialog.jsx';
 import { useTheme } from '../lib/theme.js';
@@ -10,9 +14,8 @@ import { useRef, useState } from 'react';
 import { UploadIcon } from '../components/Icons.jsx';
 
 export default function Settings({ go }) {
-  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, notify, profile, setProfile, resetMain, resetDemo, importData } = useStore();
+  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, notify, starter, chooseStarter, resetDemo, importData } = useStore();
   const demo = mode === 'demo';
-  const pName = (p) => (demo ? t(p.id === 'krystof' ? 'prof.demoA' : 'prof.demoB') : p.name);
   const { lang, setLang } = useLang();
   const { theme, setTheme } = useTheme();
   const dialog = useDialog();
@@ -37,6 +40,17 @@ export default function Settings({ go }) {
       notify(t('set.importDone', { w: r.workouts, t: r.templates, e: r.exercises }), { duration: 6000 });
     } catch (e) { console.error(e); notify(t('set.importBad')); }
   };
+  // Hlavní šablony znovu ze startovního splitu (i jiného než dosud)
+  const resetTemplates = async () => {
+    const id = await dialog.choose({
+      title: t('set.resetTpl'),
+      message: t('start.resetMsg'),
+      actions: [...STARTER_IDS.map((x) => ({ value: x, label: t('start.' + x) + (x === starter ? ` · ${t('start.current')}` : ''), primary: x === starter })), { value: null, label: t('dlg.cancel') }],
+    });
+    if (!id) return;
+    chooseStarter(id);
+    notify(t('set.resetTplDone'));
+  };
   const reset = async () => {
     if (!(await dialog.confirm(t('set.confirmReset'), { danger: true, ok: t('set.reset') }))) return;
     resetLibrary();
@@ -56,11 +70,6 @@ export default function Settings({ go }) {
       </section>
 
       <section className="card list">
-        <div className="row"><span>{t('prof.title')}{demo && <span className="muted small row-sub">{t('prof.demoSub')}</span>}</span>
-          <div className="seg seg-sm seg-inline" role="radiogroup">
-            {Object.values(PROFILES).map((p) => <button key={p.id} role="radio" aria-checked={profile === p.id} className={profile === p.id ? 'is-on' : ''} onClick={() => { setProfile(p.id); notify(t('prof.saved', { name: pName(p) })); }}>{pName(p)}</button>)}
-          </div>
-        </div>
         <div className="row"><span>{t('set.lang')}</span>
           <div className="seg seg-sm seg-inline" role="radiogroup">
             {[['en', 'English'], ['cs', 'Čeština']].map(([id, l]) => <button key={id} role="radio" aria-checked={lang === id} className={lang === id ? 'is-on' : ''} onClick={() => setLang(id)}>{l}</button>)}
@@ -79,6 +88,10 @@ export default function Settings({ go }) {
         <div className="row"><span>{t('set.view')}</span><ViewToggle full /></div>
         <div className="row"><span>{t('set.storage')}</span><span className="muted">{mode === 'firebase' ? t('set.cloud') : t('set.local')}</span></div>
       </section>
+
+      <AppearanceCard />
+
+      {!demo && isAdmin(user.email) && backend.access && <AccessCard />}
 
       <section className="card list">
         <div className="row"><span>{t('set.library')}</span><span className="muted">{t('ex.count', { n: library.length })}</span></div>
@@ -100,7 +113,7 @@ export default function Settings({ go }) {
         <div className="row"><span className="dz-title">{t('set.danger')}<span className="muted small row-sub">{t('set.dangerSub')}</span></span></div>
         <div className="row row-btns">
           <button className="btn btn-danger btn-sm" onClick={reset}>{t('set.reset')}</button>
-          <button className="btn btn-danger btn-sm" onClick={async () => { if (await dialog.confirm(t('set.confirmResetTpl'), { danger: true, ok: t('set.resetTpl') })) { resetMain(); notify(t('set.resetTplDone')); } }}>{t('set.resetTpl')}</button>
+          <button className="btn btn-danger btn-sm" onClick={resetTemplates}>{t('set.resetTpl')}</button>
           {demo && <button className="btn btn-danger btn-sm" onClick={async () => { if (await dialog.confirm(t('demo.resetConfirm'), { danger: true, ok: t('demo.reset') })) resetDemo(); }}>{t('demo.reset')}</button>}
         </div>
       </section>

@@ -7,9 +7,29 @@ service cloud.firestore {
     function signedIn() {
       return request.auth != null && request.auth.token.email_verified == true;
     }
-    // Musí odpovídat src/lib/access.js
+    // Musí odpovídat src/lib/access.js: FOUNDERS napevno + účty, které přidal admin (access/{email})
+    function email() {
+      return request.auth.token.email.lower();
+    }
+    function isAdmin() {
+      return signedIn() && email() == 'tofbenka@gmail.com';
+    }
     function allowed() {
-      return request.auth.token.email.lower() in ['tofbenka@gmail.com', 'chiaralari24@gmail.com'];
+      return email() in ['tofbenka@gmail.com', 'chiaralari24@gmail.com']
+        || exists(/databases/$(database)/documents/access/$(email()));
+    }
+
+    // ——— Povolené účty (spravuje jen admin; každý si smí přečíst jen svůj záznam) ———
+    match /access/{addr} {
+      allow get: if signedIn() && (isAdmin() || email() == addr);
+      allow list: if isAdmin();
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['email', 'name', 'addedAt'])
+        && request.resource.data.email == addr
+        && str(addr, 120)
+        && str(request.resource.data.name, 60)
+        && request.resource.data.addedAt is int;
+      allow delete: if isAdmin();
     }
     function owner(uid) {
       return signedIn() && allowed() && request.auth.uid == uid;
@@ -19,6 +39,14 @@ service cloud.firestore {
     }
     function num(v, lo, hi) {
       return v is number && v >= lo && v <= hi;
+    }
+    function colorOrNull(v) {
+      return v == null || (v is string && v.matches('^#[0-9a-fA-F]{6}$'));
+    }
+    function validLook(a) {
+      return a is map && a.keys().hasOnly(['tint', 'strength', 'accent'])
+        && colorOrNull(a.get('tint', null)) && colorOrNull(a.get('accent', null))
+        && (!('strength' in a) || num(a.strength, 0, 100));
     }
 
     // ——— Odcvičené tréninky ———
@@ -69,10 +97,13 @@ service cloud.firestore {
       allow read: if owner(uid);
       allow delete: if false;
       allow create, update: if owner(uid) && (
-        (doc == 'profile' && request.resource.data.keys().hasOnly(['id']) && request.resource.data.id in ['krystof', 'chiara'])
+        (doc == 'profile' && request.resource.data.keys().hasOnly(['id']) && request.resource.data.id in ['ppl', 'ul', 'fb', 'krystof', 'chiara'])
         || (doc == 'exercises' && request.resource.data.keys().hasOnly(['list', 'v']) && request.resource.data.list is list && request.resource.data.list.size() <= 1500)
-        || (doc == 'main' && request.resource.data.keys().hasOnly(['krystof', 'chiara']))
-        || (doc == 'settings' && request.resource.data.keys().hasOnly(['weeklyGoal', 'pinnedLifts'])
+        || (doc == 'main' && request.resource.data.keys().hasOnly(['own', 'krystof', 'chiara'])
+            && (!('own' in request.resource.data) || (request.resource.data.own.groups is list && request.resource.data.own.templates is list
+                && request.resource.data.own.groups.size() <= 12 && request.resource.data.own.templates.size() <= 40)))
+        || (doc == 'settings' && request.resource.data.keys().hasOnly(['weeklyGoal', 'pinnedLifts', 'appearance'])
+            && (!('appearance' in request.resource.data) || validLook(request.resource.data.appearance))
             && (!('weeklyGoal' in request.resource.data)
                 || (request.resource.data.weeklyGoal is int && request.resource.data.weeklyGoal >= 1 && request.resource.data.weeklyGoal <= 7))
             && (!('pinnedLifts' in request.resource.data)

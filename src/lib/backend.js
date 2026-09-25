@@ -4,13 +4,15 @@
 //   users/{uid}/templates/{id}    vlastní šablony
 //   users/{uid}/workouts/{id}     odcvičené tréninky (exercises[].sets[] = {weight, reps, time?})
 //   users/{uid}/prs/{exerciseKey} osobní rekord: {name, weight, reps, time?, date}
-//   users/{uid}/meta/main         upravené hlavní šablony: {[profileId]: {groups, templates}}
-//   users/{uid}/meta/profile      tréninkový profil: {id: 'krystof' | 'chiara'}
+//   users/{uid}/meta/main         hlavní šablony účtu: {own: {groups, templates}} (+ starší {krystof|chiara} jako záloha)
+//   users/{uid}/meta/profile      startovní split: {id: 'ppl' | 'ul' | 'fb'} (dříve 'krystof' | 'chiara')
+//   users/{uid}/meta/settings     týdenní cíl, připnuté cviky, vzhled {tint, strength, accent}
+//   access/{email}                povolené účty navíc k FOUNDERS (spravuje admin)
 //   users/{uid}/meta/exercises    knihovna cviků: {list: [{name, cat}], v: 2}
 import { getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut as fbSignOut } from 'firebase/auth';
 import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, setDoc, writeBatch } from 'firebase/firestore';
 import { isFirebaseConfigured, auth, db, provider } from './firebase.js';
-import { isAllowed } from './access.js';
+import { isFounder, normEmail } from './access.js';
 import { clean } from './util.js';
 import { generateDemo } from './demoData.js';
 
@@ -21,14 +23,21 @@ const firebaseBackend = {
   mode: 'firebase',
   onAuth(cb, onDenied) {
     getRedirectResult(auth).catch((e) => console.error('Redirect login:', e.code, e.message));
-    return onAuthStateChanged(auth, (u) => {
-      if (u && !isAllowed(u.email)) {
-        onDenied?.(u.email);
-        fbSignOut(auth).catch(() => {});
-        cb(null);
-        return;
+    return onAuthStateChanged(auth, async (u) => {
+      if (!u) return cb(null);
+      if (!isFounder(u.email)) {
+        // Přístup přidaný adminem: vlastní dokument access/{email} smí uživatel číst
+        let ok = true;
+        try { ok = (await getDoc(doc(db, 'access', normEmail(u.email)))).exists(); }
+        catch (e) { ok = e?.code !== 'permission-denied'; } // offline apod. → pustit dál, data stejně chrání rules
+        if (!ok) {
+          onDenied?.(u.email);
+          fbSignOut(auth).catch(() => {});
+          cb(null);
+          return;
+        }
       }
-      cb(u ? toUser(u) : null);
+      cb(toUser(u));
     });
   },
   async signIn() {
@@ -43,6 +52,12 @@ const firebaseBackend = {
     }
   },
   signOut: () => fbSignOut(auth),
+  // Správa přístupů (jen admin – vynucují rules)
+  access: {
+    async list() { const snap = await getDocs(collection(db, 'access')); return snap.docs.map((d) => d.data()).sort((a, b) => a.email.localeCompare(b.email)); },
+    add: (email, name = '') => setDoc(doc(db, 'access', normEmail(email)), { email: normEmail(email), name: String(name).slice(0, 60), addedAt: Date.now() }),
+    remove: (email) => deleteDoc(doc(db, 'access', normEmail(email))),
+  },
   data(uid) {
     const col = (n) => collection(db, 'users', uid, n);
     const ref = (n, id) => doc(db, 'users', uid, n, id);
@@ -98,8 +113,8 @@ const firebaseBackend = {
       saveExercises: (list) => setDoc(ref('meta', 'exercises'), { list: clean(list), v: 2 }),
       saveProfile: (id) => setDoc(ref('meta', 'profile'), { id }),
       saveSettings: (s) => setDoc(ref('meta', 'settings'), s, { merge: true }),
-      // Upravené hlavní šablony pro profil; null = zpět na výchozí
-      saveMain: (profileId, cfg) => setDoc(ref('meta', 'main'), { [profileId]: cfg ? clean(cfg) : deleteField() }, { merge: true }),
+      // Hlavní šablony účtu (klíč own); starší klíče krystof/chiara zůstávají jako záloha
+      saveMain: (cfg) => setDoc(ref('meta', 'main'), { own: cfg ? clean(cfg) : deleteField() }, { merge: true }),
     };
   },
 };
@@ -144,7 +159,7 @@ const demoBackend = {
       async saveExercises(list) { edit((d) => { d.library = { list, v: 2 }; }); },
       async saveProfile(id) { edit((d) => { d.profile = id; }); },
       async saveSettings(s) { edit((d) => { d.settings = { ...(d.settings || {}), ...s }; }); },
-      async saveMain(profileId, cfg) { edit((d) => { d.main = { ...(d.main || {}) }; if (cfg) d.main[profileId] = cfg; else delete d.main[profileId]; }); },
+      async saveMain(cfg) { edit((d) => { d.main = { ...(d.main || {}) }; if (cfg) d.main.own = cfg; else delete d.main.own; }); },
     };
   },
 };
@@ -180,4 +195,5 @@ export const backend = {
   // Nová ukázková data (přepíše změny v demu)
   resetDemo() { writeLS(generateDemo()); },
   data(uid) { return sandbox ? demoBackend.data(uid) : real.data(uid); },
+  get access() { return !sandbox && real.access ? real.access : null; },
 };

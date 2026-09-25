@@ -108,13 +108,55 @@ const CHIARA = [
   ], 'Abs & Cardio'),
 ];
 
-// Training profiles: which built-in templates, groups (quick start) and variants.
-export const PROFILES = {
-  krystof: { id: 'krystof', name: 'Kryštof', groups: ['PUSH', 'PULL', 'LEGS'], variants: { PUSH: ['Normal', 'Hardcore'], PULL: ['Normal', 'Hardcore'], LEGS: ['Normal', 'Hardcore'] }, templates: KRYSTOF },
-  chiara: { id: 'chiara', name: 'Chiara', groups: ['UPPER', 'LOWER', 'ABS'], variants: { UPPER: ['A', 'B'], LOWER: ['A', 'B'], ABS: ['Core'] }, templates: CHIARA },
+// ——— Full body 3× týdně (A / B / C) ———
+const FULLBODY = [
+  t('FULLA', 'Standard', [
+    ex('Squat', 3, '8', { weight: 40 }),
+    ex('Bench Press (Barbell)', 3, '8', { weight: 40 }),
+    ex('Seated Cable Row', 3, '10'),
+    ex('Romanian Deadlift', 3, '10'),
+    ex('Lateral Raise (Dumbbell)', 3, '12'),
+    ex('Plank', 3, '', { type: 'time', plan: [{ w: 0, t: 1 }, { w: 0, t: 1 }, { w: 0, t: 1 }] }),
+  ], 'Full body A'),
+  t('FULLB', 'Standard', [
+    ex('Deadlift', 3, '5', { weight: 60 }),
+    ex('Incline Dumbbell Bench Press', 3, '10'),
+    ex('Lat Pulldown', 3, '10'),
+    ex('Bulgarian Split Squat', 3, '10'),
+    ex('Face Pull', 3, '15'),
+    ex('Hanging Leg Raise', 3, 'max'),
+  ], 'Full body B'),
+  t('FULLC', 'Standard', [
+    ex('Leg Press', 3, '10'),
+    ex('Military Press', 3, '8'),
+    ex('One-Arm Dumbbell Row', 3, '10'),
+    ex('Leg Curl', 3, '12'),
+    ex('Bicep Curl (Dumbbell)', 3, '12'),
+    ex('Triceps Pushdown (Cable)', 3, '12'),
+  ], 'Full body C'),
+];
+
+// Startovní splity: nový účet si jeden vybere, zkopíruje se do účtu a dál je jen jeho.
+// Id šablon zůstávají stejná jako dřív (push-normal …), aby historie dál seděla na šablony.
+export const STARTERS = {
+  ppl: { id: 'ppl', groups: [{ id: 'PUSH' }, { id: 'PULL' }, { id: 'LEGS' }], templates: KRYSTOF },
+  ul: { id: 'ul', groups: [{ id: 'UPPER' }, { id: 'LOWER' }, { id: 'ABS' }], templates: CHIARA },
+  fb: { id: 'fb', groups: [{ id: 'FULLA', label: 'FULL A' }, { id: 'FULLB', label: 'FULL B' }, { id: 'FULLC', label: 'FULL C' }], templates: FULLBODY },
 };
-export const profileOf = (id) => PROFILES[id] || PROFILES.krystof;
-export const ALL_BUILTIN = [...KRYSTOF, ...CHIARA];
+export const STARTER_IDS = Object.keys(STARTERS);
+// Dřívější pevné profily → startovní split
+export const LEGACY_PROFILE = { krystof: 'ppl', chiara: 'ul' };
+export const starterId = (id) => (STARTERS[id] ? id : LEGACY_PROFILE[id] || null);
+
+// Konfigurace hlavních šablon účtu ze startovního splitu (hluboká kopie, bez příznaku builtin)
+export function starterConfig(id) {
+  const s = STARTERS[starterId(id) || 'ppl'];
+  return {
+    groups: s.groups.map((g) => ({ id: g.id, label: g.label || g.id, sub: '' })),
+    templates: s.templates.map((x) => { const { builtin, name, ...rest } = JSON.parse(JSON.stringify(x)); void builtin; void name; return rest; }),
+  };
+}
+export const ALL_BUILTIN = [...KRYSTOF, ...CHIARA, ...FULLBODY];
 
 // Matte template colours (tint applied at low opacity).
 export const TEMPLATE_COLORS = [

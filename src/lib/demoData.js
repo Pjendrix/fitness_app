@@ -1,6 +1,6 @@
 // Ukázková data pro demo: ~16 týdnů PUSH/PULL/LEGS s postupným zvyšováním vah.
 // Generuje se vždy relativně k dnešku, takže demo nestárne. Deterministické (stejný seed).
-import { PROFILES } from '../data/defaultTemplates.js';
+import { STARTERS } from '../data/defaultTemplates.js';
 import { exKey, firstNum, num, uid } from './util.js';
 import { applyWorkout } from './records.js';
 
@@ -10,7 +10,7 @@ const SKIP_WEEKS = new Set([5, 11]); // dovolená / nemoc – ať to vypadá re�
 export function generateDemo(now = Date.now()) {
   let seed = 20260922;
   const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
-  const tpls = PROFILES.krystof.templates;
+  const tpls = STARTERS.ppl.templates;
   const pick = (group, hard) => tpls.find((x) => x.group === group && x.variant === (hard ? 'Hardcore' : 'Normal')) || tpls.find((x) => x.group === group);
   const round = (w) => (w < 12 ? Math.round(w * 2) / 2 : w < 40 ? Math.round(w) : Math.round(w / 2.5) * 2.5);
 
@@ -60,5 +60,5 @@ export function generateDemo(now = Date.now()) {
 
   let prs = {};
   for (const w of workouts) prs = applyWorkout(w, prs).next; // chronologicky
-  return { templates: [], workouts, prs, exercises: [], profile: 'krystof', settings: { weeklyGoal: 3 } };
+  return { templates: [], workouts, prs, exercises: [], profile: 'ppl', settings: { weeklyGoal: 3 } };
 }

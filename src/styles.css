@@ -472,16 +472,6 @@ html[data-theme='dark'] .card-hero .seg { background: var(--paper); }
 html[data-theme='dark'] .card-hero .seg button.is-on { background: var(--ink); color: var(--paper); }
 html[data-theme='dark'] .rest-bar { box-shadow: 0 0 0 1px var(--hairline); }
 
-/* Profil Chiara – světlý vzhled s jemným růžovým podbarvením (poznáš, v čím profilu jsi) */
-html[data-theme='light'][data-profile='chiara'] {
-  --paper: #fcecf2;
-  --white: #fff6f9;
-  --hairline: #f2d3e0;
-  --ash: #d9aec0;
-  --shade: rgba(190, 60, 110, 0.08);
-}
-html[data-theme='light'][data-profile='chiara'] .prof-badge { background: #b83c6e; }
-
 /* Úprava tréninku z historie */
 .edit-sheet { height: min(92dvh, 860px); }
 .edit-body { flex: 1; overflow-y: auto; margin: 0 -16px; padding: 4px 16px 12px; display: flex; flex-direction: column; gap: 12px; }
@@ -765,3 +755,44 @@ html.desktop .sheet-full { height: min(92dvh, 900px); border-radius: 12px 12px 0
 .lx-center { margin: auto 0; }
 .seg-inline button { white-space: nowrap; }
 .plate-in .numfield input { width: 100%; min-width: 0; border: 0; background: transparent; text-align: center; font-family: var(--mono); font-size: 18px; outline: none; padding: 10px 0; }
+
+/* ——— Vzhled účtu: podbarvení a akcent (lib/appearance.js) ——— */
+:root { --accent: var(--ink); --accent-fg: var(--white); }
+html[data-theme='light'][data-tint] {
+  --paper: color-mix(in srgb, var(--tint) calc(var(--tint-k) * 22%), #fafafa);
+  --white: color-mix(in srgb, var(--tint) calc(var(--tint-k) * 7%), #ffffff);
+  --hairline: color-mix(in srgb, var(--tint) calc(var(--tint-k) * 30%), #ebebeb);
+  --ash: color-mix(in srgb, var(--tint) calc(var(--tint-k) * 38%), #c9c9c9);
+  --shade: color-mix(in srgb, var(--tint) calc(var(--tint-k) * 12%), transparent);
+}
+html[data-theme='dark'][data-tint] {
+  --paper: color-mix(in srgb, var(--tint) calc(var(--tint-k) * 12%), #0a0a0a);
+  --white: color-mix(in srgb, var(--tint) calc(var(--tint-k) * 10%), #161616);
+  --hairline: color-mix(in srgb, var(--tint) calc(var(--tint-k) * 22%), #2a2a2a);
+  --ash: color-mix(in srgb, var(--tint) calc(var(--tint-k) * 30%), #4a4a4a);
+}
+.btn-primary { background: var(--accent); color: var(--accent-fg); }
+.btn-primary:hover { background: color-mix(in srgb, var(--accent) 85%, var(--paper)); }
+.set.is-done .check, .progress i, .prof-badge, .chip.is-on, .ss-tag, .pb-badge, .ms-dot.is-done, .guide-steps li.is-done .guide-n, .ss-toggle.is-on { background: var(--accent); color: var(--accent-fg); }
+.ss-toggle.is-on { border-color: var(--accent); }
+.card.ex.in-ss { box-shadow: 0 0 0 1.5px var(--accent); }
+/* Nastavení vzhledu */
+.look { display: flex; flex-direction: column; gap: 12px; }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.swatch { width: 32px; height: 32px; border-radius: 50%; border: 0; padding: 0; background: var(--sw); box-shadow: 0 0 0 1px var(--hairline); cursor: pointer; }
+.swatch.is-on { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink); }
+.swatch.is-none { background: linear-gradient(135deg, transparent 46%, var(--ash) 46%, var(--ash) 54%, transparent 54%), var(--white); }
+.swatch-custom { position: relative; overflow: hidden; background: conic-gradient(#e27aa3, #e6c85a, #5aa15a, #7196cc, #7a64b0, #e27aa3); }
+.swatch-custom input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.look input[type=range] { width: 100%; accent-color: var(--accent); }
+.look-preview { display: flex; gap: 8px; align-items: center; padding: 12px; border-radius: var(--r); background: var(--paper); box-shadow: 0 0 0 1px var(--hairline); }
+/* Výběr startovního splitu */
+.starter-grid { display: flex; flex-direction: column; gap: 8px; }
+.starter { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 14px; border: 0; border-radius: var(--r); background: var(--white); box-shadow: 0 0 0 1px var(--hairline); text-align: left; color: var(--ink); cursor: pointer; }
+.starter:hover { box-shadow: 0 0 0 1px var(--ink); }
+.starter b { font-weight: 500; }
+/* Přístupy (admin) */
+.access-add { display: flex; gap: 8px; }
+.access-add .input { flex: 1; min-width: 0; }
+.access-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; }
+.access-row .mono { overflow: hidden; text-overflow: ellipsis; }

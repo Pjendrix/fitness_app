@@ -14,6 +14,7 @@ import Workout from './screens/Workout.jsx';
 import { useLang } from './lib/i18n.js';
 import { syncThemeColor } from './lib/theme.js';
 import { useViewMode } from './lib/viewMode.js';
+import { applyAppearance } from './lib/appearance.js';
 
 // Home a Trénink hned, zbytek líně (menší první načtení)
 const History = lazy(() => import('./screens/History.jsx'));
@@ -33,14 +34,12 @@ const Nav = memo(BottomNav);
 const Undo = memo(UndoButton);
 
 function Shell() {
-  const { user, live, profile } = useStore();
-  // Profil na <html> → Chiara má ve světlém vzhledu růžové podbarvení (styles.css)
+  const { user, live, appearance } = useStore();
+  // Vzhled účtu (podbarvení + akcent) → CSS proměnné na <html>
   useEffect(() => {
-    const root = document.documentElement;
-    if (user && profile) root.dataset.profile = profile;
-    else delete root.dataset.profile;
+    applyAppearance(user ? appearance : null);
     syncThemeColor();
-  }, [user, profile]);
+  }, [user, appearance]);
   const { lang } = useLang(); // překreslit při změně jazyka
   const [tab, setTab] = useState('home');
   const go = useCallback((t) => {
