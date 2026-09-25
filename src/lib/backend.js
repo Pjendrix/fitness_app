@@ -27,7 +27,7 @@ const firebaseBackend = {
       if (!u) return cb(null);
       if (!isFounder(u.email)) {
         // Přístup přidaný adminem: vlastní dokument access/{email} smí uživatel číst
-        let ok = true;
+        let ok;
         try { ok = (await getDoc(doc(db, 'access', normEmail(u.email)))).exists(); }
         catch (e) { ok = e?.code !== 'permission-denied'; } // offline apod. → pustit dál, data stejně chrání rules
         if (!ok) {
@@ -61,6 +61,13 @@ const firebaseBackend = {
   data(uid) {
     const col = (n) => collection(db, 'users', uid, n);
     const ref = (n, id) => doc(db, 'users', uid, n, id);
+    // Změny rekordů {key: pr | null} do batche (null = rekord smazat)
+    const putPrs = (batch, changes) => {
+      for (const [key, pr] of Object.entries(changes)) {
+        if (pr) batch.set(ref('prs', key), clean(pr));
+        else batch.delete(ref('prs', key));
+      }
+    };
     return {
       // Šablony, rekordy a nastavení živě (D1). Z offline cache hned – bez čekání až ~10 s na server při slabém signálu –
       // a změny z jiného zařízení se projeví bez reloadu. Na zařízení, které ještě nikdy nemělo data ze serveru,
@@ -114,29 +121,33 @@ const firebaseBackend = {
       saveWorkout(w, prUpdates = {}) {
         const batch = writeBatch(db);
         batch.set(ref('workouts', w.id), clean(w));
-        for (const [key, pr] of Object.entries(prUpdates)) {
-          if (pr) batch.set(ref('prs', key), clean(pr));
-          else batch.delete(ref('prs', key));
-        }
+        putPrs(batch, prUpdates);
         return batch.commit();
       },
       // Smazání tréninku + přepočtené rekordy ({key: pr | null}) atomicky
       deleteWorkout(id, prChanges = {}) {
         const batch = writeBatch(db);
         batch.delete(ref('workouts', id));
-        for (const [key, pr] of Object.entries(prChanges)) {
-          if (pr) batch.set(ref('prs', key), clean(pr));
-          else batch.delete(ref('prs', key));
-        }
+        putPrs(batch, prChanges);
         return batch.commit();
+      },
+      // Víc tréninků najednou (přejmenování cviku napříč historií). Batch má limit 500 zápisů → po 400,
+      // změny rekordů jdou s prvním batchem.
+      async saveWorkouts(list, prChanges = {}) {
+        const chunks = [];
+        for (let i = 0; i < list.length; i += 400) chunks.push(list.slice(i, i + 400));
+        if (!chunks.length) chunks.push([]);
+        await Promise.all(chunks.map((part, i) => {
+          const batch = writeBatch(db);
+          for (const w of part) batch.set(ref('workouts', w.id), clean(w));
+          if (i === 0) putPrs(batch, prChanges);
+          return batch.commit();
+        }));
       },
       // Jen rekordy ({key: pr | null}) – srovnání s historií
       applyPrChanges(changes) {
         const batch = writeBatch(db);
-        for (const [key, pr] of Object.entries(changes)) {
-          if (pr) batch.set(ref('prs', key), clean(pr));
-          else batch.delete(ref('prs', key));
-        }
+        putPrs(batch, changes);
         return batch.commit();
       },
       saveExercises: (list) => setDoc(ref('meta', 'exercises'), { list: clean(list), v: 2 }),
@@ -157,6 +168,7 @@ const DEMO_USER = { uid: 'demo', name: 'Demo', email: '', photo: '' };
 const listeners = new Set();
 const emit = () => { const w = [...readLS().workouts].sort((a, b) => b.startedAt - a.startedAt); listeners.forEach((f) => f(w, { pending: false, fromCache: false })); };
 const edit = (fn) => { const d = readLS(); fn(d); writeLS(d); };
+const putDemoPrs = (d, changes) => { for (const [k, v] of Object.entries(changes)) { if (v) d.prs[k] = v; else delete d.prs[k]; } };
 
 const demoBackend = {
   mode: 'demo',
@@ -178,15 +190,20 @@ const demoBackend = {
       subscribeWorkouts(cb) { listeners.add(cb); emit(); return () => listeners.delete(cb); },
       async saveTemplate(t) { edit((d) => { d.templates = [...d.templates.filter((x) => x.id !== t.id), t]; }); },
       async deleteTemplate(id) { edit((d) => { d.templates = d.templates.filter((x) => x.id !== id); }); },
-      async saveWorkout(w, prUpdates = {}) { edit((d) => { d.workouts = [...d.workouts.filter((x) => x.id !== w.id), w]; for (const [k, v] of Object.entries(prUpdates)) { if (v) d.prs[k] = v; else delete d.prs[k]; } }); emit(); },
+      async saveWorkout(w, prUpdates = {}) { edit((d) => { d.workouts = [...d.workouts.filter((x) => x.id !== w.id), w]; putDemoPrs(d, prUpdates); }); emit(); },
       async deleteWorkout(id, prChanges = {}) {
         edit((d) => {
           d.workouts = d.workouts.filter((x) => x.id !== id);
-          for (const [k, v] of Object.entries(prChanges)) { if (v) d.prs[k] = v; else delete d.prs[k]; }
+          putDemoPrs(d, prChanges);
         });
         emit();
       },
-      async applyPrChanges(ch) { edit((d) => { for (const [k, v] of Object.entries(ch)) { if (v) d.prs[k] = v; else delete d.prs[k]; } }); },
+      async saveWorkouts(list, prChanges = {}) {
+        const byId = new Map(list.map((w) => [w.id, w]));
+        edit((d) => { d.workouts = d.workouts.map((x) => byId.get(x.id) || x); putDemoPrs(d, prChanges); });
+        emit();
+      },
+      async applyPrChanges(ch) { edit((d) => { putDemoPrs(d, ch); }); },
       async saveExercises(list) { edit((d) => { d.library = { list, v: 2 }; }); },
       async saveProfile(id) { edit((d) => { d.profile = id; }); },
       async saveSettings(s) { edit((d) => { d.settings = { ...(d.settings || {}), ...s }; }); },

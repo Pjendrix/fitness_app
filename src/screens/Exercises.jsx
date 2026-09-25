@@ -5,12 +5,12 @@ import { download, parseCsv, toCsv } from '../lib/csv.js';
 import { exKey, fmtSet, LIMITS, sanitizeName } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
 import ExercisePicker, { norm, TypeTag } from '../components/ExercisePicker.jsx';
-import { PlusIcon, TrashIcon } from '../components/Icons.jsx';
+import { PencilIcon, PlusIcon, TrashIcon } from '../components/Icons.jsx';
 import { InfoButton } from '../components/ExerciseInfo.jsx';
 import { useDialog } from '../components/Dialog.jsx';
 
 export default function Exercises() {
-  const { library, saveLibrary, addToLibrary, prs, workouts, notify } = useStore();
+  const { library, saveLibrary, addToLibrary, prs, workouts, notify, renamePreview, renameExercise } = useStore();
   const [q, setQ] = useState('');
   const [name, setName] = useState('');
   const [cat, setCat] = useState(CATEGORIES[0]);
@@ -70,6 +70,32 @@ export default function Exercises() {
     notify(t('ex.imported', { n: list.length }));
   };
 
+  // A3: přejmenování, nebo sloučení do existujícího cviku (historie, rekordy, šablony)
+  const rename = async (fromName) => {
+    const v = await dialog.form({ title: t('ex.renameTitle', { name: fromName }), fields: [{ name: 'name', label: t('ex.renameField'), value: fromName, maxLength: 80, required: true }] });
+    if (!v) return;
+    const p = renamePreview(fromName, v.name);
+    if (!p.name || p.same) return;
+    if (p.typeClash) return notify(t('ex.renameType'));
+    if (p.merge) {
+      const ok = await dialog.choose({
+        title: t('ex.mergeTitle', { to: p.name }),
+        message: t('ex.mergeMsg', { from: fromName, to: p.name, n: p.count }),
+        actions: [{ value: true, label: t('ex.mergeOk'), primary: true }, { value: null, label: t('dlg.cancel') }],
+      });
+      if (!ok) return;
+    }
+    const r = renameExercise(fromName, v.name);
+    if (r) notify(t(r.merged ? 'ex.merged' : 'ex.renamed', { name: r.name }));
+  };
+  // Cviky zapsané v historii, které v knihovně nejsou (překlepy, smazané z knihovny)
+  const orphans = useMemo(() => {
+    const inLib = new Set(library.map((e) => exKey(e.name)));
+    const out = new Map();
+    for (const w of workouts) for (const e of w.exercises) if (!inLib.has(e.key) && !out.has(e.key)) out.set(e.key, e.name);
+    return [...out].map(([key, name]) => ({ key, name })).filter((e) => norm(e.name).includes(norm(q.trim()))).sort((a, b) => a.name.localeCompare(b.name));
+  }, [library, workouts, q]);
+
   const remove = async (e) => (await dialog.confirm(t('ex.confirmDelete', { name: e.name }), { danger: true, ok: t('ex.delete') })) && saveLibrary(library.filter((x) => x !== e));
   const recat = (e, c) => saveLibrary(library.map((x) => (x === e ? { ...x, cat: c } : x)));
 
@@ -101,6 +127,22 @@ export default function Exercises() {
 
       <input className="input" placeholder={t('ex.search')} value={q} onChange={(e) => setQ(e.target.value)} />
 
+      {orphans.length > 0 && (
+        <section className="card ex-group">
+          <div className="card-head"><h2>{t('ex.historyOnly')}</h2><span className="label">{orphans.length}</span></div>
+          <p className="muted small">{t('ex.historyOnlySub')}</p>
+          {orphans.map((e) => (
+            <div className="lib-row is-orphan" key={e.key}>
+              <div className="lib-main">
+                <span>{e.name}</span>
+                <span className="label">{[prs[e.key] && `PB ${fmtSet(prs[e.key].weight, prs[e.key].reps, prs[e.key].time)}`, counts[e.key] && t('ex.sessions', { n: counts[e.key] })].filter(Boolean).join(' · ')}</span>
+              </div>
+              <button className="icon-btn" aria-label={t('ex.rename')} title={t('ex.rename')} onClick={() => rename(e.name)}><PencilIcon width={16} height={16} /></button>
+            </div>
+          ))}
+        </section>
+      )}
+
       <div className="ex-columns">
         {groups.map(({ c, items }) => (
           <section className="card ex-group" key={c}>
@@ -116,6 +158,7 @@ export default function Exercises() {
                   <select className="lib-cat" value={e.cat} onChange={(ev) => recat(e, ev.target.value)} aria-label={t('pick.category')}>
                     {[...CATEGORIES, 'other'].map((x) => <option key={x} value={x}>{t('cat.' + x)}</option>)}
                   </select>
+                  <button className="icon-btn" aria-label={t('ex.rename')} title={t('ex.rename')} onClick={() => rename(e.name)}><PencilIcon width={16} height={16} /></button>
                   <button className="icon-btn danger" aria-label={t('ex.delete')} onClick={() => remove(e)}><TrashIcon width={16} height={16} /></button>
                 </div>
               );

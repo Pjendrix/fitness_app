@@ -40,7 +40,7 @@ export default function Settings({ go }) {
     try {
       const r = await importData(json);
       notify(t('set.importDone', { w: r.workouts, t: r.templates, e: r.exercises }), { duration: 6000 });
-    } catch (e) { console.error(e); notify(t('set.importBad')); }
+    } catch (e) { console.error(e); notify(t(e?.message === 'offline' ? 'set.importOffline' : 'set.importBad')); }
   };
   // Hlavní šablony znovu ze startovního splitu (i jiného než dosud)
   const resetTemplates = async () => {

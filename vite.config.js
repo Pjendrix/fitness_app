@@ -35,12 +35,14 @@ export default defineConfig({
   ],
   build: {
     chunkSizeWarningLimit: 700, // Firebase (Auth + Firestore s offline cache) má ~570 kB, cachuje se samostatně
-    rollupOptions: {
+    // Vite 8 (Rolldown): Firebase a React zvlášť – změna UI nezneplatní velké vendor chunky v cache
+    rolldownOptions: {
       output: {
-        // Firebase a React zvlášť: změna UI nezneplatní velký vendor chunk v cache
-        manualChunks: {
-          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/app-check'],
-          react: ['react', 'react-dom'],
+        codeSplitting: {
+          groups: [
+            { name: 'firebase', test: /node_modules[\\/](@firebase|firebase)[\\/]/ },
+            { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
+          ],
         },
       },
     },
