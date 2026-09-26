@@ -9,7 +9,7 @@
 //   users/{uid}/meta/settings     týdenní cíl, připnuté cviky, vzhled {tint, strength, accent}
 //   access/{email}                povolené účty navíc k FOUNDERS (spravuje admin)
 //   users/{uid}/meta/exercises    knihovna cviků: {list: [{name, cat}], v: 2}
-import { getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut as fbSignOut } from 'firebase/auth';
+import { deleteUser, getRedirectResult, onAuthStateChanged, reauthenticateWithPopup, signInWithPopup, signInWithRedirect, signOut as fbSignOut } from 'firebase/auth';
 import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, setDoc, writeBatch } from 'firebase/firestore';
 import { isFirebaseConfigured, auth, db, provider } from './firebase.js';
 import { isFounder, normEmail } from './access.js';
@@ -17,6 +17,15 @@ import { clean } from './util.js';
 import { generateDemo } from './demoData.js';
 
 export const HISTORY_LIMIT = 1000;
+const BATCH_OPS = 15;
+// Jen pole, která rules u šablony povolí (starší zálohy / verze mohly nést další – zápis by pak selhal)
+const TEMPLATE_KEYS = ['id', 'name', 'color', 'group', 'variant', 'exercises'];
+export const pickTemplate = (tpl) => Object.fromEntries(TEMPLATE_KEYS.filter((k) => tpl[k] !== undefined).map((k) => [k, tpl[k]]));
+const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || Boolean(window.navigator.standalone);
+// Lokální data účtu v tomto prohlížeči (draft, cíl, připnuté cviky, příznak synchronizace)
+const clearLocal = (uid) => {
+  try { ['active', 'goal', 'pins', 'metaSynced'].forEach((k) => localStorage.removeItem(`forge:${k}:${uid}`)); } catch { /* ignore */ }
+};
 const toUser = (u) => ({ uid: u.uid, name: u.displayName || '', email: u.email || '', photo: u.photoURL || '' });
 
 const firebaseBackend = {
@@ -42,8 +51,7 @@ const firebaseBackend = {
   },
   async signIn() {
     // Appka spuštěná z plochy (standalone) → redirect, popup tam nefunguje
-    const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-    if (standalone) return signInWithRedirect(auth, provider);
+    if (isStandalone()) return signInWithRedirect(auth, provider);
     try {
       await signInWithPopup(auth, provider);
     } catch (e) {
@@ -52,6 +60,25 @@ const firebaseBackend = {
     }
   },
   signOut: () => fbSignOut(auth),
+  // F2: smazání účtu. Firebase smaže přihlašovací účet jen po čerstvém přihlášení → nejdřív ověření (popup),
+  // pak data, pak účet. V PWA z plochy popup nejde: data se smažou, a když účet vyžaduje nové přihlášení,
+  // appka se jen odhlásí (záznam v Authentication pak smaže admin) → { authDeleted: false }.
+  async deleteAccount() {
+    const u = auth.currentUser;
+    if (!u) throw new Error('signed-out');
+    if (!isStandalone()) await reauthenticateWithPopup(u, provider);
+    await firebaseBackend.data(u.uid).deleteAllData();
+    await deleteDoc(doc(db, 'access', normEmail(u.email))).catch(() => {}); // záznam v seznamu přístupů
+    clearLocal(u.uid);
+    try {
+      await deleteUser(u);
+      return { authDeleted: true };
+    } catch (e) {
+      console.warn('deleteUser', e.code);
+      await fbSignOut(auth).catch(() => {});
+      return { authDeleted: false };
+    }
+  },
   // Správa přístupů (jen admin – vynucují rules)
   access: {
     async list() { const snap = await getDocs(collection(db, 'access')); return snap.docs.map((d) => d.data()).sort((a, b) => a.email.localeCompare(b.email)); },
@@ -61,13 +88,21 @@ const firebaseBackend = {
   data(uid) {
     const col = (n) => collection(db, 'users', uid, n);
     const ref = (n, id) => doc(db, 'users', uid, n, id);
-    // Změny rekordů {key: pr | null} do batche (null = rekord smazat)
-    const putPrs = (batch, changes) => {
-      for (const [key, pr] of Object.entries(changes)) {
-        if (pr) batch.set(ref('prs', key), clean(pr));
-        else batch.delete(ref('prs', key));
-      }
+    // Zápisy po dávkách. Rules u účtů mimo admina volají pro KAŽDÝ zápis exists(access/…) a batch smí
+    // mít nejvýš 20 takových volání → max. 15 operací v jednom batchi. První dávka nese hlavní změnu
+    // (trénink), takže trénink a jeho první rekordy zůstávají atomické; zbytek rekordů jde hned po ní.
+    // ops = [{ ref, data } | { ref, del: true }]
+    const commitOps = (ops) => {
+      const chunks = [];
+      for (let i = 0; i < ops.length; i += BATCH_OPS) chunks.push(ops.slice(i, i + BATCH_OPS));
+      return Promise.all(chunks.map((part) => {
+        const batch = writeBatch(db);
+        for (const o of part) { if (o.del) batch.delete(o.ref); else batch.set(o.ref, o.data); }
+        return batch.commit();
+      }));
     };
+    // Změny rekordů {key: pr | null} → operace (null = rekord smazat)
+    const prOps = (changes) => Object.entries(changes).map(([key, pr]) => (pr ? { ref: ref('prs', key), data: clean(pr) } : { ref: ref('prs', key), del: true }));
     return {
       // Šablony, rekordy a nastavení živě (D1). Z offline cache hned – bez čekání až ~10 s na server při slabém signálu –
       // a změny z jiného zařízení se projeví bez reloadu. Na zařízení, které ještě nikdy nemělo data ze serveru,
@@ -115,40 +150,22 @@ const firebaseBackend = {
           (snap) => cb(snap.docs.map((d) => d.data()), { pending: snap.metadata.hasPendingWrites, fromCache: snap.metadata.fromCache }),
           onError);
       },
-      saveTemplate: (tpl) => setDoc(ref('templates', tpl.id), clean(tpl)),
+      saveTemplate: (tpl) => setDoc(ref('templates', tpl.id), clean(pickTemplate(tpl))),
       deleteTemplate: (id) => deleteDoc(ref('templates', id)),
-      // Trénink (nový i upravený) + změněné rekordy ({key: pr | null}) atomicky v jednom batchi
-      saveWorkout(w, prUpdates = {}) {
-        const batch = writeBatch(db);
-        batch.set(ref('workouts', w.id), clean(w));
-        putPrs(batch, prUpdates);
-        return batch.commit();
-      },
-      // Smazání tréninku + přepočtené rekordy ({key: pr | null}) atomicky
-      deleteWorkout(id, prChanges = {}) {
-        const batch = writeBatch(db);
-        batch.delete(ref('workouts', id));
-        putPrs(batch, prChanges);
-        return batch.commit();
-      },
-      // Víc tréninků najednou (přejmenování cviku napříč historií). Batch má limit 500 zápisů → po 400,
-      // změny rekordů jdou s prvním batchem.
-      async saveWorkouts(list, prChanges = {}) {
-        const chunks = [];
-        for (let i = 0; i < list.length; i += 400) chunks.push(list.slice(i, i + 400));
-        if (!chunks.length) chunks.push([]);
-        await Promise.all(chunks.map((part, i) => {
-          const batch = writeBatch(db);
-          for (const w of part) batch.set(ref('workouts', w.id), clean(w));
-          if (i === 0) putPrs(batch, prChanges);
-          return batch.commit();
-        }));
-      },
-      // Jen rekordy ({key: pr | null}) – srovnání s historií
-      applyPrChanges(changes) {
-        const batch = writeBatch(db);
-        putPrs(batch, changes);
-        return batch.commit();
+      // Trénink (nový i upravený) + změněné rekordy ({key: pr | null})
+      saveWorkout: (w, prUpdates = {}) => commitOps([{ ref: ref('workouts', w.id), data: clean(w) }, ...prOps(prUpdates)]),
+      // Smazání tréninku + přepočtené rekordy
+      deleteWorkout: (id, prChanges = {}) => commitOps([{ ref: ref('workouts', id), del: true }, ...prOps(prChanges)]),
+      // Víc tréninků najednou (přejmenování cviku napříč historií, import)
+      saveWorkouts: (list, prChanges = {}) => commitOps([...list.map((w) => ({ ref: ref('workouts', w.id), data: clean(w) })), ...prOps(prChanges)]),
+      // Jen rekordy – srovnání s historií
+      applyPrChanges: (changes) => commitOps(prOps(changes)),
+      // F2: smazání všech dat účtu (tréninky, rekordy, šablony, nastavení). Přihlašovací účet maže deleteAccount.
+      async deleteAllData() {
+        const [w, p, t] = await Promise.all([getDocs(col('workouts')), getDocs(col('prs')), getDocs(col('templates'))]);
+        const docs = [...w.docs, ...p.docs, ...t.docs].map((d) => ({ ref: d.ref, del: true }));
+        const meta = ['exercises', 'profile', 'main', 'settings'].map((id) => ({ ref: ref('meta', id), del: true }));
+        await commitOps([...docs, ...meta]);
       },
       saveExercises: (list) => setDoc(ref('meta', 'exercises'), { list: clean(list), v: 2 }),
       saveProfile: (id) => setDoc(ref('meta', 'profile'), { id }),
@@ -204,6 +221,7 @@ const demoBackend = {
         emit();
       },
       async applyPrChanges(ch) { edit((d) => { putDemoPrs(d, ch); }); },
+      async deleteAllData() { writeLS(empty()); emit(); },
       async saveExercises(list) { edit((d) => { d.library = { list, v: 2 }; }); },
       async saveProfile(id) { edit((d) => { d.profile = id; }); },
       async saveSettings(s) { edit((d) => { d.settings = { ...(d.settings || {}), ...s }; }); },
@@ -243,5 +261,7 @@ export const backend = {
   // Nová ukázková data (přepíše změny v demu)
   resetDemo() { writeLS(generateDemo()); },
   data(uid) { return sandbox ? demoBackend.data(uid) : real.data(uid); },
+  // Demo nemá co mazat na serveru – tlačítko se v demu neukazuje
+  deleteAccount: () => (sandbox || real.mode !== 'firebase' ? Promise.reject(new Error('demo')) : firebaseBackend.deleteAccount()),
   get access() { return !sandbox && real.access ? real.access : null; },
 };

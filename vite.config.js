@@ -15,7 +15,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,webmanifest}'],
         navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/__\//], // Firebase auth handler nikdy z cache
+        navigateFallbackDenylist: [/^\/__\//, /privacy\.html$/], // Firebase auth handler nikdy z cache
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {

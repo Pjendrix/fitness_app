@@ -1,13 +1,15 @@
 rules_version = '2';
-// Forge – přístup: pevní zakladatelé + účty, které přidal admin (access/{email}); každý vidí a mění jen svá data.
-// Vše, co tu není výslovně povolené, je zakázané.
+// Forge – přístup: admin napevno + účty, které admin přidal (access/{email}).
+// Každý vidí a mění jen svá data. Vše, co tu není výslovně povolené, je zakázané.
+// Testy: tests/rules/firestore.rules.test.js (běží v CI v emulátoru).
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ——— Kdo je přihlášený a smí dovnitř ———
     function signedIn() {
       return request.auth != null && request.auth.token.email_verified == true;
     }
-    // Musí odpovídat src/lib/access.js: FOUNDERS napevno + účty, které přidal admin (access/{email})
+    // Musí odpovídat src/lib/access.js (ADMIN_EMAIL)
     function email() {
       return request.auth.token.email.lower();
     }
@@ -15,27 +17,18 @@ service cloud.firestore {
       return signedIn() && email() == 'tofbenka@gmail.com';
     }
     function allowed() {
-      return email() in ['tofbenka@gmail.com', 'chiaralari24@gmail.com']
-        || exists(/databases/$(database)/documents/access/$(email()));
-    }
-
-    // ——— Povolené účty (spravuje jen admin; každý si smí přečíst jen svůj záznam) ———
-    match /access/{addr} {
-      allow get: if signedIn() && (isAdmin() || email() == addr);
-      allow list: if isAdmin();
-      allow create, update: if isAdmin()
-        && request.resource.data.keys().hasOnly(['email', 'name', 'addedAt'])
-        && request.resource.data.email == addr
-        && str(addr, 120)
-        && str(request.resource.data.name, 60)
-        && request.resource.data.addedAt is int;
-      allow delete: if isAdmin();
+      return isAdmin() || exists(/databases/$(database)/documents/access/$(email()));
     }
     function owner(uid) {
       return signedIn() && allowed() && request.auth.uid == uid;
     }
+
+    // ——— Pomocné validace ———
     function str(v, max) {
       return v is string && v.size() <= max;
+    }
+    function optStr(d, k, max) {
+      return !(k in d) || str(d[k], max);
     }
     function num(v, lo, hi) {
       return v is number && v >= lo && v <= hi;
@@ -48,6 +41,24 @@ service cloud.firestore {
         && colorOrNull(a.get('tint', null)) && colorOrNull(a.get('accent', null))
         && (!('strength' in a) || num(a.strength, 0, 100));
     }
+    // Pravidla neumí projít celý seznam – kontroluje se typ, velikost a tvar první položky.
+    // Plnou validaci každé série dělá klient (sanitizeSet); tady jde o to, aby nešel uložit nesmysl.
+    function firstIsMap(list, required) {
+      return list.size() == 0 || (list[0] is map && list[0].keys().hasAll(required));
+    }
+
+    // ——— Povolené účty (spravuje admin; každý si smí přečíst a smazat jen svůj záznam) ———
+    match /access/{addr} {
+      allow get: if signedIn() && (isAdmin() || email() == addr);
+      allow list: if isAdmin();
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['email', 'name', 'addedAt'])
+        && request.resource.data.email == addr
+        && str(addr, 120)
+        && str(request.resource.data.name, 60)
+        && request.resource.data.addedAt is int;
+      allow delete: if signedIn() && (isAdmin() || email() == addr); // smazání vlastního účtu (F2)
+    }
 
     // ——— Odcvičené tréninky ———
     match /users/{uid}/workouts/{id} {
@@ -59,13 +70,15 @@ service cloud.firestore {
         && d.keys().hasAll(['id', 'name', 'startedAt', 'finishedAt', 'exercises'])
         && d.id == id
         && str(d.name, 80)
-        && (!('templateId' in d) || str(d.templateId, 60))
-        && (!('group' in d) || str(d.group, 20))
-        && (!('variant' in d) || str(d.variant, 40))
+        && optStr(d, 'templateId', 60)
+        && optStr(d, 'group', 20)
+        && optStr(d, 'variant', 40)
         && d.startedAt is int && d.finishedAt is int
         && d.finishedAt >= d.startedAt
         && d.finishedAt <= request.time.toMillis() + 86400000
-        && d.exercises is list && d.exercises.size() > 0 && d.exercises.size() <= 40;
+        && d.exercises is list && d.exercises.size() > 0 && d.exercises.size() <= 40
+        && firstIsMap(d.exercises, ['key', 'name', 'sets'])
+        && d.exercises[0].sets is list && d.exercises[0].sets.size() <= 50;
     }
 
     // ——— Osobní rekordy ———
@@ -85,30 +98,52 @@ service cloud.firestore {
     // ——— Vlastní šablony ———
     match /users/{uid}/templates/{id} {
       allow read, delete: if owner(uid);
-      allow create, update: if owner(uid)
-        && request.resource.data.id == id
-        && str(request.resource.data.name, 80)
-        && request.resource.data.exercises is list
-        && request.resource.data.exercises.size() <= 40;
+      allow create, update: if owner(uid) && validTemplate(request.resource.data, id);
+    }
+    function validTemplate(d, id) {
+      return d.keys().hasOnly(['id', 'name', 'color', 'group', 'variant', 'exercises'])
+        && d.id == id && str(id, 60)
+        && str(d.name, 80)
+        && optStr(d, 'color', 20)
+        && optStr(d, 'group', 20)
+        && optStr(d, 'variant', 40)
+        && d.exercises is list && d.exercises.size() <= 40
+        && firstIsMap(d.exercises, ['name', 'sets']);
     }
 
-    // ——— Nastavení: knihovna cviků, profil, upravené hlavní šablony ———
+    // ——— Nastavení: knihovna cviků, startovní split, hlavní šablony, vzhled a cíle ———
     match /users/{uid}/meta/{doc} {
       allow read: if owner(uid);
-      allow delete: if false;
+      allow delete: if owner(uid); // smazání účtu (F2)
       allow create, update: if owner(uid) && (
-        (doc == 'profile' && request.resource.data.keys().hasOnly(['id']) && request.resource.data.id in ['ppl', 'ul', 'fb', 'krystof', 'chiara'])
-        || (doc == 'exercises' && request.resource.data.keys().hasOnly(['list', 'v']) && request.resource.data.list is list && request.resource.data.list.size() <= 1500)
-        || (doc == 'main' && request.resource.data.keys().hasOnly(['own', 'krystof', 'chiara'])
-            && (!('own' in request.resource.data) || (request.resource.data.own.groups is list && request.resource.data.own.templates is list
-                && request.resource.data.own.groups.size() <= 12 && request.resource.data.own.templates.size() <= 40)))
-        || (doc == 'settings' && request.resource.data.keys().hasOnly(['weeklyGoal', 'pinnedLifts', 'appearance'])
-            && (!('appearance' in request.resource.data) || validLook(request.resource.data.appearance))
-            && (!('weeklyGoal' in request.resource.data)
-                || (request.resource.data.weeklyGoal is int && request.resource.data.weeklyGoal >= 1 && request.resource.data.weeklyGoal <= 7))
-            && (!('pinnedLifts' in request.resource.data)
-                || (request.resource.data.pinnedLifts is list && request.resource.data.pinnedLifts.size() <= 5)))
+        (doc == 'profile' && validProfile(request.resource.data))
+        || (doc == 'exercises' && validLibrary(request.resource.data))
+        || (doc == 'main' && validMain(request.resource.data))
+        || (doc == 'settings' && validSettings(request.resource.data))
       );
+    }
+    function validProfile(d) {
+      return d.keys().hasOnly(['id']) && d.id in ['ppl', 'ul', 'fb', 'krystof', 'chiara'];
+    }
+    function validLibrary(d) {
+      return d.keys().hasOnly(['list', 'v'])
+        && d.list is list && d.list.size() <= 1500
+        && firstIsMap(d.list, ['name', 'cat'])
+        && (d.list.size() == 0 || str(d.list[0].name, 80));
+    }
+    function validMain(d) {
+      return d.keys().hasOnly(['own', 'krystof', 'chiara'])
+        && (!('own' in d) || (d.own is map
+          && d.own.groups is list && d.own.templates is list
+          && d.own.groups.size() <= 12 && d.own.templates.size() <= 40
+          && firstIsMap(d.own.groups, ['id'])
+          && firstIsMap(d.own.templates, ['id', 'exercises'])));
+    }
+    function validSettings(d) {
+      return d.keys().hasOnly(['weeklyGoal', 'pinnedLifts', 'appearance'])
+        && (!('appearance' in d) || validLook(d.appearance))
+        && (!('weeklyGoal' in d) || (d.weeklyGoal is int && d.weeklyGoal >= 1 && d.weeklyGoal <= 7))
+        && (!('pinnedLifts' in d) || (d.pinnedLifts is list && d.pinnedLifts.size() <= 5));
     }
   }
 }

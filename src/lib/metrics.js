@@ -2,7 +2,9 @@
 // Intenzita = průměrná váha série jako % nejlepšího odhadovaného 1RM daného cviku z PŘEDCHOZÍCH tréninků.
 // Série cviku bez historie (první trénink) a série bez váhy se do intenzity nepočítají.
 
-export const e1rm = (w, r) => (r <= 1 ? w : w * (1 + r / 30)); // Epley
+// Epley. B7: nad 12 opakování vzorec přestřeluje (20 kg × 40 → „1RM“ 47 kg) → opakování se počítají max. do 12.
+export const E1RM_MAX_REPS = 12;
+export const e1rm = (w, r) => (r <= 1 ? w : w * (1 + Math.min(r, E1RM_MAX_REPS) / 30));
 
 // workouts v libovolném pořadí → Map(id → metrics)
 export function computeMetrics(workouts) {

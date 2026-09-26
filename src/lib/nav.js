@@ -65,16 +65,20 @@ export function pushTab(tab) {
     clearTimeout(releaseTimer);
     releaseTimer = null;
     guard = false;
-    history.replaceState({ tab }, '', urlOf(tab));
+    history.replaceState({ tab, i: history.state?.i || 0 }, '', urlOf(tab));
     return;
   }
   if (history.state?.tab === tab && !history.state?.forgeOverlay) return;
   guard = false; // případný záznam otevřeného panelu teď leží pod novou obrazovkou
-  history.pushState({ tab }, '', urlOf(tab));
+  history.pushState({ tab, i: (history.state?.i || 0) + 1 }, '', urlOf(tab));
 }
 export function replaceTab(tab) {
-  if (hasHistory) history.replaceState({ ...(history.state || {}), tab }, '', urlOf(tab));
+  if (hasHistory) history.replaceState({ ...(history.state || {}), tab, i: history.state?.i || 0 }, '', urlOf(tab));
 }
+// Je v appce kam se vrátit? (i = pořadí obrazovky v této návštěvě; 0 = první, Zpět by opustilo appku)
+export const canGoBack = () => hasHistory && (history.state?.i || 0) > 0;
+// Zpět o obrazovku, jinak na zadanou záložku (appka otevřená přímo na #/stats)
+export const goBack = (go, fallback = 'home') => (canGoBack() ? history.back() : go(fallback));
 export function onTabPop(cb) {
   if (!hasHistory) return () => {};
   const f = (e) => { const t = e.state?.tab || fromHash(); if (t) cb(t); };

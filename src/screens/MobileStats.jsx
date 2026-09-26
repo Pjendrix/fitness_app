@@ -5,6 +5,7 @@ import { ArrowIcon, MonitorIcon, SearchIcon, StarIcon } from '../components/Icon
 import { CATEGORIES } from '../data/exercises.js';
 import { fmtDate, fmtDuration, fmtNum, fmtSet, groupTags, startOfWeek, workoutVolume } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
+import { goBack } from '../lib/nav.js';
 import Sheet from '../components/Sheet.jsx';
 import { markGuide } from '../lib/guide.js';
 import { norm } from '../components/ExercisePicker.jsx';
@@ -139,7 +140,7 @@ function Overview({ go, open }) {
 
   const head = (
     <header className="screen-head ms-head">
-      <BackLink label={t('nav.home')} onClick={() => go('home')} />
+      <BackLink label={t('nav.back')} onClick={() => goBack(go)} />
       <div className="ms-title">
         <h1>{t('ms.title')}</h1>
         <div className="seg seg-sm seg-inline" role="radiogroup" aria-label={t('an.period')}>
@@ -264,7 +265,7 @@ function AllExercises({ list, onClose, onPick }) {
         {shown.map((e) => (
           <button key={e.key} className="pick" onClick={() => onPick(e.key)}>
             <span>{e.name}</span>
-            <span className="pick-meta"><span className="label">{prs[e.key] ? `PB ${fmtSet(prs[e.key].weight, prs[e.key].reps, prs[e.key].time)}` : t('ms.nSessions', { n: e.n })}</span></span>
+            <span className="pick-meta"><span className="label">{prs[e.key] ? `${t('rec.max')} ${fmtSet(prs[e.key].weight, prs[e.key].reps, prs[e.key].time)}` : t('ms.nSessions', { n: e.n })}</span></span>
           </button>
         ))}
         {!shown.length && <p className="empty">{t('pick.none')}</p>}

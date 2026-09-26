@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="robots" content="noindex" />
+  <title>Forge – zásady ochrany osobních údajů</title>
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <style>
+    :root { --bg: #fafafa; --fg: #171717; --muted: #5f5f5f; --line: #e5e5e5; --card: #fff; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #0a0a0a; --fg: #ededed; --muted: #a1a1a1; --line: #2e2e2e; --card: #111; } }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    main { max-width: 680px; margin: 0 auto; padding: 32px 16px 64px; }
+    h1 { font-size: 28px; line-height: 1.2; letter-spacing: -0.02em; margin: 0 0 4px; }
+    h2 { font-size: 18px; margin: 32px 0 8px; }
+    p, li { color: var(--fg); }
+    ul { padding-left: 20px; }
+    .muted { color: var(--muted); font-size: 14px; }
+    .lang { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin: 16px 0 8px; }
+    .lang a { padding: 6px 14px; color: var(--fg); text-decoration: none; font-size: 14px; }
+    .lang a[aria-current] { background: var(--fg); color: var(--bg); }
+    table { width: 100%; border-collapse: collapse; font-size: 15px; background: var(--card); }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border: 1px solid var(--line); }
+    th { font-weight: 600; }
+    a { color: inherit; text-underline-offset: 3px; }
+    section[lang] { display: none; }
+    section[lang]:target, body:not(:has(section:target)) section[lang="cs"] { display: block; }
+  </style>
+</head>
+<body>
+<main>
+  <section id="cs" lang="cs">
+    <h1>Zásady ochrany osobních údajů</h1>
+    <p class="muted">Forge – posilovací deník · platné od 26. 9. 2026</p>
+    <nav class="lang" aria-label="Jazyk"><a href="#cs" aria-current="page">Čeština</a><a href="#en">English</a></nav>
+
+    <h2>Kdo data zpracovává</h2>
+    <p>Správcem je Kryštof Benka, Vídeň. Kontakt: <a href="mailto:tofbenka@gmail.com">tofbenka@gmail.com</a>.</p>
+
+    <h2>Jaká data a proč</h2>
+    <table>
+      <tr><th>Data</th><th>Účel</th></tr>
+      <tr><td>Google účet: jméno, e-mail, profilová fotka, interní ID</td><td>Přihlášení a ověření, že máš do appky přístup</td></tr>
+      <tr><td>Tréninky, série, váhy, poznámky, RPE, rekordy, šablony, knihovna cviků, nastavení</td><td>Samotná funkce appky: záznam a statistiky tvých tréninků</td></tr>
+      <tr><td>Kontaktní formulář v demu: jméno, e-mail, zpráva</td><td>Odpověď na zájem o vlastní verzi appky</td></tr>
+      <tr><td>Technické údaje (IP adresa, typ prohlížeče) v logu hostingu</td><td>Provoz a zabezpečení webu</td></tr>
+    </table>
+    <p>Právním základem je plnění smlouvy (používání appky), u kontaktního formuláře tvůj souhlas a u technických logů oprávněný zájem na bezpečném provozu.</p>
+
+    <h2>Kde data jsou</h2>
+    <ul>
+      <li><b>Google Firebase</b> (Authentication, Cloud Firestore) – přihlášení a tréninková data.</li>
+      <li><b>Vercel</b> – hosting webu a jeho logy.</li>
+      <li><b>Formspree</b> – doručení zprávy z kontaktního formuláře.</li>
+      <li><b>GitHub</b> – veřejná databáze cviků a jejich obrázky; prohlížeč si je stahuje přímo odtud.</li>
+    </ul>
+    <p>Tito poskytovatelé mohou data zpracovávat i mimo EU (hlavně v USA). Přenos zajišťují standardními smluvními doložkami EU nebo rámcem EU-US Data Privacy Framework.</p>
+    <p>Ve tvém prohlížeči (localStorage) se ukládá rozdělaný trénink, jazyk, vzhled a data dema. Appka nepoužívá reklamy, analytiku ani sledovací cookies.</p>
+
+    <h2>Jak dlouho</h2>
+    <p>Tréninková data a údaje účtu dokud účet nesmažeš. Zprávy z kontaktního formuláře nejdéle rok od poslední komunikace.</p>
+
+    <h2>Tvoje práva</h2>
+    <ul>
+      <li><b>Export</b> všech dat: Nastavení → Záloha → Export (JSON).</li>
+      <li><b>Smazání</b> účtu a všech dat: Nastavení → Smazání účtu.</li>
+      <li>Přístup, opravu, omezení zpracování nebo námitku vyřídíme e-mailem.</li>
+      <li>Stížnost můžeš podat u dozorového úřadu – v Rakousku Datenschutzbehörde (dsb.gv.at), v Česku ÚOOÚ (uoou.gov.cz).</li>
+    </ul>
+  </section>
+
+  <section id="en" lang="en">
+    <h1>Privacy policy</h1>
+    <p class="muted">Forge – workout log · effective 26 September 2026</p>
+    <nav class="lang" aria-label="Language"><a href="#cs">Čeština</a><a href="#en" aria-current="page">English</a></nav>
+
+    <h2>Who processes your data</h2>
+    <p>The controller is Kryštof Benka, Vienna. Contact: <a href="mailto:tofbenka@gmail.com">tofbenka@gmail.com</a>.</p>
+
+    <h2>What data and why</h2>
+    <table>
+      <tr><th>Data</th><th>Purpose</th></tr>
+      <tr><td>Google account: name, e-mail, profile photo, internal ID</td><td>Sign-in and checking that you have access</td></tr>
+      <tr><td>Workouts, sets, weights, notes, RPE, records, templates, exercise library, settings</td><td>The app itself: logging and statistics of your training</td></tr>
+      <tr><td>Demo contact form: name, e-mail, message</td><td>Replying to your interest in a custom version</td></tr>
+      <tr><td>Technical data (IP address, browser type) in hosting logs</td><td>Running and securing the site</td></tr>
+    </table>
+    <p>The legal basis is performance of a contract (using the app), your consent for the contact form, and legitimate interest in secure operation for technical logs.</p>
+
+    <h2>Where the data lives</h2>
+    <ul>
+      <li><b>Google Firebase</b> (Authentication, Cloud Firestore) – sign-in and training data.</li>
+      <li><b>Vercel</b> – website hosting and its logs.</li>
+      <li><b>Formspree</b> – delivering contact form messages.</li>
+      <li><b>GitHub</b> – public exercise database and images, loaded by your browser directly.</li>
+    </ul>
+    <p>These providers may process data outside the EU (mainly in the US), covered by EU standard contractual clauses or the EU-US Data Privacy Framework.</p>
+    <p>Your browser (localStorage) keeps the workout in progress, language, appearance and demo data. The app uses no ads, analytics or tracking cookies.</p>
+
+    <h2>How long</h2>
+    <p>Training and account data until you delete your account. Contact form messages for at most one year after the last exchange.</p>
+
+    <h2>Your rights</h2>
+    <ul>
+      <li><b>Export</b> all your data: Settings → Backup → Export (JSON).</li>
+      <li><b>Delete</b> your account and all data: Settings → Delete account.</li>
+      <li>Access, rectification, restriction or objection: just e-mail us.</li>
+      <li>You can complain to a supervisory authority – in Austria the Datenschutzbehörde (dsb.gv.at), in Czechia ÚOOÚ (uoou.gov.cz).</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

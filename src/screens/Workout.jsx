@@ -77,7 +77,7 @@ const ExerciseCard = memo(function ExerciseCard({ ex, pb, ssLabel, ssEnd, step, 
           <h2><button className="ex-name" onClick={() => handlers.detail(ex.key)}>{ex.name}</button> <InfoButton name={ex.name} /></h2>
           <p className="muted small">{[ex.plan, ex.hint && t('wo.recommended', { w: ex.hint }), ex.note].filter(Boolean).join(' · ')}</p>
         </div>
-        {pb && <span className="pb" title={t('wo.pb')}>PB {fmtSet(pb.weight, pb.reps, pb.time)}</span>}
+        {pb && <span className="pb" title={t('wo.pb')}>{t('rec.max')} {fmtSet(pb.weight, pb.reps, pb.time)}</span>}
       </div>
       <div className="set-cols label" aria-hidden="true"><span>{t('wo.col.set')}</span><span>{timed ? t('wo.col.min') : t('wo.col.reps')}</span><span>{t('wo.col.kg')}</span><span /></div>
       {ex.sets.map((s) => {

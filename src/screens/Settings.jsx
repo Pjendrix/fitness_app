@@ -14,7 +14,7 @@ import { useRef, useState } from 'react';
 import { UploadIcon } from '../components/Icons.jsx';
 
 export default function Settings({ go }) {
-  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, notify, starter, chooseStarter, resetDemo, importData } = useStore();
+  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, deleteAccount, notify, starter, chooseStarter, resetDemo, importData, online } = useStore();
   const demo = mode === 'demo';
   const { lang, setLang } = useLang();
   const { theme, setTheme } = useTheme();
@@ -59,6 +59,25 @@ export default function Settings({ go }) {
     notify(t('set.resetDone'));
   };
 
+  // F2: smazání účtu – potvrzení napsáním slova, vyžaduje připojení
+  const [deleting, setDeleting] = useState(false);
+  const removeAccount = async () => {
+    if (!online) return notify(t('del.offline'));
+    const word = t('del.word');
+    const v = await dialog.form({ title: t('del.title'), message: t('del.msg', { n: workouts.length }), fields: [{ name: 'word', label: t('del.type', { word }), value: '', maxLength: 20, required: true, match: word }], ok: t('del.ok'), danger: true });
+    if (!v) return;
+    if (v.word.trim().toUpperCase() !== word) return notify(t('del.mismatch', { word }));
+    setDeleting(true);
+    try {
+      const r = await deleteAccount();
+      notify(t(r.authDeleted ? 'del.done' : 'del.doneData'), { duration: 8000 });
+    } catch (e) {
+      console.error(e);
+      setDeleting(false);
+      if (!['auth/popup-closed-by-user', 'auth/cancelled-popup-request'].includes(e?.code)) notify(t('del.fail', { m: e?.code || e?.message || '?' }), { duration: 8000 });
+    }
+  };
+
   return (
     <div className="screen">
       <header className="screen-head"><h1>{t('set.title')}</h1></header>
@@ -74,7 +93,7 @@ export default function Settings({ go }) {
       <section className="card list">
         <div className="row"><span>{t('set.lang')}</span>
           <div className="seg seg-sm seg-inline" role="radiogroup">
-            {[['en', 'English'], ['cs', 'Čeština']].map(([id, l]) => <button key={id} role="radio" aria-checked={lang === id} className={lang === id ? 'is-on' : ''} onClick={() => setLang(id)}>{l}</button>)}
+            {[['en', 'English'], ['cs', 'Čeština']].map(([id, l]) => <button key={id} role="radio" aria-checked={lang === id} className={lang === id ? 'is-on' : ''} onClick={() => setLang(id).catch(() => notify(t('set.langFail')))}>{l}</button>)}
           </div>
         </div>
         <div className="row"><span>{t('set.theme')}</span>
@@ -120,7 +139,17 @@ export default function Settings({ go }) {
         </div>
       </section>
 
+      {!demo && (
+        <section className="card list danger-zone">
+          <div className="row"><span className="dz-title">{t('del.section')}<span className="muted small row-sub">{t('del.sectionSub')}</span></span></div>
+          <div className="row row-btns">
+            <button className="btn btn-danger btn-sm" disabled={deleting} onClick={removeAccount}>{deleting ? t('del.busy') : t('del.btn')}</button>
+          </div>
+        </section>
+      )}
+
       <button className="btn btn-danger btn-block" onClick={signOut}>{demo ? t('demo.exit') : t('set.logout')}</button>
+      <p className="muted small legal-links"><a href="./privacy.html" target="_blank" rel="noopener">{t('legal.privacy')}</a></p>
     </div>
   );
 }

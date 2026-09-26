@@ -6,7 +6,7 @@ import { locale, t } from '../lib/i18n.js';
 import { BarChart, HBars, LineChart } from '../components/Charts.jsx';
 import WeeklyGoal from '../components/WeeklyGoal.jsx';
 import WorkoutLoad from '../components/WorkoutLoad.jsx';
-import { computeMetrics } from '../lib/metrics.js';
+import { metricsOf } from '../lib/derived.js';
 import { useViewMode } from '../lib/viewMode.js';
 import { ArrowIcon } from '../components/Icons.jsx';
 import { better, fmtDate, fmtDuration, fmtNum, fmtSet, workoutVolume } from '../lib/util.js';
@@ -62,7 +62,7 @@ export default function Analytics({ go }) {
   }, [inRange, catOf]);
 
   // Globální metriky tréninků (intenzita potřebuje celou historii, zobrazí se jen vybrané období)
-  const allMetrics = useMemo(() => computeMetrics(workouts), [workouts]);
+  const allMetrics = metricsOf(workouts);
   const loadMetrics = useMemo(() => inRange.map((w) => allMetrics.get(w.id)).filter(Boolean).sort((a, b) => a.startedAt - b.startedAt), [inRange, allMetrics]);
 
   // Cvičení seřazená podle počtu tréninků

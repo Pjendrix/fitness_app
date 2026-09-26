@@ -37,7 +37,7 @@ export default function Login() {
             {mode === 'firebase' ? (<><GoogleIcon /> {t('login.google')}</>) : t('login.demo')}
           </button>
           {mode === 'firebase' && <button className="lx-btn lx-btn-2" onClick={() => { queueTour(); startDemo(); }}>{t('login.demoBtn')}</button>}
-          {mode === 'firebase' && <p className="lx-note">{t('login.footer')}</p>}
+          {mode === 'firebase' && <p className="lx-note">{t('login.footer')} · <a href="./privacy.html" target="_blank" rel="noopener">{t('legal.privacy')}</a></p>}
         </div>
         {denied && <p className="lx-error" role="alert">{t('login.denied', { email: denied })}</p>}
         {mode === 'demo' && <p className="lx-note">{t('login.demoNote')}</p>}

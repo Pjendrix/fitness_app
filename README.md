@@ -22,13 +22,14 @@ Historie a PB se párují podle názvu cvičení, takže „Bench Press (Barbell
 npm install
 npm run dev          # appka proti produkčnímu Firebase (přihlásí se jen povolené účty)
 VITE_DEMO=1 npm run dev   # DEMO bez Firebase, data jen v localStorage
-npm test             # unit testy (rekordy, validace, CSV, i18n)
+npm test             # unit testy (rekordy, validace, CSV, i18n, model)
+npm run test:rules   # testy Firestore rules v emulátoru (Java 21+)
 npm run lint
 ```
 
 ## Firebase a bezpečnost
 - Config je přímo v `src/lib/firebase.js` (webový config Firebase je veřejný z principu).
-- Přístup mají jen účty v `firestore.rules` (skutečná ochrana) a `src/lib/access.js` (hláška v UI). Při změně uprav **obě** místa.
+- Přístup: admin napevno (`firestore.rules` + `src/lib/access.js`), ostatní účty přidává admin v Nastavení → Přístupy (dokument `access/{email}`).
 - Rules validují strukturu a limity dokumentů; klient navíc validuje každou sérii (`sanitizeSet` v `util.js`).
 - App Check: vlož site key do `APP_CHECK_SITE_KEY` v `firebase.js` (postup v `INSTRUKCE.md`).
 - Nasazení pravidel: Firebase Console → Firestore → Rules, nebo `firebase deploy --only firestore:rules`.
@@ -74,3 +75,9 @@ Otevři nasazenou URL → Safari: *Sdílet → Přidat na plochu* / Chrome: *Nai
 - Tmavý vzhled (Nastavení → Vzhled), lepší kontrast, vlastní dialogy, přístupné panely (Esc, focus).
 - Rozdělený store (bez zbytečných překreslení), lazy obrazovky, Workbox SW s precache a update bannerem, self-hosted fonty.
 - ESLint, Vitest, CI.
+
+## 5.2 – připraveno pro další uživatele
+- Rules validují tvar tréninků, šablon, knihovny i nastavení; testy rules běží v CI (job `rules`).
+- Zápisy po dávkách max. 15 operací (limit volání `exists()` v rules pro přidané účty).
+- Smazání účtu a všech dat (Nastavení → Smazání účtu), zásady ochrany osobních údajů `public/privacy.html`.
+- Historie po 8 týdnech, sdílené výpočty (`lib/derived.js`), čeština jako samostatný chunk (`lib/i18n.cs.js`).

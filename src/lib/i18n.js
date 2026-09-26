@@ -3,20 +3,33 @@ import { useEffect, useState } from 'react';
 
 const KEY = 'forge:lang';
 const listeners = new Set();
-export const getLang = () => {
+// Uložená volba jazyka (i když čeština ještě není načtená)
+export const storedLang = () => {
   try { return localStorage.getItem(KEY) === 'cs' ? 'cs' : 'en'; } catch { return 'en'; }
 };
+// B8: čeština je samostatný chunk – angličtina se neplatí stahováním obou slovníků.
+let csLoading = null;
+export const loadLang = (l = storedLang()) =>
+  l !== 'cs' || D.cs ? Promise.resolve() : (csLoading ||= import('./i18n.cs.js').then((m) => { D.cs = m.default; }).catch((e) => { csLoading = null; throw e; }));
+// Aktivní jazyk: čeština až po načtení slovníku (do té doby angličtina, nikdy klíče)
+export const getLang = () => (storedLang() === 'cs' && D.cs ? 'cs' : 'en');
+// Přepnutí jazyka: angličtina / už načtená čeština hned, jinak po stažení slovníku
 export const setLang = (l) => {
-  try { localStorage.setItem(KEY, l); } catch { /* ignore */ }
-  document.documentElement.lang = l;
-  listeners.forEach((f) => f());
+  const apply = () => {
+    try { localStorage.setItem(KEY, l); } catch { /* ignore */ }
+    document.documentElement.lang = l;
+    listeners.forEach((f) => f());
+  };
+  if (l !== 'cs' || D.cs) { apply(); return Promise.resolve(); }
+  return loadLang(l).then(apply);
 };
 export const locale = () => (getLang() === 'cs' ? 'cs-CZ' : 'en-GB');
 
+// Angličtina (výchozí). Export EN jen kvůli testu shody klíčů s češtinou.
 const D = {
   en: {
     // nav
-    'nav.home': 'Home', 'nav.workout': 'Workout', 'nav.history': 'History', 'nav.stats': 'Stats',
+    'nav.home': 'Home', 'nav.back': 'Back', 'nav.workout': 'Workout', 'nav.history': 'History', 'nav.stats': 'Stats',
     'nav.exercises': 'Exercises', 'nav.templates': 'Templates', 'nav.settings': 'Settings', 'nav.live': 'Workout in progress',
     'view.desktop': 'Desktop', 'view.mobile': 'Mobile', 'view.auto': 'Auto', 'view.switch': 'Switch layout',
     // login
@@ -33,7 +46,7 @@ const D = {
     // home
     'home.hi': 'Hi', 'home.hiName': 'Hi, {name}', 'home.title': 'What are we training today?',
     'home.unfinished': 'Unfinished workout', 'home.continue': 'Continue', 'home.quickStart': 'Quick start', 'home.upNext': 'up next',
-    'home.start': 'Start {name}', 'home.empty': 'Start empty workout', 'home.mine': 'Start my template',
+    'home.start': 'Start {name}', 'home.empty': 'Empty workout', 'home.mine': 'Start my template',
     'home.weekWorkouts': 'workouts this week', 'home.weekVolume': 'volume this week', 'home.total': 'workouts total',
     'home.recentPrs': 'Recent records', 'home.allStats': 'All stats', 'home.noPrs': 'Records appear after your first finished workout.',
     'home.openStats': 'Open stats',
@@ -41,13 +54,13 @@ const D = {
     'count.exercises': { one: '{n} exercise', other: '{n} exercises' }, 'count.sets': { one: '{n} set', other: '{n} sets' },
     // workout
     'wo.title': 'Workout', 'wo.none': 'No workout in progress.', 'wo.pickTemplate': 'Choose a template', 'wo.emptyName': 'Quick workout',
-    'wo.finish': 'Finish', 'wo.sets': '{done}/{total} sets', 'wo.recommended': 'suggested {w}', 'wo.pb': 'Personal best',
+    'wo.finish': 'Finish', 'wo.sets': '{done}/{total} sets', 'wo.recommended': 'suggested {w}', 'wo.pb': 'Heaviest set so far', 'rec.max': 'Max',
     'wo.weight': 'Weight, set {n}', 'wo.reps': 'Reps, set {n}', 'wo.check': 'Complete set', 'wo.uncheck': 'Undo set',
-    'wo.delSet': 'Delete set {n}', 'wo.newPb': 'New PB', 'wo.addSet': 'Set', 'wo.up': 'Move up', 'wo.down': 'Move down',
+    'wo.delSet': 'Delete set {n}', 'wo.newPb': 'New max', 'wo.addSet': 'Set', 'wo.up': 'Move up', 'wo.down': 'Move down',
     'wo.removeEx': 'Remove exercise', 'wo.confirmRemoveEx': 'Remove “{name}” from this workout?', 'wo.addFirst': 'Add your first exercise.',
     'wo.addEx': 'Add exercise', 'wo.discard': 'Discard workout', 'wo.confirmDiscard': 'Discard the unfinished workout?',
     'wo.needReps': 'Enter reps first', 'wo.needOne': 'Log and tick at least one set',
-    'wo.saved': 'Workout saved', 'wo.savedPb': 'Workout saved · {n}× new PB', 'wo.col.set': '#', 'wo.col.kg': 'kg', 'wo.col.reps': 'Reps',
+    'wo.saved': 'Workout saved', 'wo.savedPb': 'Workout saved · {n}× new record', 'wo.col.set': '#', 'wo.col.kg': 'kg', 'wo.col.reps': 'Reps',
     'wo.replace': 'Your unfinished workout will be replaced. Continue?',
     // picker
     'pick.title': 'Add exercise', 'pick.close': 'Close', 'pick.search': 'Search exercises', 'pick.all': 'All',
@@ -55,7 +68,7 @@ const D = {
     // history
     'hist.title': 'History', 'hist.analytics': 'Stats', 'hist.list': 'List', 'hist.calendar': 'Calendar',
     'hist.allTemplates': 'All workouts', 'hist.loading': 'Loading…', 'hist.empty': 'No finished workouts yet.',
-    'hist.noMatch': 'No workouts match this filter.', 'hist.delete': 'Delete', 'hist.confirmDelete': 'Delete this workout from history?',
+    'hist.noMatch': 'No workouts match this filter.', 'hist.delete': 'Delete', 'hist.more': { one: 'Show older ({n} workout)', other: 'Show older ({n} workouts)' }, 'hist.confirmDelete': 'Delete this workout from history?',
     'hist.dayEmpty': 'Rest day.', 'hist.prev': 'Previous month', 'hist.next': 'Next month', 'hist.month': { one: '{n} workout this month', other: '{n} workouts this month' },
     // templates
     'tpl.title': 'Templates', 'tpl.mine': 'My templates', 'tpl.start': 'Start', 'tpl.edit': 'Edit', 'tpl.editCopy': 'Edit copy',
@@ -80,7 +93,7 @@ const D = {
     'an.workouts': 'Workouts', 'an.perWeek': '{n} per week', 'an.volume': 'Volume', 'an.volumeSub': 'weight × reps',
     'an.sets': 'Sets', 'an.setsSub': 'completed', 'an.avg': 'Avg duration', 'an.avgSub': 'per workout',
     'an.progress': 'Exercise progress', 'an.exercise': 'Exercise', 'an.e1rm': 'Est. 1RM', 'an.top': 'Top weight', 'an.maxReps': 'Max reps',
-    'an.pb': 'PB', 'an.sessions': 'Sessions', 'an.change': 'Top weight change', 'an.date': 'Date', 'an.setsCol': 'Sets', 'an.volCol': 'Volume',
+    'an.pb': 'Max', 'an.sessions': 'Sessions', 'an.change': 'Top weight change', 'an.date': 'Date', 'an.setsCol': 'Sets', 'an.volCol': 'Volume',
     'an.weeklyVol': 'Weekly volume', 'an.weeklyN': 'Workouts per week', 'an.muscles': 'Sets by muscle group', 'an.attendance': 'Attendance',
     'an.weeks': '{n} weeks', 'an.prs': 'Personal records', 'an.record': 'Record', 'an.weekOf': 'Week of {d}', 'an.fewData': 'Not enough data yet.',
     'an.r4': '4w', 'an.r12': '12w', 'an.r26': '6m', 'an.r52': '1y', 'an.mon': 'Mon', 'an.wed': 'Wed', 'an.fri': 'Fri', 'an.nWorkouts': '{n}× workout',
@@ -124,8 +137,9 @@ const D = {
     'home.weekGoal': 'weekly goal', 'guide.title': 'Getting started', 'guide.hide': 'Hide guide',
     'guide.start': 'Start a workout', 'guide.startSub': 'Pick your next template in Quick start.', 'guide.set': 'Tick a set', 'guide.setSub': 'The rest timer starts on its own.',
     'guide.stats': 'Check your progress', 'guide.statsSub': 'Tap the tiles below for stats and records.',
+    'del.section': 'Delete account', 'del.sectionSub': 'Permanently deletes your workouts, records, templates and settings, and your sign-in. Export a backup first if you want to keep anything.', 'del.btn': 'Delete account and data', 'del.busy': 'Deleting…', 'del.title': 'Delete your account?', 'del.msg': { one: 'This permanently deletes {n} workout and everything else in your account. It cannot be undone.', other: 'This permanently deletes {n} workouts and everything else in your account. It cannot be undone.' }, 'del.word': 'DELETE', 'del.type': 'Type {word} to confirm', 'del.ok': 'Delete forever', 'del.mismatch': 'Type {word} to confirm', 'del.done': 'Your account and all data were deleted.', 'del.doneData': 'All data was deleted and you were signed out. The sign-in record will be removed by the admin.', 'del.fail': 'Deleting failed: {m}', 'del.offline': 'Deleting your account needs a connection.', 'legal.privacy': 'Privacy policy',
     'set.backup': 'Backup', 'set.backupSub': 'Export your data or restore it from a file. Import adds to what you have.', 'set.import': 'Import',
-    'set.importBad': 'This file is not a Forge backup.', 'set.importOffline': 'Import needs a connection – try again online.', 'set.importConfirm': { one: 'Import {n} workout from this backup? Existing data stays.', other: 'Import {n} workouts from this backup? Existing data stays.' },
+    'set.importBad': 'This file is not a Forge backup.', 'set.langFail': 'Couldn’t load Czech – try again online.', 'set.importOffline': 'Import needs a connection – try again online.', 'set.importConfirm': { one: 'Import {n} workout from this backup? Existing data stays.', other: 'Import {n} workouts from this backup? Existing data stays.' },
     'set.importTplConfirm': { one: 'Import {n} template from this file? Nothing else changes.', other: 'Import {n} templates from this file? Nothing else changes.' },
     'set.importDone': 'Imported: {w} workouts, {t} templates, {e} exercises', 'set.danger': 'Reset', 'set.dangerSub': 'Restores defaults. Your workout history stays.',
     'prof.demoSub': 'Two sample splits: Push/Pull/Legs and Upper/Lower',
@@ -138,7 +152,7 @@ const D = {
     'look.title': 'Appearance', 'look.sub': 'Just for your account – synced across your devices.', 'look.tint': 'Background tint', 'look.strength': 'Tint strength · {n} %',
     'look.accent': 'Button colour', 'look.none': 'Default', 'look.custom': 'Custom colour', 'look.preview': 'Preview',
     'acc.title': 'Access', 'acc.sub': 'Who can sign in. Everyone has their own data, templates and look.', 'acc.email': 'Google account e-mail', 'acc.add': 'Add',
-    'acc.founder': 'built-in', 'acc.loading': 'Loading…', 'acc.bad': 'That doesn’t look like an e-mail address.', 'acc.exists': 'This account already has access.',
+    'acc.founder': 'admin', 'acc.loading': 'Loading…', 'acc.bad': 'That doesn’t look like an e-mail address.', 'acc.exists': 'This account already has access.',
     'acc.added': '{email} can now sign in', 'acc.remove': 'Remove access', 'acc.removeConfirm': 'Remove access for {email}? Their data stays, they just can’t sign in.',
     'acc.removed': 'Access removed', 'acc.saveErr': 'Couldn’t save – check the Firestore rules are deployed.', 'acc.loadErr': 'Couldn’t load the access list.',
     'pv.label': 'App preview', 'pv.workout': 'Log sets in seconds', 'pv.workoutSub': 'Last time and your next goal under every set. Rest timer starts on its own.',
@@ -203,188 +217,12 @@ const D = {
     'hist.edit': 'Edit', 'edit.title': 'Edit workout', 'edit.name': 'Name', 'edit.start': 'Start', 'edit.duration': 'Duration (min)',
     'edit.save': 'Save changes', 'edit.saved': 'Workout updated', 'edit.needSet': 'Keep at least one set with reps or time.',
     'edit.future': 'The start cannot be in the future.', 'edit.discard': 'Discard your changes?', 'edit.discardOk': 'Discard', 'undo.workoutEdit': 'workout edit',
-  },
-  cs: {
-    'nav.home': 'Domů', 'nav.workout': 'Trénink', 'nav.history': 'Historie', 'nav.stats': 'Statistiky',
-    'nav.exercises': 'Cvičení', 'nav.templates': 'Šablony', 'nav.settings': 'Nastavení', 'nav.live': 'Probíhá trénink',
-    'view.desktop': 'Desktop', 'view.mobile': 'Mobil', 'view.auto': 'Auto', 'view.switch': 'Přepnout zobrazení',
-    'login.sub': 'Klidný a soustředěný deník pro každou sérii. Vlastní šablony, osobní rekordy a přehled pokroku – i bez signálu v posilovně.',
-    'login.eyebrow': 'Tréninkový deník', 'login.title1': 'Trénuj', 'login.title2': 's rozmyslem.',
-    'login.secure': 'Bezpečné přihlášení přes Google účet', 'login.featuresAria': 'Funkce',
-    'login.f1': 'Zápis za pár vteřin', 'login.f1d': 'Velká tlačítka, odpočet pauzy a mazání potažením. Stavěné pro zpocené ruce.',
-    'login.f2': 'Pokrok, který vidíš', 'login.f2d': 'Automatické osobní rekordy, týdenní cíle a přehledné grafy.',
-    'login.f3': 'Funguje offline', 'login.f3d': 'Trénuj i bez signálu. Po připojení se vše samo synchronizuje.',
-    'login.footer': 'Soukromá appka · přístup na pozvání',
-    'login.pvExercise': 'BENCH PRESS', 'login.pvTrend': '8 TÝDNŮ', 'login.pvWeek': 'TENTO MĚSÍC',
-    'login.google': 'Přihlásit přes Google', 'login.demo': 'Vstoupit do demo režimu',
-    'login.demoNote': 'Firebase není nastavený. Data se ukládají jen v tomto prohlížeči (viz README).',
-    'home.hi': 'Ahoj', 'home.hiName': 'Ahoj, {name}', 'home.title': 'Co dnes potrénujeme?',
-    'home.unfinished': 'Rozdělaný trénink', 'home.continue': 'Pokračovat', 'home.quickStart': 'Rychlý start', 'home.upNext': 'na řadě',
-    'home.start': 'Začít {name}', 'home.empty': 'Zahájit rychlý trénink', 'home.mine': 'Spustit moji šablonu',
-    'home.weekWorkouts': 'tréninků tento týden', 'home.weekVolume': 'objem tento týden', 'home.total': 'tréninků celkem',
-    'home.recentPrs': 'Nedávné rekordy', 'home.allStats': 'Všechny statistiky', 'home.noPrs': 'Rekordy se objeví po prvním dokončeném tréninku.',
-    'home.openStats': 'Otevřít statistiky',
-    'groups.PUSH': 'Prsa, ramena, triceps', 'groups.PULL': 'Záda, zadní delty, biceps', 'groups.LEGS': 'Nohy, hýždě, břicho', 'groups.UPPER': 'Záda, ramena, paže', 'groups.LOWER': 'Hýždě, hamstringy, stehna', 'groups.ABS': 'Střed těla a kardio',
-    'count.exercises': '{n} cvičení', 'count.sets': { one: '{n} série', few: '{n} série', many: '{n} série', other: '{n} sérií' },
-    'wo.title': 'Trénink', 'wo.none': 'Žádný trénink neprobíhá.', 'wo.pickTemplate': 'Vybrat šablonu', 'wo.emptyName': 'Rychlý trénink',
-    'wo.finish': 'Dokončit', 'wo.sets': '{done}/{total} sérií', 'wo.recommended': 'doporučeno {w}', 'wo.pb': 'Osobní rekord',
-    'wo.weight': 'Váha, série {n}', 'wo.reps': 'Opakování, série {n}', 'wo.check': 'Odškrtnout sérii', 'wo.uncheck': 'Zrušit odškrtnutí',
-    'wo.delSet': 'Smazat sérii {n}', 'wo.newPb': 'Nový rekord', 'wo.addSet': 'Série', 'wo.up': 'Posunout výš', 'wo.down': 'Posunout níž',
-    'wo.removeEx': 'Odebrat cvičení', 'wo.confirmRemoveEx': 'Odebrat „{name}“ z tréninku?', 'wo.addFirst': 'Přidej první cvičení.',
-    'wo.addEx': 'Přidat cvičení', 'wo.discard': 'Zahodit trénink', 'wo.confirmDiscard': 'Zahodit rozdělaný trénink?',
-    'wo.needReps': 'Doplň opakování', 'wo.needOne': 'Zapiš a odškrtni aspoň jednu sérii',
-    'wo.saved': 'Trénink uložen', 'wo.savedPb': 'Trénink uložen · {n}× nový rekord', 'wo.col.set': '#', 'wo.col.kg': 'kg', 'wo.col.reps': 'Opak.',
-    'wo.replace': 'Rozdělaný trénink bude nahrazen. Pokračovat?',
-    'pick.title': 'Přidat cvičení', 'pick.close': 'Zavřít', 'pick.search': 'Hledat cvičení', 'pick.all': 'Vše',
-    'pick.inWorkout': 'přidáno', 'pick.none': 'Nic nenalezeno.', 'pick.create': 'Vytvořit „{name}“', 'pick.createBtn': 'Vytvořit', 'pick.category': 'Partie',
-    'hist.title': 'Historie', 'hist.analytics': 'Statistiky', 'hist.list': 'Seznam', 'hist.calendar': 'Kalendář',
-    'hist.allTemplates': 'Všechny tréninky', 'hist.loading': 'Načítám…', 'hist.empty': 'Zatím žádný odcvičený trénink.',
-    'hist.noMatch': 'Filtru neodpovídá žádný trénink.', 'hist.delete': 'Smazat', 'hist.confirmDelete': 'Smazat trénink z historie?',
-    'hist.dayEmpty': 'Volno.', 'hist.prev': 'Předchozí měsíc', 'hist.next': 'Další měsíc', 'hist.month': { one: '{n} trénink tento měsíc', few: '{n} tréninky tento měsíc', many: '{n} tréninku tento měsíc', other: '{n} tréninků tento měsíc' },
-    'tpl.title': 'Šablony', 'tpl.mine': 'Moje šablony', 'tpl.start': 'Spustit', 'tpl.edit': 'Upravit', 'tpl.editCopy': 'Upravit kopii',
-    'tpl.delete': 'Smazat šablonu', 'tpl.confirmDelete': 'Smazat šablonu?', 'tpl.new': 'Nová šablona', 'tpl.name': 'Název šablony',
-    'tpl.sets': 'Série', 'tpl.reps': 'Opak.', 'tpl.kg': 'kg', 'tpl.max': 'max', 'tpl.toFailure': 'do selhání', 'tpl.note': 'Poznámka (např. drop-set, do selhání)',
-    'tpl.remove': 'Odebrat', 'tpl.save': 'Uložit šablonu', 'tpl.cancel': 'Zrušit', 'tpl.less': 'Méně', 'tpl.more': 'Více',
-    'tpl.copySuffix': '(moje)', 'tpl.color': 'Barva', 'tpl.noColor': 'Bez barvy',
-    'ex.title': 'Cvičení', 'ex.count': '{n} cvičení', 'ex.export': 'Export CSV', 'ex.import': 'Import CSV',
-    'ex.importMode': 'Nahradit celou knihovnu tímto souborem? (Zrušit = jen doplnit)', 'ex.imported': 'Importováno {n} cvičení',
-    'ex.importFail': 'Nenalezen žádný platný řádek. Očekávané sloupce: name,category', 'ex.add': 'Přidat cvičení', 'ex.namePh': 'Název cvičení',
-    'ex.delete': 'Smazat z knihovny', 'ex.confirmDelete': 'Smazat „{name}“ z knihovny? Historie zůstane.',
-    'ex.sessions': '{n}× zapsáno', 'ex.rename': 'Přejmenovat nebo sloučit', 'ex.renameTitle': 'Přejmenovat „{name}“', 'ex.renameField': 'Nový název – existující cvik sloučí historii', 'ex.mergeTitle': 'Sloučit do „{to}“?', 'ex.mergeMsg': { one: 'Historie „{from}“ ({n} trénink), její rekordy i šablony přejdou pod „{to}“. Jde to vrátit.', few: 'Historie „{from}“ ({n} tréninky), její rekordy i šablony přejdou pod „{to}“. Jde to vrátit.', other: 'Historie „{from}“ ({n} tréninků), její rekordy i šablony přejdou pod „{to}“. Jde to vrátit.' }, 'ex.mergeOk': 'Sloučit', 'ex.renamed': 'Přejmenováno na „{name}“', 'ex.merged': 'Sloučeno do „{name}“', 'ex.renameType': 'Cvik na čas nejde sloučit s cvikem na opakování', 'ex.historyOnly': 'Jen v historii', 'ex.historyOnlySub': 'Zapsané, ale nejsou v knihovně – často překlep. Přejmenuj je nebo slouč.', 'ex.exists': 'Už je v knihovně', 'ex.search': 'Hledat',
-    'set.title': 'Nastavení', 'set.user': 'Uživatel', 'set.storage': 'Úložiště', 'set.cloud': 'Cloud Firestore', 'set.local': 'Lokální (demo)',
-    'set.units': 'Jednotky', 'set.done': 'Odcvičených tréninků', 'set.view': 'Zobrazení', 'set.lang': 'Jazyk',
-    'set.library': 'Knihovna cvičení', 'set.openLibrary': 'Spravovat cvičení', 'set.reset': 'Obnovit výchozí cvičení',
-    'set.confirmReset': 'Obnovit výchozí knihovnu cvičení? Vlastní cviky budou odstraněny (historie zůstane).', 'set.resetDone': 'Výchozí cvičení obnovena',
-    'set.export': 'Export (JSON)', 'set.exported': 'Export stažen', 'set.logout': 'Odhlásit se',
-    'an.title': 'Podrobné statistiky', 'an.empty': 'Grafy se objeví po prvních dokončených trénincích.', 'an.period': 'Období',
-    'an.workouts': 'Tréninky', 'an.perWeek': '{n} týdně', 'an.volume': 'Objem', 'an.volumeSub': 'váha × opakování',
-    'an.sets': 'Série', 'an.setsSub': 'odškrtnutých', 'an.avg': 'Průměrná délka', 'an.avgSub': 'na trénink',
-    'an.progress': 'Progres cvičení', 'an.exercise': 'Cvičení', 'an.e1rm': 'Odhad 1RM', 'an.top': 'Top váha', 'an.maxReps': 'Max opakování',
-    'an.pb': 'PB', 'an.sessions': 'Tréninků', 'an.change': 'Změna top váhy', 'an.date': 'Datum', 'an.setsCol': 'Série', 'an.volCol': 'Objem',
-    'an.weeklyVol': 'Objem po týdnech', 'an.weeklyN': 'Tréninky po týdnech', 'an.muscles': 'Série podle partie', 'an.attendance': 'Docházka',
-    'an.weeks': '{n} týdnů', 'an.prs': 'Osobní rekordy', 'an.record': 'Rekord', 'an.weekOf': 'Týden od {d}', 'an.fewData': 'Zatím málo dat.',
-    'an.r4': '4 t', 'an.r12': '12 t', 'an.r26': '6 m', 'an.r52': '1 r', 'an.mon': 'Po', 'an.wed': 'St', 'an.fri': 'Pá', 'an.nWorkouts': '{n}× trénink',
-    'cat.chest': 'Prsa', 'cat.back': 'Záda', 'cat.shoulders': 'Ramena', 'cat.biceps': 'Biceps', 'cat.triceps': 'Triceps',
-    'cat.legs': 'Nohy', 'cat.glutes': 'Hýždě', 'cat.abs': 'Břicho', 'cat.cardio': 'Kardio', 'cat.other': 'Ostatní',
-    'prof.title': 'Tréninkový profil', 'prof.pick': 'Kdo na tomhle účtu trénuje?', 'prof.pickSub': 'Načte tvůj split a šablony. Změnit to jde později v Nastavení.', 'prof.saved': 'Profil nastaven: {name}',
-    'wo.col.min': 'Min', 'tpl.min': 'Min', 'an.maxTime': 'Nejdelší (min)', 'ex.timed': 'na čas',
-    'type.reps': 'kg × opak.', 'type.time': 'čas', 'type.label': 'Typ', 'type.repsLong': 'Váha × opakování', 'type.timeLong': 'Čas (min)',
-    'info.open': 'Jak cvičit {name}', 'info.title': 'Návod', 'info.source': 'Zdroj: free-exercise-db · {name} (anglicky)', 'info.none': 'Pro tento cvik zatím není psaný návod.', 'info.video': 'Video na YouTube ↗',
-    'info.custom': 'vlastní', 'pick.mine': 'Moje knihovna', 'pick.db': 'Z databáze cviků', 'pick.dbHint': 'Napiš aspoň 2 písmena a hledej v 870+ cvicích', 'pick.dbFail': 'Databáze není dostupná (offline?)', 'pick.dbAdd': 'přidat', 'ex.browse': 'Procházet databázi', 'ex.customTitle': 'Přidat vlastní cvik', 'ex.added': 'Přidáno: {name}',
-    'undo.btn': 'Vrátit', 'undo.title': 'Vrátit: {what} (zbývá {n})', 'undo.done': 'Vráceno: {what}', 'undo.tpl': 'úprava šablony', 'undo.tplDel': 'smazání šablony',
-    'undo.group': 'přejmenování skupiny', 'undo.reset': 'reset šablon', 'undo.library': 'úprava knihovny cvičení', 'undo.rename': 'přejmenování cviku', 'undo.workout': 'smazání tréninku',
-    'tpl.main': 'Hlavní šablony', 'tpl.variant': 'Varianta', 'tpl.addVariant': 'Přidat variantu', 'tpl.duplicate': 'Kopírovat do Mých šablon',
-    'tpl.renameGroup': 'Přejmenovat skupinu', 'tpl.groupName': 'Název skupiny', 'tpl.groupSub': 'Popis (volitelné)', 'tpl.lastInGroup': 'Ve skupině musí zůstat aspoň jedna šablona',
-    'set.resetTpl': 'Obnovit šablony', 'set.confirmResetTpl': 'Obnovit výchozí hlavní šablony tohoto profilu? Moje šablony zůstanou.', 'set.resetTplDone': 'Hlavní šablony obnoveny',
-    'err.load': 'Načtení dat selhalo: {m}', 'err.save': 'Uložení selhalo: {m}', 'err.delete': 'Smazání selhalo: {m}', 'err.login': 'Přihlášení selhalo: {m}',
-    'crash.title': 'Na téhle obrazovce se něco pokazilo', 'crash.msg': 'Rozdělaný trénink je uložený v zařízení. Znovu načti appku a pokračuj.', 'crash.reload': 'Znovu načíst', 'crash.home': 'Zpět na Domů',
-
-    // v5
-    'login.denied': 'Účet {email} nemá do appky přístup.',
-    'nav.main': 'Hlavní navigace',
-    'wo.time': 'Minuty, série {n}', 'wo.dec': 'Snížit: {what}', 'wo.inc': 'Zvýšit: {what}',
-    'wo.last': 'minule', 'wo.goal': 'cíl', 'wo.more': 'Další akce: {name}', 'wo.warmOn': 'Označit jako rozcvičku', 'wo.warmOff': 'Označit jako pracovní sérii', 'wo.warmNote': 'rozcvička · nepočítá se',
-    'wo.addWarm': 'Přidat rozcvičkovou sérii', 'wo.noteTitle': 'Poznámka a RPE', 'wo.notePh': 'Jak to šlo? Výška sedačky, úchop…', 'wo.rpe': 'RPE (náročnost)', 'wo.rpeHelp': '10 = nic nezbylo · 8 = dvě opakování v rezervě · 6 = lehké',
-    'wo.syncTitle': 'Aktualizovat „{name}“?', 'wo.syncMsg': 'Změnil jsi cviky, jejich pořadí, počet sérií nebo supersety. Uložit tuhle podobu do šablony na příště?',
-    'wo.syncYes': 'Aktualizovat šablonu', 'wo.syncNo': 'Nechat šablonu', 'wo.synced': 'Šablona „{name}“ aktualizována',
-    'ss.label': 'Superset {l}', 'ss.link': 'Superset s „{name}“', 'ss.unlink': 'Zrušit superset', 'ss.linkNext': 'Superset s dalším', 'ss.linked': 'Superset s dalším ✓', 'ss.short': 'superset',
-    'plate.title': 'Kalkulačka kotoučů', 'plate.total': 'Celková váha (kg)', 'plate.bar': 'Osa', 'plate.perSide': 'Na každou stranu', 'plate.empty': 'Jen osa.',
-    'plate.light': 'Méně než samotná osa ({bar} kg).', 'plate.rest': '{n} kg nejde složit ze standardních kotoučů.',
-    'sum.eyebrow': 'Trénink dokončen', 'sum.records': 'Rekordy', 'sum.recordsSub': 'překonané dnes', 'sum.newRecords': 'Nové rekordy', 'sum.vsPrev': 'Srovnání s minulým tréninkem ({d})',
-    'sum.done': 'Hotovo', 'sum.ctaTitle': 'Líbí se? Pořiď si vlastní Forge', 'sum.ctaText': 'Soukromá verze s tvým splitem, šablonami a daty – nastavím ti ji.',
-    'rec.title': 'Rekordy', 'rec.e1': 'e1RM {v} kg', 'rec.reps': '{r} opak. @ {w} kg', 'rec.mostAt': 'Nejvíc opakování @ {w} kg', 'rec.nReps': { one: '{n} opakování', other: '{n} opakování' },
-    'hist.thisWeek': 'Tento týden', 'hist.lastWeek': 'Minulý týden', 'hist.weekOf': 'Týden od {d}', 'hist.weekSum': { one: '{n} trénink · {v} t', few: '{n} tréninky · {v} t', other: '{n} tréninků · {v} t' },
-    'hist.pbBadge': { one: '{n} rekord', few: '{n} rekordy', other: '{n} rekordů' }, 'hist.repeat': 'Zopakovat', 'hist.searchEx': 'Najít cvik…',
-    'cmp.more': 'Další metriky', 'cmp.less': 'Méně metrik', 'cmp.explain': 'Hustota = zvednutá kg za minutu. Intenzita = průměrná váha jako % tvého nejlepšího odhadu 1RM před tímto tréninkem.',
-    'ms.allEx': 'Všechny cviky ({n})', 'ms.allTitle': 'Všechny cviky',
-    'tpl.mainSub': 'Tvoje tréninková rotace. Home nabízí další v pořadí: {order}.', 'tpl.mineSub': 'Doplňkové nebo jednorázové tréninky mimo rotaci.',
-    'tpl.planIs': 'Plán po sériích: {p}. Změna sérií, opakování nebo váhy ho nahradí.',
-    'home.weekGoal': 'týdenní cíl', 'guide.title': 'Jak začít', 'guide.hide': 'Skrýt průvodce',
-    'guide.start': 'Začni trénink', 'guide.startSub': 'V Rychlém startu je připravená další šablona.', 'guide.set': 'Odškrtni sérii', 'guide.setSub': 'Odpočet pauzy se spustí sám.',
-    'guide.stats': 'Mrkni na pokrok', 'guide.statsSub': 'Dlaždice níže vedou do statistik a rekordů.',
-    'set.backup': 'Záloha', 'set.backupSub': 'Exportuj data nebo je obnov ze souboru. Import přidá k tomu, co už máš.', 'set.import': 'Import',
-    'set.importBad': 'Tohle není záloha Forge.', 'set.importOffline': 'Import potřebuje připojení – zkus to online.', 'set.importConfirm': { one: 'Importovat {n} trénink ze zálohy? Stávající data zůstanou.', few: 'Importovat {n} tréninky ze zálohy? Stávající data zůstanou.', other: 'Importovat {n} tréninků ze zálohy? Stávající data zůstanou.' },
-    'set.importTplConfirm': { one: 'Importovat {n} šablonu ze souboru? Nic jiného se nezmění.', few: 'Importovat {n} šablony ze souboru? Nic jiného se nezmění.', other: 'Importovat {n} šablon ze souboru? Nic jiného se nezmění.' },
-    'set.importDone': 'Importováno: tréninky {w}, šablony {t}, cviky {e}', 'set.danger': 'Obnovení', 'set.dangerSub': 'Vrátí výchozí stav. Historie tréninků zůstane.',
-    'prof.demoSub': 'Dva ukázkové splity: Push/Pull/Legs a Horní/Dolní',
-    'groups.FULLA': 'Dřep, bench, přítahy', 'groups.FULLB': 'Mrtvý tah, šikmý bench, stahování', 'groups.FULLC': 'Leg press, tlaky nad hlavu, přítahy',
-    'start.title': 'Vyber si startovní split', 'start.sub': 'Zkopíruje se do tvého účtu – v Šablonách pak můžeš cokoliv přejmenovat, upravit nebo smazat.',
-    'start.ppl': 'Push / Pull / Legs', 'start.pplSub': '3 skupiny, varianty Normal a Hardcore. Klasika na 3–6 dní v týdnu.',
-    'start.ul': 'Horní / Dolní + Břicho', 'start.ulSub': 'Dny na horní a dolní polovinu těla (A/B) plus střed těla a kardio.',
-    'start.fb': 'Full body 3× týdně', 'start.fbSub': 'Tři celotělové tréninky A / B / C – ideální na 3 dny v týdnu.',
-    'start.resetMsg': 'Hlavní šablony se nahradí vybraným startovním splitem. Historie tréninků a tvoje vlastní šablony zůstanou.', 'start.current': 'aktuální',
-    'look.title': 'Vzhled', 'look.sub': 'Jen pro tvůj účet – synchronizuje se mezi zařízeními.', 'look.tint': 'Podbarvení pozadí', 'look.strength': 'Síla podbarvení · {n} %',
-    'look.accent': 'Barva tlačítek', 'look.none': 'Výchozí', 'look.custom': 'Vlastní barva', 'look.preview': 'Náhled',
-    'acc.title': 'Přístupy', 'acc.sub': 'Kdo se smí přihlásit. Každý má vlastní data, šablony i vzhled.', 'acc.email': 'E-mail Google účtu', 'acc.add': 'Přidat',
-    'acc.founder': 'napevno', 'acc.loading': 'Načítám…', 'acc.bad': 'Tohle nevypadá jako e-mailová adresa.', 'acc.exists': 'Tenhle účet už přístup má.',
-    'acc.added': '{email} se teď může přihlásit', 'acc.remove': 'Odebrat přístup', 'acc.removeConfirm': 'Odebrat přístup pro {email}? Data zůstanou, jen se nepřihlásí.',
-    'acc.removed': 'Přístup odebrán', 'acc.saveErr': 'Nepodařilo se uložit – zkontroluj, že jsou nasazená Firestore rules.', 'acc.loadErr': 'Nepodařilo se načíst seznam přístupů.',
-    'pv.label': 'Náhled appky', 'pv.workout': 'Zápis série za pár vteřin', 'pv.workoutSub': 'Pod každou sérií minulý výkon a další cíl. Pauza se odpočítává sama.',
-    'pv.summary': 'Každý rekord na očích', 'pv.summarySub': 'Souhrn po tréninku – nové rekordy a srovnání s minulým tréninkem.',
-    'pv.stats': 'Pokrok na první pohled', 'pv.statsSub': 'Týdny se splněným cílem v řadě, hlavní cviky a svalová rovnováha.',
-    'pv.exercise': 'Každý cvik do detailu', 'pv.exerciseSub': 'Graf odhadu 1RM, rekordy a další cíl.',
-    'pv.looks': 'Appka podle tebe', 'pv.looksSub': 'Tvůj split, tvoje šablony, tvoje barvy.',
-    'tour.start': 'Projít prohlídku (1 minuta)', 'tour.next': 'Další', 'tour.skip': 'Přeskočit', 'tour.close': 'Zavřít',
-    'tour.tick': 'Odškrtni sérii', 'tour.tickSub': 'Až sérii dáš, klepni na ✓ – odpočet pauzy se spustí sám.',
-    'tour.goal': 'Minule → cíl', 'tour.goalSub': 'Pod každou sérií: co jsi dal minule a další krok (+1 opakování, nebo víc váhy na horní hranici rozsahu).',
-    'tour.name': 'Historie cviku', 'tour.nameSub': 'Klepni na název cviku – graf, rekordy a minulé tréninky, bez opuštění tréninku.',
-    'tour.replace': 'Obsazené stanoviště?', 'tour.replaceSub': 'Nahraď cvik – podobné pohyby se nabídnou jako první.',
-    'tour.more': 'Další možnosti', 'tour.moreSub': 'Rozcvičkové série, poznámka a RPE, kalkulačka kotoučů, supersety a pořadí.',
-    'tour.finish': 'Dokonči trénink', 'tour.finishSub': 'Klepni na Dokončit trénink. Neodškrtnuté série můžeš uložit, nebo vynechat.',
-    'tour.summary': 'Tvůj souhrn', 'tour.summarySub': 'Délka, objem, série a rekordy – ve srovnání s minulým stejným tréninkem.',
-    'tour.cta': 'To je Forge', 'tour.ctaSub': 'Historii a statistiky najdeš v menu dole. Chceš vlastní verzi? Klepni na tlačítko výše.',
-    'wo.hold': 'udržet', 'step.row': 'Krok váhy · {n} kg', 'step.title': 'Krok váhy', 'step.auto': 'Automaticky',
-    'step.help': 'Kolik cíl přidá, až všechny série dosáhnou horní hranice rozsahu. Automaticky = podle tvé historie (např. stroj po 5 kg).',
-    'tpl.range': 'Rozsah opakování {lo} –',
-    'ms.title': 'Statistiky', 'ms.vsPrev': '{d} oproti minule', 'ms.goalOf': '{n} / {g} cíl', 'ms.dow': 'Po,Út,St,Čt,Pá,So,Ne',
-    'ms.nextUp': 'Na řadě:', 'ms.never': 'zatím necvičeno', 'ms.lastToday': 'naposledy dnes', 'ms.lastAgo': { one: 'naposledy před {n} dnem', other: 'naposledy před {n} dny' },
-    'ms.keyLifts': 'Hlavní cviky', 'ms.current': 'Poslední', 'ms.pinHint': 'Tvých 5 nejčastějších cviků. Vlastní připneš hvězdičkou v detailu.',
-    'ms.pin': 'Připnout mezi hlavní cviky', 'ms.unpin': 'Odepnout z hlavních cviků', 'ms.pinned': 'Připnuto', 'ms.pinMax': 'Připnout jde nejvýš {n} cviků',
-    'ms.muscles': 'Svalová rovnováha', 'ms.mSets': 'Série', 'ms.mAvg': 'vs průměr', 'ms.fewest': 'Nejméně sérií v tomto období: {cat}.',
-    'ms.avgNote': 'Série za týden vs tvůj průměr před tímto obdobím', 'ms.noBase': 'Na srovnání zatím chybí starší historie.', 'ms.below': '{cat} o {p} % níž', 'ms.total': 'celkem {n}',
-    'ms.fullText': 'Týdenní objem, náročnost tréninků, celá tabulka rekordů a srovnání cviků jsou v podrobných statistikách – nejlépe na desktopu.',
-    'ms.fullBtn': 'Podrobné statistiky', 'ms.metric': 'Metrika', 'ms.since': 'od {d}', 'ms.nSessions': { one: '{n} trénink', few: '{n} tréninky', many: '{n} tréninku', other: '{n} tréninků' },
-    'ms.target': 'Další cíl', 'ms.or': 'nebo {s}', 'ms.targetSub': 'o krok dál', 'ms.recent': 'Poslední tréninky',
-    'rep.btn': 'Nahradit', 'rep.title': 'Nahradit cvičení', 'rep.similar': 'Podobný pohyb', 'rep.sameCat': 'Stejná partie · {cat}', 'rep.all': 'Všechna cvičení',
-    'rep.done': '{from} → {to}', 'rep.doneSplit': 'Hotové série zůstaly · {to} přidáno pod',
-    'undo.redoBtn': 'Znovu', 'undo.redoTitle': 'Znovu: {what} (zbývá {n})', 'undo.redone': 'Znovu provedeno: {what}', 'undo.pill': 'Vrátit a znovu',
-    'wo.finishLong': 'Dokončit trénink',
-    'wo.setRemoved': 'Série smazána', 'wo.exRemoved': 'Cvičení odebráno', 'wo.swipeHint': 'Sérii smažeš potažením doleva.',
-    'wo.uncheckedTitle': { one: '{n} vyplněná série není odškrtnutá', few: '{n} vyplněné série nejsou odškrtnuté', many: '{n} vyplněné série není odškrtnuto', other: '{n} vyplněných sérií není odškrtnutých' },
-    'wo.uncheckedMsg': 'Uložit je jako odcvičené, nebo je vynechat?', 'wo.tickSave': 'Odškrtnout a uložit', 'wo.dropSave': 'Uložit bez nich',
-    'err.saveWorkout': 'Uložení selhalo ({m}). Trénink je zpět v záložce Trénink.',
-    'rest.title': 'Pauza', 'rest.skip': 'Přeskočit', 'rest.done': 'Pauza skončila – další série', 'rest.off': 'Vyp.', 'rest.minusAria': 'Zkrátit pauzu o 15 sekund', 'rest.plusAria': 'Prodloužit pauzu o 15 sekund',
-    'set.rest': 'Pauza mezi sériemi', 'set.theme': 'Vzhled', 'theme.light': 'Světlý', 'theme.dark': 'Tmavý', 'theme.auto': 'Auto',
-    'sync.offline': 'Offline – uloženo v zařízení', 'sync.pending': 'Synchronizuji…',
-    'upd.ready': 'Je k dispozici nová verze', 'upd.reload': 'Obnovit',
-    'dlg.cancel': 'Zrušit', 'dlg.confirm': 'Potvrdit', 'dlg.save': 'Uložit',
-    'ex.importTitle': { one: 'Import {n} cvičení', other: 'Import {n} cvičení' }, 'ex.importMerge': 'Doplnit do knihovny', 'ex.importReplace': 'Nahradit knihovnu',
-    'chart.bar': 'Sloupcový graf: {name}', 'chart.line': 'Spojnicový graf: {name}', 'an.attendanceAria': { one: 'Kalendář docházky, {n} trénink', few: 'Kalendář docházky, {n} tréninky', many: 'Kalendář docházky, {n} tréninku', other: 'Kalendář docházky, {n} tréninků' },
-    'info.photo': 'Ilustrace cviku {name}',
-    'login.demoBtn': 'Vyzkoušet demo', 'demo.badge': 'Demo', 'demo.local': 'Ukázková data · jen v tomto prohlížeči', 'demo.want': 'Chci vlastní', 'demo.exit': 'Ukončit demo',
-    'demo.reset': 'Obnovit ukázková data', 'demo.resetConfirm': 'Nahradit všechna data v demu novými ukázkovými?',
-    'demo.formTitle': 'Chcete vlastní Forge?', 'demo.formLead': 'Nechte mi kontakt a ozvu se s nabídkou vlastní verze – vaše šablony, váš účet, vaše data.',
-    'demo.name': 'Jméno', 'demo.email': 'E-mail', 'demo.msg': 'Zpráva', 'demo.msgPh': 'Co trénujete, kdo by appku používal…',
-    'demo.send': 'Odeslat', 'demo.sending': 'Odesílám…', 'demo.sent': 'Děkuji! Brzy se ozvu.', 'demo.sendFail': 'Odeslání se nepovedlo. Zkuste to prosím znovu.',
-    'prof.demoA': 'PPL', 'prof.demoB': 'Horní/Dolní',
-    'wl.title': 'Náročnost tréninků', 'wl.last': 'posledních {n}', 'wl.metric': 'Metrika', 'wl.avg': 'Průměr / trénink', 'wl.trend': 'Trend (posl. 4 vs předchozí 4)',
-    'wl.m.score': 'Skóre', 'wl.m.sets': 'Série', 'wl.m.exercises': 'Cviky', 'wl.m.volume': 'Objem', 'wl.m.minutes': 'Délka', 'wl.m.density': 'Hustota', 'wl.m.intensity': 'Intenzita',
-    'wl.h.score': 'Skóre náročnosti = série × intenzita / 10. Porovnatelné napříč tréninky.', 'wl.h.sets': 'Počet odcvičených sérií v tréninku.', 'wl.h.exercises': 'Počet různých cviků.',
-    'wl.h.volume': 'Zvednutá váha celkem (váha × opakování).', 'wl.h.minutes': 'Délka tréninku.', 'wl.h.density': 'Objem za minutu – čím vyšší, tím hutnější trénink.',
-    'wl.h.intensity': 'Průměrná váha série jako % tvého odhadovaného maxima (1RM) na daný cvik. První tréninky nového cviku se nepočítají.',
-    'wl.vsPrev': 'Proti minulému {name} ({d})', 'wl.pts': 'b.',
-    'wg.title': 'Týdenní cíl', 'wg.goal': '{n}× týdně', 'wg.goalAria': 'Týdenní cíl', 'wg.less': 'Snížit cíl', 'wg.more': 'Zvýšit cíl',
-    'wg.thisWeek': 'Tento týden', 'wg.streak': 'V řadě', 'wg.weeks': { one: 'týden', few: 'týdny', many: 'týdne', other: 'týdnů' }, 'wg.streakSub': 'se splněným cílem',
-    'wg.running': 'probíhá', 'wg.met': 'cíl splněn', 'wg.missed': 'cíl nesplněn', 'wg.weekAria': 'Týden od {d}: {n}',
-    'wg.split': 'Rozložení splitu', 'wg.last30': 'posledních 30 dní', 'wg.lag': '{g} zaostává – naposledy před {n} dny', 'wg.lagNever': '{g} zatím necvičeno',
-    'count.workouts': { one: '{n} trénink', few: '{n} tréninky', many: '{n} tréninku', other: '{n} tréninků' },
-    'hist.edit': 'Upravit', 'edit.title': 'Upravit trénink', 'edit.name': 'Název', 'edit.start': 'Začátek', 'edit.duration': 'Délka (min)',
-    'edit.save': 'Uložit změny', 'edit.saved': 'Trénink upraven', 'edit.needSet': 'Nech aspoň jednu sérii s opakováním nebo časem.',
-    'edit.future': 'Začátek nemůže být v budoucnu.', 'edit.discard': 'Zahodit provedené změny?', 'edit.discardOk': 'Zahodit', 'undo.workoutEdit': 'úprava tréninku',
-  },
+  }
 };
 
 // Množná čísla přes Intl.PluralRules (cs: one / few / many / other). Hodnota klíče může být text nebo {one, few, other…}.
+export const EN = D.en;
+
 const PLURAL = { en: new Intl.PluralRules('en'), cs: new Intl.PluralRules('cs') };
 export const t = (key, vars) => {
   const lang = getLang();
@@ -408,4 +246,4 @@ export function useLang() {
   return { lang: getLang(), setLang, t };
 }
 
-if (typeof document !== 'undefined') document.documentElement.lang = getLang();
+if (typeof document !== 'undefined') document.documentElement.lang = storedLang();

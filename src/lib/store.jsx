@@ -69,6 +69,15 @@ export function StoreProvider({ children }) {
     await backend.signOut();
     resetSession(); resetAccount(); resetHistory(); resetUndo();
   }, [detachDraft, resetSession, resetAccount, resetHistory, resetUndo]);
+  // F2: smazání účtu i všech dat. Při zrušení ověření (popup) vyhodí chybu a nic se nezmění.
+  const deleteAccount = useCallback(async () => {
+    const uid = user?.uid;
+    const r = await backend.deleteAccount();
+    detachDraft();
+    try { localStorage.removeItem(`forge:active:${uid}`); } catch { /* ignore */ }
+    resetSession(); resetAccount(); resetHistory(); resetUndo();
+    return r;
+  }, [user?.uid, detachDraft, resetSession, resetAccount, resetHistory, resetUndo]);
   const startDemo = useCallback(() => backend.startDemo(), []);
   const resetDemo = useCallback(() => { backend.resetDemo(); window.location.reload(); }, []);
 
@@ -77,11 +86,11 @@ export function StoreProvider({ children }) {
   const needsSetup = Boolean(user) && metaReady && !acc.mainCfg;
 
   const data = useMemo(() => ({
-    user, denied, loading, mode: backend.mode, signIn, signOut, startDemo, resetDemo, live, sync, online,
+    user, denied, loading, mode: backend.mode, signIn, signOut, deleteAccount, startDemo, resetDemo, live, sync, online,
     workouts, prs, library, starter: acc.starter, needsSetup, appearance: acc.appearance, weeklyGoal: acc.weeklyGoal, pinnedLifts: acc.pinnedLifts,
     ...account, ...history, startWorkout: session.startWorkout, startEmptyWorkout: session.startEmptyWorkout, syncTemplate: session.syncTemplate,
     undoStack, undo, redoStack, redo, notify, renamePreview, renameExercise,
-  }), [user, denied, loading, signIn, signOut, startDemo, resetDemo, live, sync, online, workouts, prs, library, acc.starter, needsSetup,
+  }), [user, denied, loading, signIn, signOut, deleteAccount, startDemo, resetDemo, live, sync, online, workouts, prs, library, acc.starter, needsSetup,
     acc.appearance, acc.weeklyGoal, acc.pinnedLifts, account, history, session.startWorkout, session.startEmptyWorkout, session.syncTemplate,
     undoStack, undo, redoStack, redo, notify, renamePreview, renameExercise]);
 

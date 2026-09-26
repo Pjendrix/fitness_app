@@ -1,6 +1,7 @@
 // Full free-exercise-db (github.com/yuhonas/free-exercise-db, public domain), loaded on demand.
-const URL = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json';
-export const DB_IMG = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
+// A9: připnuto na konkrétní commit – přejmenování souborů v cizím repu appku nerozbije (novější data = nový SHA).
+const URL = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/a859101d633a01c4a1a920d6a8ce41dabba0705f/dist/exercises.json';
+export const DB_IMG = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/a859101d633a01c4a1a920d6a8ce41dabba0705f/exercises/';
 let cache = null;
 export const loadDb = () => (cache ||= fetch(URL).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }).catch((e) => { cache = null; throw e; }));
 

@@ -93,12 +93,13 @@ function Shell() {
       </main>
       <DemoBar />
       <SyncBadge />
-      <Undo />
+      <Undo lang={lang} />
       <RestBar />
       <Tour go={go} />
       <Toast />
       <UpdatePrompt />
-      <Nav tab={tab} go={go} live={live} />
+      {/* lang: memo komponenty se jinak po přepnutí jazyka nepřekreslí */}
+      <Nav tab={tab} go={go} live={live} lang={lang} />
     </div>
   );
 }

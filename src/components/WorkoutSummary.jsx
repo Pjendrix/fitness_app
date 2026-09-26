@@ -1,22 +1,22 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
-import { computeMetrics, previousSame } from '../lib/metrics.js';
-import { recordsTimeline } from '../lib/progress.js';
+import { previousSame } from '../lib/metrics.js';
+import { metricsOf, recordsOf } from '../lib/derived.js';
 import { fmtDate, fmtDuration, fmtNum, fmtSet, workoutVolume } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
 import { ContactSheet } from './DemoBar.jsx';
 import { TrophyIcon } from './Icons.jsx';
 
-export const recordText = (r) => (r.kind === 'pb' ? `PB ${fmtSet(r.weight, r.reps, r.time)}` : r.kind === 'e1' ? t('rec.e1', { v: fmtNum(r.e1) }) : t('rec.reps', { r: r.reps, w: fmtNum(r.weight) }));
+export const recordText = (r) => (r.kind === 'pb' ? `${t('rec.max')} ${fmtSet(r.weight, r.reps, r.time)}` : r.kind === 'e1' ? t('rec.e1', { v: fmtNum(r.e1) }) : t('rec.reps', { r: r.reps, w: fmtNum(r.weight) }));
 
 // W3: souhrn po dokončení tréninku (+ O5: nabídka vlastní verze v demu)
 export default function WorkoutSummary({ done, onClose }) {
   const { workouts, mode } = useStore();
   const [contact, setContact] = useState(false);
   const all = useMemo(() => (workouts.some((w) => w.id === done.id) ? workouts : [done, ...workouts]), [workouts, done]);
-  const records = useMemo(() => recordsTimeline(all).get(done.id) || [], [all, done.id]);
+  const records = useMemo(() => recordsOf(all).get(done.id) || [], [all, done.id]);
   const prev = useMemo(() => previousSame(done, all), [done, all]);
-  const m = useMemo(() => computeMetrics(all), [all]);
+  const m = metricsOf(all);
   const cur = m.get(done.id), pm = prev ? m.get(prev.id) : null;
   const sets = done.exercises.reduce((n, e) => n + e.sets.length, 0);
   const vol = workoutVolume(done);

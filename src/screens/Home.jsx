@@ -136,7 +136,7 @@ export default function Home({ go }) {
       )}
 
       <section>
-        <div className="row-between"><h3 className="section-title">{t('home.recentPrs')}</h3><button className="link" onClick={() => go('stats')}>{t('home.allStats')}</button></div>
+        <h3 className="section-title">{t('home.recentPrs')}</h3>
         {recentPrs.length ? (
           <div className="card list">
             {recentPrs.map((p) => (

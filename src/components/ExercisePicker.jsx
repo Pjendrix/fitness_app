@@ -60,7 +60,7 @@ export default function ExercisePicker({ onPick, onClose, exclude = [], mode, re
       <button key={keyPrefix + e.name} className="pick" disabled={skip.has(key)} onClick={() => onPick(e)}>
         <span>{e.name}</span>
         <span className="pick-meta">
-          <span className="label">{skip.has(key) ? t('pick.inWorkout') : pb ? `PB ${pb.weight || 'BW'}×${pb.reps}` : t('cat.' + e.cat)}</span>
+          <span className="label">{skip.has(key) ? t('pick.inWorkout') : pb ? `${t('rec.max')} ${pb.weight || 'BW'}×${pb.reps}` : t('cat.' + e.cat)}</span>
           {!infoOf(e.name) && <span className="custom-tag">{t('info.custom')}</span>}
           <TypeTag type={typeOf(e.name)} />
         </span>

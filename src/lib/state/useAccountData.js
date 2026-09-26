@@ -5,6 +5,8 @@ import { LEGACY_PINK, loadLibrary, MAX_PINS, migratePrs, migrateTemplate } from 
 
 // Stav účtu ze Firestore: vlastní šablony, rekordy, knihovna, hlavní šablony, vzhled, týdenní cíl, připnuté cviky.
 // Odebírá se živě (D1) – cache hned, server a změny z jiných zařízení průběžně.
+// B4: když server zápis odmítne, Firestore vrátí svou cache a snapshot sem pošle skutečný stav →
+// optimisticky upravené šablony / knihovna / nastavení se samy vrátí (chybu ukáže fail()).
 export function useAccountData(api, user, fail) {
   const [metaLoading, setMetaLoading] = useState(false);
   const [metaReady, setMetaReady] = useState(false); // meta načtená pro aktuální účet

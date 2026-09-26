@@ -135,7 +135,7 @@ export default function Exercises() {
             <div className="lib-row is-orphan" key={e.key}>
               <div className="lib-main">
                 <span>{e.name}</span>
-                <span className="label">{[prs[e.key] && `PB ${fmtSet(prs[e.key].weight, prs[e.key].reps, prs[e.key].time)}`, counts[e.key] && t('ex.sessions', { n: counts[e.key] })].filter(Boolean).join(' · ')}</span>
+                <span className="label">{[prs[e.key] && `${t('rec.max')} ${fmtSet(prs[e.key].weight, prs[e.key].reps, prs[e.key].time)}`, counts[e.key] && t('ex.sessions', { n: counts[e.key] })].filter(Boolean).join(' · ')}</span>
               </div>
               <button className="icon-btn" aria-label={t('ex.rename')} title={t('ex.rename')} onClick={() => rename(e.name)}><PencilIcon width={16} height={16} /></button>
             </div>
@@ -153,7 +153,7 @@ export default function Exercises() {
                 <div className="lib-row" key={e.name}>
                   <div className="lib-main">
                     <span>{e.name} <InfoButton name={e.name} /> <button className="type-toggle" title={t('type.label')} onClick={() => saveLibrary(library.map((x) => (x === e ? (e.type === 'time' ? (({ type: _type, ...rest }) => rest)(x) : { ...x, type: 'time' }) : x)))}><TypeTag type={e.type} /></button></span>
-                    <span className="label">{[prs[k] && `PB ${fmtSet(prs[k].weight, prs[k].reps, prs[k].time)}`, counts[k] && t('ex.sessions', { n: counts[k] })].filter(Boolean).join(' · ')}</span>
+                    <span className="label">{[prs[k] && `${t('rec.max')} ${fmtSet(prs[k].weight, prs[k].reps, prs[k].time)}`, counts[k] && t('ex.sessions', { n: counts[k] })].filter(Boolean).join(' · ')}</span>
                   </div>
                   <select className="lib-cat" value={e.cat} onChange={(ev) => recat(e, ev.target.value)} aria-label={t('pick.category')}>
                     {[...CATEGORIES, 'other'].map((x) => <option key={x} value={x}>{t('cat.' + x)}</option>)}

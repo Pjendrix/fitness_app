@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeMetrics, previousSame } from './metrics.js';
+import { computeMetrics, e1rm, previousSame } from './metrics.js';
 
 const w = (id, day, sets, extra = {}) => ({ id, name: 'PUSH', templateId: 'push', startedAt: day * 864e5, finishedAt: day * 864e5 + 50 * 60000, exercises: [{ key: 'bench', name: 'Bench', sets }], ...extra });
 
@@ -16,5 +16,13 @@ describe('metrics', () => {
     const list = [w('a', 1, []), w('b', 3, []), w('c', 5, []), w('x', 4, [], { templateId: 'pull' })];
     expect(previousSame(list[2], list).id).toBe('b');
     expect(previousSame(list[0], list)).toBeNull();
+  });
+});
+
+describe('e1rm (B7)', () => {
+  it('opakování nad 12 už odhad nezvyšují', () => {
+    expect(e1rm(100, 1)).toBe(100);
+    expect(e1rm(100, 12)).toBeCloseTo(140);
+    expect(e1rm(20, 40)).toBeCloseTo(28);
   });
 });

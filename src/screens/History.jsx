@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { colorHex } from '../data/defaultTemplates.js';
 import { fmtDate, fmtDuration, fmtNum, fmtSet, workoutVolume } from '../lib/util.js';
@@ -6,11 +6,11 @@ import { locale, t } from '../lib/i18n.js';
 import { ArrowIcon, ChevronIcon, RepeatIcon, SearchIcon, TrashIcon, TrophyIcon } from '../components/Icons.jsx';
 import ExerciseSheet from '../components/ExerciseSheet.jsx';
 import { recordText } from '../components/WorkoutSummary.jsx';
-import { recordsTimeline } from '../lib/progress.js';
 import { norm } from '../components/ExercisePicker.jsx';
 import { useDialog } from '../components/Dialog.jsx';
 import WorkoutEditor from '../components/WorkoutEditor.jsx';
-import { computeMetrics, previousSame } from '../lib/metrics.js';
+import { previousSame } from '../lib/metrics.js';
+import { metricsOf, recordsOf } from '../lib/derived.js';
 
 const dayKey = (ms) => new Date(ms).toDateString();
 const monday = (ms) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); };
@@ -137,12 +137,14 @@ function Calendar({ workouts, colorOf, selected, onSelect }) {
   );
 }
 
+const WEEKS_PAGE = 8;
+
 export default function History({ go }) {
   const { workouts, templates, deleteWorkout, loading, startWorkout, live } = useStore();
   const dialog = useDialog();
   const [q, setQ] = useState('');
   const [exKeyOpen, setExKeyOpen] = useState(null);
-  const records = useMemo(() => recordsTimeline(workouts), [workouts]);
+  const records = recordsOf(workouts);
   // H4: zopakovat – podle šablony, když ještě existuje, jinak podle odcvičených cviků
   const repeat = async (w) => {
     if (live && !(await dialog.confirm(t('wo.replace'), { danger: true, ok: t('tpl.start') }))) return;
@@ -159,14 +161,17 @@ export default function History({ go }) {
   const [filter, setFilter] = useState('all');
   const [day, setDay] = useState(dayKey(Date.now()));
 
-  const metrics = useMemo(() => computeMetrics(workouts), [workouts]);
+  const metrics = metricsOf(workouts);
   const colorById = useMemo(() => new Map(templates.map((x) => [x.id, colorHex(x.color)])), [templates]);
   const colorOf = (w) => colorById.get(w.templateId);
   // Filter options = workout names that exist in history (template renames keep their own entry)
   const options = useMemo(() => [...new Set(workouts.map((w) => w.name))].sort(), [workouts]);
   const query = norm(q.trim());
-  const filtered = workouts.filter((w) => (filter === 'all' || w.name === filter) && (!query || w.exercises.some((e) => norm(e.name).includes(query))));
-  const shown = view === 'calendar' ? filtered.filter((w) => dayKey(w.startedAt) === day) : filtered;
+  const filtered = useMemo(() => workouts.filter((w) => (filter === 'all' || w.name === filter) && (!query || w.exercises.some((e) => norm(e.name).includes(query)))), [workouts, filter, query]);
+  const shown = useMemo(() => (view === 'calendar' ? filtered.filter((w) => dayKey(w.startedAt) === day) : filtered), [filtered, view, day]);
+  // D2: vykreslit jen posledních N týdnů; další na tlačítko (1000 karet najednou telefon zpomalí)
+  const [weeks, setWeeks] = useState(WEEKS_PAGE);
+  useEffect(() => { setWeeks(WEEKS_PAGE); }, [filter, query, view]);
   // H1: seskupení po týdnech (v kalendáři jedna skupina)
   const groups = useMemo(() => {
     if (view === 'calendar') return [{ key: 'day', list: shown, vol: 0, label: '' }];
@@ -186,6 +191,8 @@ export default function History({ go }) {
     }
     return out;
   }, [shown, view]);
+  const visible = view === 'calendar' ? groups : groups.slice(0, weeks);
+  const hidden = groups.slice(visible.length).reduce((n, g) => n + g.list.length, 0);
 
   return (
     <div className="screen">
@@ -208,7 +215,7 @@ export default function History({ go }) {
 
       {!workouts.length && <p className="empty">{loading ? t('hist.loading') : t('hist.empty')}</p>}
       {workouts.length > 0 && !shown.length && <p className="empty">{view === 'calendar' ? t('hist.dayEmpty') : t('hist.noMatch')}</p>}
-      {groups.map((g) => (
+      {visible.map((g) => (
         <section key={g.key} className="hist-week">
           {view === 'list' && (
             <div className="hist-week-head">
@@ -222,7 +229,10 @@ export default function History({ go }) {
           ))}
         </section>
       ))}
-      {exKeyOpen && <ExerciseSheet exKey={exKeyOpen} onClose={() => setExKeyOpen(null)} />}
+      {hidden > 0 && (
+        <button className="btn btn-ghost btn-block" onClick={() => setWeeks((n) => n + WEEKS_PAGE)}>{t('hist.more', { n: hidden })}</button>
+      )}
+            {exKeyOpen && <ExerciseSheet exKey={exKeyOpen} onClose={() => setExKeyOpen(null)} />}
       {editing && <WorkoutEditor key={editing.id} workout={editing} onClose={() => setEditing(null)} />}
     </div>
   );

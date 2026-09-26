@@ -6,7 +6,8 @@ import { t } from '../lib/i18n.js';
 // const dialog = useDialog();
 //   await dialog.confirm(message, { danger, ok })              → true / false
 //   await dialog.choose({ title, message, actions: [{ value, label, primary, danger }] }) → value | null
-//   await dialog.form({ title, fields: [{ name, label, value, maxLength }] })           → { name: value } | null
+//   await dialog.form({ title, message?, ok?, danger?, fields: [{ name, label, value, maxLength, required, match? }] }) → { name: value } | null
+//     match = pole musí obsahovat přesně tohle slovo (bez ohledu na velikost písmen), jinak nejde potvrdit
 const Ctx = createContext(null);
 export const useDialog = () => useContext(Ctx);
 
@@ -49,21 +50,22 @@ function ChooseDialog({ dlg, close }) {
 
 function FormDialog({ dlg, close }) {
   const [vals, setVals] = useState(() => Object.fromEntries(dlg.fields.map((f) => [f.name, f.value ?? ''])));
-  const ok = dlg.fields.every((f) => !f.required || String(vals[f.name]).trim());
+  const ok = dlg.fields.every((f) => (!f.required || String(vals[f.name]).trim()) && (!f.match || String(vals[f.name]).trim().toUpperCase() === f.match.toUpperCase()));
   const submit = (e) => { e.preventDefault(); if (ok) close(vals); };
   return (
     <Sheet label={dlg.title} onClose={() => close(null)} className="sheet-dialog">
       <h2 className="dlg-title">{dlg.title}</h2>
+      {dlg.message && <p className="dlg-msg">{dlg.message}</p>}
       <form className="form" onSubmit={submit}>
         {dlg.fields.map((f, i) => (
           <label key={f.name} className="mini">
             <span className="label">{f.label}</span>
-            <input className="input" autoFocus={i === 0} maxLength={f.maxLength || 80} value={vals[f.name]} onChange={(e) => setVals((v) => ({ ...v, [f.name]: e.target.value }))} />
+            <input className="input" autoFocus={i === 0} autoComplete="off" autoCapitalize={f.match ? 'characters' : undefined} maxLength={f.maxLength || 80} value={vals[f.name]} onChange={(e) => setVals((v) => ({ ...v, [f.name]: e.target.value }))} />
           </label>
         ))}
         <div className="dlg-actions">
           <button type="button" className="btn btn-ghost btn-block" onClick={() => close(null)}>{t('dlg.cancel')}</button>
-          <button type="submit" className="btn btn-primary btn-block" disabled={!ok}>{t('dlg.save')}</button>
+          <button type="submit" className={'btn btn-block ' + (dlg.danger ? 'btn-danger-solid' : 'btn-primary')} disabled={!ok}>{dlg.ok || t('dlg.save')}</button>
         </div>
       </form>
     </Sheet>

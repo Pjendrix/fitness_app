@@ -1,7 +1,7 @@
 {
   "name": "forge-fitness-pwa",
   "private": true,
-  "version": "5.1.0",
+  "version": "5.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",
-    "previews": "node scripts/capture-previews.mjs"
+    "previews": "node scripts/capture-previews.mjs",
+    "test:rules": "npx -y firebase-tools@15 emulators:exec --only firestore --project demo-forge \"vitest run --config vitest.rules.config.js\""
   },
   "dependencies": {
     "@fontsource/geist-mono": "^5.3.0",
@@ -21,6 +22,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@vitejs/plugin-react": "^6.1.1",
     "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^7.1.1",
