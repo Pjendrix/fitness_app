@@ -187,4 +187,5 @@ export default {
     'body.bad': 'Zadej váhu mezi 20 a 400 kg.', 'body.saved': 'Uloženo {w} kg', 'body.since': 'od {d}', 'body.more': 'Zapiš ji znovu za pár dní a uvidíš vývoj.',
     'body.emptyRange': 'V tomhle období žádná tělesná váha.', 'body.imported': { one: '{n} tělesná váha', few: '{n} tělesné váhy', other: '{n} tělesných vah' },
     'ex.bwTitle': 'Cvik s vlastní vahou – tělesná váha se počítá do objemu',
+    'hist.summary': 'Souhrn tréninku', 'sum.same': '= stejně', 'sum.reps': { one: 'opak.', few: 'opak.', other: 'opak.' },
 };

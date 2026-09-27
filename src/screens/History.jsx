@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { colorHex } from '../data/defaultTemplates.js';
 import { fmtDate, fmtDuration, fmtNum, fmtSet, workoutVolume } from '../lib/util.js';
 import { locale, t } from '../lib/i18n.js';
-import { ArrowIcon, ChevronIcon, RepeatIcon, SearchIcon, TrashIcon, TrophyIcon } from '../components/Icons.jsx';
+import { ArrowIcon, ChevronIcon, InfoIcon, RepeatIcon, SearchIcon, TrashIcon, TrophyIcon } from '../components/Icons.jsx';
 import ExerciseSheet from '../components/ExerciseSheet.jsx';
-import { recordText } from '../components/WorkoutSummary.jsx';
+import WorkoutSummary, { recordText } from '../components/WorkoutSummary.jsx';
+import { useBackClose } from '../lib/nav.js';
 import { norm } from '../components/ExercisePicker.jsx';
 import { useDialog } from '../components/Dialog.jsx';
 import WorkoutEditor from '../components/WorkoutEditor.jsx';
@@ -48,19 +49,22 @@ function Compare({ cur, prev, prevDate }) {
   );
 }
 
-function WorkoutCard({ w, color, open, onToggle, onDelete, onEdit, metrics, all, records, onExercise, onRepeat }) {
+function WorkoutCard({ w, color, open, onToggle, onDelete, onEdit, metrics, all, records, onExercise, onRepeat, onInfo }) {
   const prev = open ? previousSame(w, all) : null;
   const dialog = useDialog();
   const sets = w.exercises.reduce((n, e) => n + e.sets.length, 0);
   return (
     <section className="card hist tinted" style={color ? { '--tint': color } : undefined}>
-      <button className="hist-head" onClick={onToggle} aria-expanded={open}>
-        <div>
-          <h2>{w.name}{records?.length ? <span className="pb-badge"><TrophyIcon width={12} height={12} /> {t('hist.pbBadge', { n: records.length })}</span> : null}</h2>
-          <p className="muted small">{fmtDate(w.startedAt)} · {fmtDuration(w.finishedAt - w.startedAt)} · {t('count.sets', { n: sets })} · {fmtNum(Math.round(workoutVolume(w)))} kg</p>
-        </div>
-        <ChevronIcon className={'chev' + (open ? ' is-open' : '')} />
-      </button>
+      <div className="hist-top">
+        <button className="hist-head" onClick={onToggle} aria-expanded={open}>
+          <div>
+            <h2>{w.name}{records?.length ? <span className="pb-badge"><TrophyIcon width={12} height={12} /> {t('hist.pbBadge', { n: records.length })}</span> : null}</h2>
+            <p className="muted small">{fmtDate(w.startedAt)} · {fmtDuration(w.finishedAt - w.startedAt)} · {t('count.sets', { n: sets })} · {fmtNum(Math.round(workoutVolume(w)))} kg</p>
+          </div>
+          <ChevronIcon className={'chev' + (open ? ' is-open' : '')} />
+        </button>
+        <button className="icon-btn hist-info" aria-label={t('hist.summary')} title={t('hist.summary')} onClick={() => onInfo(w.id)}><InfoIcon /></button>
+      </div>
       {open && (
         <div className="hist-body">
           {w.exercises.map((e) => (
@@ -142,6 +146,12 @@ function Calendar({ workouts, colorOf, selected, onSelect }) {
 
 const WEEKS_PAGE = 8;
 
+// Obal kvůli systémovému Zpět (zavře souhrn, ne celou Historii)
+function SummaryView({ w, onClose, actions }) {
+  useBackClose(onClose);
+  return <WorkoutSummary done={w} onClose={onClose} actions={actions} />;
+}
+
 export default function History({ go }) {
   const { workouts, templates, deleteWorkout, loading, startWorkout, live } = useStore();
   const dialog = useDialog();
@@ -160,6 +170,10 @@ export default function History({ go }) {
   };
   const [open, setOpen] = useState(null);
   const [editing, setEditing] = useState(null);
+  const [sumId, setSumId] = useState(null);
+  const listY = useRef(0);
+  const openSummary = (id) => { listY.current = window.scrollY; setSumId(id); window.scrollTo(0, 0); };
+  const closeSummary = () => { setSumId(null); requestAnimationFrame(() => window.scrollTo(0, listY.current)); };
   const [view, setView] = useState('list');
   const [filter, setFilter] = useState('all');
   const [day, setDay] = useState(dayKey(Date.now()));
@@ -197,6 +211,22 @@ export default function History({ go }) {
   const visible = view === 'calendar' ? groups : groups.slice(0, weeks);
   const hidden = groups.slice(visible.length).reduce((n, g) => n + g.list.length, 0);
 
+  // Souhrn tréninku z Historie (ⓘ) – stejná obrazovka jako po dokončení, s akcemi
+  const sumW = sumId ? workouts.find((w) => w.id === sumId) : null;
+  if (sumW) {
+    return (
+      <>
+        <SummaryView w={sumW} onClose={closeSummary}
+          actions={{
+            repeat: () => repeat(sumW),
+            edit: () => setEditing(sumW),
+            remove: async () => { if (await dialog.confirm(t('hist.confirmDelete'), { danger: true, ok: t('hist.delete') })) { deleteWorkout(sumW.id); closeSummary(); } },
+          }} />
+        {editing && <WorkoutEditor key={editing.id} workout={editing} onClose={() => setEditing(null)} />}
+      </>
+    );
+  }
+
   return (
     <div className="screen">
       <header className="screen-head row-between"><h1>{t('hist.title')}</h1><button className="btn btn-ghost btn-sm" onClick={() => go('stats')}>{t('hist.analytics')}</button></header>
@@ -228,7 +258,7 @@ export default function History({ go }) {
           )}
           {g.list.map((w) => (
             <WorkoutCard key={w.id} w={w} color={colorOf(w)} open={open === w.id || (view === 'calendar' && shown.length === 1)} onToggle={() => setOpen(open === w.id ? null : w.id)} onDelete={deleteWorkout} onEdit={setEditing} metrics={metrics} all={workouts}
-              records={records.get(w.id)} onExercise={setExKeyOpen} onRepeat={repeat} />
+              records={records.get(w.id)} onExercise={setExKeyOpen} onRepeat={repeat} onInfo={openSummary} />
           ))}
         </section>
       ))}

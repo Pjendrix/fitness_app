@@ -227,6 +227,7 @@ const D = {
     'body.bad': 'Enter a weight between 20 and 400 kg.', 'body.saved': 'Saved {w} kg', 'body.since': 'since {d}', 'body.more': 'Log it again in a few days to see the trend.',
     'body.emptyRange': 'No body weight in this period.', 'body.imported': { one: '{n} body weight', other: '{n} body weights' },
     'ex.bwTitle': 'Bodyweight exercise – body weight counts towards volume',
+    'hist.summary': 'Workout summary', 'sum.same': '= same', 'sum.reps': { one: 'rep', other: 'reps' },
   }
 };
 

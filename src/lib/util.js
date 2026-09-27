@@ -33,6 +33,7 @@ export const better = (a, b) => {
 export const isDone = (s) => s.done && (num(s.reps) > 0 || num(s.time) > 0);
 
 export const fmtDuration = (ms) => {
+  if (ms < 60000) return '<1 min';
   const m = Math.max(0, Math.round(ms / 60000));
   return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`;
 };

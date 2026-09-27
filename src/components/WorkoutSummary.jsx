@@ -2,16 +2,32 @@ import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { previousSame } from '../lib/metrics.js';
 import { metricsOf, recordsOf } from '../lib/derived.js';
-import { fmtRest } from '../lib/body.js';
+import { exerciseTrend, fmtRest, groupSets } from '../lib/body.js';
 import { fmtDate, fmtDuration, fmtNum, fmtSet, workoutVolume } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
 import { ContactSheet } from './DemoBar.jsx';
-import { TrophyIcon } from './Icons.jsx';
+import { RepeatIcon, TrashIcon, TrophyIcon } from './Icons.jsx';
 
 export const recordText = (r) => (r.kind === 'pb' ? `${t('rec.max')} ${fmtSet(r.weight, r.reps, r.time)}` : r.kind === 'e1' ? t('rec.e1', { v: fmtNum(r.e1) }) : t('rec.reps', { r: r.reps, w: fmtNum(r.weight) }));
 
-// W3: souhrn po dokončení tréninku (+ O5: nabídka vlastní verze v demu)
-export default function WorkoutSummary({ done, onClose }) {
+// Minulý výskyt cviku před tímto tréninkem (all je od nejnovějšího)
+const prevSetsOf = (all, w, key) => {
+  for (const x of all) {
+    if (x.id === w.id || x.startedAt >= w.startedAt) continue;
+    const e = x.exercises.find((y) => y.key === key);
+    if (e?.sets.length) return e.sets;
+  }
+  return null;
+};
+// „4 × 6 · 70 kg“ pro stejné série, jinak jednotlivě
+const setsText = (sets) => groupSets(sets).map(({ n, set }) => {
+  const one = fmtSet(set.weight, set.reps, set.time);
+  return n > 1 ? `${n} × ${one}` : one;
+}).join(' · ');
+const trendText = (tr) => (tr.dir === 0 ? t('sum.same') : `${tr.dir > 0 ? '▲ +' : '▼ −'}${fmtNum(tr.diff)} ${tr.kind === 'reps' ? t('sum.reps', { n: tr.diff }) : tr.kind}`);
+
+// W3: souhrn tréninku – po dokončení i z Historie (actions = Upravit / Zopakovat / Smazat)
+export default function WorkoutSummary({ done, onClose, actions = null }) {
   const { workouts, mode } = useStore();
   const [contact, setContact] = useState(false);
   const all = useMemo(() => (workouts.some((w) => w.id === done.id) ? workouts : [done, ...workouts]), [workouts, done]);
@@ -21,51 +37,65 @@ export default function WorkoutSummary({ done, onClose }) {
   const cur = m.get(done.id), pm = prev ? m.get(prev.id) : null;
   const sets = done.exercises.reduce((n, e) => n + e.sets.length, 0);
   const vol = workoutVolume(done);
-  const delta = (a, b, unit = '', neutral = false) => {
-    if (b == null || a == null) return null;
-    const d = Math.round((a - b) * 10) / 10;
-    return <span className={neutral || d === 0 ? 'muted' : d > 0 ? 'ms-up' : 'ms-down'}>{d > 0 ? '+' : d < 0 ? '−' : '±'}{fmtNum(Math.abs(d))}{unit}</span>;
+  const delta = (d, unit = '', neutral = false) => {
+    if (d == null || !Number.isFinite(d)) return <span className="muted">&nbsp;</span>;
+    const r = Math.round(d * 10) / 10;
+    return <span className={neutral || r === 0 ? 'muted' : r > 0 ? 'ms-up' : 'ms-down'}>{r > 0 ? '+' : r < 0 ? '−' : '±'}{fmtNum(Math.abs(r))}{unit}</span>;
   };
   return (
     <div className="screen summary">
       <header className="screen-head">
-        <p className="label">{t('sum.eyebrow')}</p>
+        <p className="label">{actions ? fmtDate(done.startedAt) : `${t('sum.eyebrow')} · ${fmtDate(done.startedAt)}`}</p>
         <h1>{done.name}</h1>
-        <p className="muted small">{fmtDate(done.startedAt)}</p>
       </header>
-      <section className="kpis">
-        <div className="card kpi"><span className="label">{t('wl.m.minutes')}</span><span className="num">{fmtDuration(done.finishedAt - done.startedAt)}</span><span className="small">{pm && delta(Math.round(cur?.minutes || 0), Math.round(pm.minutes), ' min', true)}</span></div>
-        <div className="card kpi"><span className="label">{t('an.volume')}</span><span className="num">{fmtNum(Math.round(vol))}<small> kg</small></span><span className="small">{pm && delta(Math.round(vol), Math.round(pm.volume), ' kg')}</span></div>
-        <div className="card kpi"><span className="label">{t('an.sets')}</span><span className="num">{sets}</span><span className="small">{pm && delta(sets, pm.sets)}</span></div>
-        <div className="card kpi"><span className="label">{t('sum.records')}</span><span className="num">{records.length}</span><span className="muted small">{t('sum.recordsSub')}</span></div>
+      <section className="card sum-stats">
+        <div className="sum-stat"><span className="num">{fmtDuration(done.finishedAt - done.startedAt)}</span>{pm ? delta(Math.round(cur?.minutes || 0) - Math.round(pm.minutes), ' min', true) : delta(null)}</div>
+        <div className="sum-stat"><span className="num">{fmtNum(Math.round(vol))}<small> kg</small></span>{pm && pm.volume ? delta(Math.round(((vol / pm.volume) - 1) * 100), ' %') : delta(null)}</div>
+        <div className="sum-stat"><span className="num">{sets}<small> {t('count.sets', { n: sets }).replace(/^\d+\s*/, '')}</small></span>{pm ? delta(sets - pm.sets) : delta(null)}</div>
+        {(pm || cur?.rest != null) && (
+          <p className="muted small sum-foot">{[cur?.rest != null && t('sum.rest', { t: fmtRest(cur.rest) }), pm && t('sum.vsPrev', { d: fmtDate(prev.startedAt) })].filter(Boolean).join(' · ')}</p>
+        )}
       </section>
-      {(pm || cur?.rest != null) && (
-        <p className="muted small">{[pm && t('sum.vsPrev', { d: fmtDate(prev.startedAt) }), cur?.rest != null && t('sum.rest', { t: fmtRest(cur.rest) })].filter(Boolean).join(' · ')}</p>
-      )}
       {records.length > 0 && (
         <section className="card ms-flush">
-          <div className="card-head ms-pad"><h2>{t('sum.newRecords')}</h2></div>
+          <div className="card-head ms-pad"><h2><TrophyIcon width={16} height={16} /> {t('sum.newRecords')}</h2></div>
           {records.map((r) => (
-            <div key={r.key} className="sum-rec"><TrophyIcon width={18} height={18} /><span className="grow">{r.name}</span><span className="pb">{recordText(r)}</span></div>
+            <div key={r.key} className="sum-rec"><span className="grow">{r.name}</span><span className="pb">{recordText(r)}</span></div>
           ))}
         </section>
       )}
       <section className="card ms-flush">
-        {done.exercises.map((e) => (
-          <div key={e.key} className="ms-sess">
-            <div className="row-between"><span>{e.name}</span>{e.rpe ? <span className="mono small muted">RPE {e.rpe}</span> : null}</div>
-            <span className="mono small muted">{e.sets.map((s) => fmtSet(s.weight, s.reps, s.time)).join(' · ')}</span>
-          </div>
-        ))}
+        {done.exercises.map((e) => {
+          const tr = exerciseTrend(e.sets, prevSetsOf(all, done, e.key));
+          return (
+            <div key={e.key} className="sum-ex">
+              <div className="sum-ex-head">
+                <span>{e.name}</span>
+                {tr && <span className={'mono small ' + (tr.dir > 0 ? 'ms-up' : tr.dir < 0 ? 'ms-down' : 'muted')}>{trendText(tr)}</span>}
+              </div>
+              <span className="mono small muted">{setsText(e.sets)}{e.rpe ? ` · RPE ${e.rpe}` : ''}</span>
+              {e.note && <span className="small muted">{e.note}</span>}
+            </div>
+          );
+        })}
       </section>
-      {mode === 'demo' && (
+      {mode === 'demo' && !actions && (
         <section className="card sum-cta">
           <h2>{t('sum.ctaTitle')}</h2>
           <p className="muted small">{t('sum.ctaText')}</p>
           <button className="btn btn-primary btn-block" onClick={() => setContact(true)}>{t('demo.want')}</button>
         </section>
       )}
-      <button className="btn btn-finish btn-lg btn-block" onClick={onClose}>{t('sum.done')}</button>
+      {actions ? (
+        <>
+          <div className="row-actions sum-actions">
+            <button className="btn btn-primary btn-sm" onClick={actions.repeat}><RepeatIcon width={16} height={16} /> {t('hist.repeat')}</button>
+            <button className="btn btn-ghost btn-sm" onClick={actions.edit}>{t('hist.edit')}</button>
+            <button className="btn btn-danger btn-sm" onClick={actions.remove}><TrashIcon width={16} height={16} /> {t('hist.delete')}</button>
+          </div>
+          <button className="btn btn-ghost btn-block" onClick={onClose}>{t('pick.close')}</button>
+        </>
+      ) : <button className="btn btn-finish btn-lg btn-block" onClick={onClose}>{t('sum.done')}</button>}
       {contact && <ContactSheet onClose={() => setContact(false)} />}
     </div>
   );

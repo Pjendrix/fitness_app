@@ -40,3 +40,15 @@ describe('časy sérií (E1)', () => {
     expect(fmtRest(45)).toBe('45 s');
   });
 });
+
+describe('souhrn tréninku', () => {
+  it('sloučí stejné série a porovná s minule', async () => {
+    const { groupSets, exerciseTrend } = await import('./body.js');
+    const s = (weight, reps) => ({ weight, reps });
+    expect(groupSets([s(70, 6), s(70, 6), s(80, 5), s(70, 6)]).map((g) => g.n)).toEqual([2, 1, 1]);
+    expect(exerciseTrend([s(72.5, 6)], [s(70, 6)])).toEqual({ dir: 1, kind: 'kg', diff: 2.5 });
+    expect(exerciseTrend([s(70, 6)], [s(70, 7)])).toEqual({ dir: -1, kind: 'reps', diff: 1 });
+    expect(exerciseTrend([s(70, 6)], [s(70, 6)])).toMatchObject({ dir: 0 });
+    expect(exerciseTrend([s(70, 6)], null)).toBeNull();
+  });
+});

@@ -59,3 +59,27 @@ export const lastSetAt = (active) => {
 // Zapomenuté „Dokončit“: od poslední série uběhlo víc než limit
 export const STALE_FINISH_MS = 45 * 60000;
 export const fmtRest = (sec) => (sec >= 60 ? `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}` : `${Math.round(sec)} s`);
+
+// ——— Souhrn tréninku: sloučené série a srovnání cviku s minule ———
+const same = (a, b) => num(a.weight) === num(b.weight) && num(a.reps) === num(b.reps) && num(a.time) === num(b.time);
+// [{weight,reps,time}] → skupiny po sobě jdoucích stejných sérií [{ n, set }]
+export function groupSets(sets) {
+  const out = [];
+  for (const s of sets) {
+    const g = out[out.length - 1];
+    if (g && same(g.set, s)) g.n++; else out.push({ n: 1, set: s });
+  }
+  return out;
+}
+// Nejlepší série: čas > váha > opakování
+const top = (sets) => sets.reduce((a, s) => (!a || num(s.time) > num(a.time) || (num(s.time) === num(a.time) && (num(s.weight) > num(a.weight) || (num(s.weight) === num(a.weight) && num(s.reps) > num(a.reps)))) ? s : a), null);
+// Srovnání nejlepší série cviku s minulým výskytem → { dir: 1|0|-1, kind: 'kg'|'reps'|'min', diff } | null
+export function exerciseTrend(sets, prevSets) {
+  const a = top(sets), b = prevSets?.length ? top(prevSets) : null;
+  if (!a || !b) return null;
+  if (num(a.time) || num(b.time)) { const d = Math.round((num(a.time) - num(b.time)) * 10) / 10; return { dir: Math.sign(d), kind: 'min', diff: Math.abs(d) }; }
+  const dw = Math.round((num(a.weight) - num(b.weight)) * 100) / 100;
+  if (dw) return { dir: Math.sign(dw), kind: 'kg', diff: Math.abs(dw) };
+  const dr = num(a.reps) - num(b.reps);
+  return { dir: Math.sign(dr), kind: 'reps', diff: Math.abs(dr) };
+}
