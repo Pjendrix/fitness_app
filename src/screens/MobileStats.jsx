@@ -6,6 +6,7 @@ import { CATEGORIES } from '../data/exercises.js';
 import { fmtDate, fmtDuration, fmtNum, fmtSet, groupTags, startOfWeek, workoutVolume } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
 import { goBack } from '../lib/nav.js';
+import { BodyChart } from '../components/BodyWeight.jsx';
 import Sheet from '../components/Sheet.jsx';
 import { markGuide } from '../lib/guide.js';
 import { norm } from '../components/ExercisePicker.jsx';
@@ -202,6 +203,8 @@ function Overview({ go, open }) {
         <p className="muted small ms-pad ms-foot">{t('ms.pinHint')}</p>
       </section>
       {allOpen && <AllExercises list={allList} onClose={() => setAllOpen(false)} onPick={(k) => { setAllOpen(false); open(k); }} />}
+
+      <BodyChart weeks={range} />
 
       <section className="card">
         <div className="card-head">

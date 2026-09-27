@@ -2,6 +2,8 @@
 // Intenzita = průměrná váha série jako % nejlepšího odhadovaného 1RM daného cviku z PŘEDCHOZÍCH tréninků.
 // Série cviku bez historie (první trénink) a série bez váhy se do intenzity nepočítají.
 
+import { restOf } from './body.js';
+
 // Epley. B7: nad 12 opakování vzorec přestřeluje (20 kg × 40 → „1RM“ 47 kg) → opakování se počítají max. do 12.
 export const E1RM_MAX_REPS = 12;
 export const e1rm = (w, r) => (r <= 1 ? w : w * (1 + Math.min(r, E1RM_MAX_REPS) / 30));
@@ -19,12 +21,14 @@ export function computeMetrics(workouts) {
       ex.add(e.key);
       const timed = e.type === 'time';
       const prior = best.get(e.key);
+      const bw = Number(e.bw) || 0; // E3: tělesná váha u cviků s vlastní vahou
       for (const s of e.sets) {
         sets++;
-        if (timed || !(s.weight > 0) || !(s.reps > 0)) continue;
-        volume += s.weight * s.reps;
-        if (prior) { pctSum += Math.min(1.2, s.weight / prior); pctN++; }
-        updates.push([e.key, e1rm(s.weight, s.reps)]);
+        const load = (Number(s.weight) || 0) + bw;
+        if (timed || !(load > 0) || !(s.reps > 0)) continue;
+        volume += load * s.reps;
+        if (prior) { pctSum += Math.min(1.2, load / prior); pctN++; }
+        updates.push([e.key, e1rm(load, s.reps)]);
       }
     }
     for (const [k, v] of updates) if (!(best.get(k) >= v)) best.set(k, v);
@@ -36,6 +40,7 @@ export function computeMetrics(workouts) {
       density: minutes >= 5 ? volume / minutes : null,
       intensity,
       score: intensity != null ? (sets * intensity) / 10 : null,
+      rest: restOf(w), // E1: typická pauza mezi sériemi (s), null bez časů sérií
     });
   }
   return out;

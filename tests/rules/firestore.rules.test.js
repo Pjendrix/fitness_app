@@ -83,6 +83,18 @@ describe('validace', () => {
   });
 });
 
+describe('tělesná váha (E3)', () => {
+  it('záznam dne: tvar a rozsah', async () => {
+    const d = db(FRIEND);
+    await assertSucceeds(setDoc(doc(d, 'users/friend/body/2026-09-27'), { date: 1790503200000, weight: 82.4 }));
+    await assertFails(setDoc(doc(d, 'users/friend/body/dnes'), { date: 1, weight: 82 }));
+    await assertFails(setDoc(doc(d, 'users/friend/body/2026-09-27'), { date: 1, weight: 5 }));
+    await assertFails(setDoc(doc(d, 'users/friend/body/2026-09-27'), { date: 1, weight: 82, note: 'x' }));
+    await assertFails(getDoc(doc(db(STRANGER), 'users/friend/body/2026-09-27')));
+    await assertSucceeds(deleteDoc(doc(d, 'users/friend/body/2026-09-27')));
+  });
+});
+
 describe('smazání účtu (F2)', () => {
   it('vlastník smaže vlastní meta i data, cizí ne', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {

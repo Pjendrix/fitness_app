@@ -45,8 +45,9 @@ export const fmtClock = (ms) => {
 export const fmtDate = (ms) =>
   new Date(ms).toLocaleDateString(locale(), { weekday: 'short', day: 'numeric', month: 'numeric' });
 
+// Objem = zátěž × opakování. U cviků s vlastní vahou je v e.bw uložená tělesná váha (E3) a přičítá se.
 export const workoutVolume = (w) =>
-  w.exercises.reduce((sum, e) => sum + e.sets.reduce((s, x) => s + num(x.weight) * num(x.reps), 0), 0);
+  w.exercises.reduce((sum, e) => sum + e.sets.reduce((s, x) => s + (num(x.weight) + num(e.bw)) * num(x.reps), 0), 0);
 
 export const startOfWeek = () => {
   const d = new Date();

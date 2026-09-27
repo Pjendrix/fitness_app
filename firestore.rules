@@ -95,6 +95,16 @@ service cloud.firestore {
         && d.date is int;
     }
 
+    // ——— Tělesná váha (E3): jeden záznam na den, id = YYYY-MM-DD ———
+    match /users/{uid}/body/{day} {
+      allow read, delete: if owner(uid);
+      allow create, update: if owner(uid)
+        && day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.keys().hasOnly(['date', 'weight'])
+        && request.resource.data.date is int
+        && num(request.resource.data.weight, 20, 400);
+    }
+
     // ——— Vlastní šablony ———
     match /users/{uid}/templates/{id} {
       allow read, delete: if owner(uid);

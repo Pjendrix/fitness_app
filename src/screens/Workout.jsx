@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useSession, useStore } from '../lib/store.jsx';
-import { better, countUnchecked, uid, DECIMAL_INPUT, fmtClock, fmtNum, fmtSet, INT_INPUT, isDone, num } from '../lib/util.js';
+import { better, countUnchecked, uid, DECIMAL_INPUT, fmtClock, fmtDuration, fmtNum, fmtSet, INT_INPUT, isDone, num } from '../lib/util.js';
 import NumField, { oneStep, weightStep } from '../components/NumField.jsx';
 import { primeAudio } from '../lib/rest.js';
 import { StepIcon, ArrowDownIcon, ArrowUpIcon, CheckIcon, FlagIcon, FlameIcon, LinkIcon, MoreIcon, PencilIcon, PlateIcon, PlusIcon, SwapIcon, TrashIcon } from '../components/Icons.jsx';
@@ -15,7 +15,8 @@ import ExercisePicker from '../components/ExercisePicker.jsx';
 import SwipeRow from '../components/SwipeRow.jsx';
 import { InfoButton } from '../components/ExerciseInfo.jsx';
 import { useDialog } from '../components/Dialog.jsx';
-import { t } from '../lib/i18n.js';
+import { locale, t } from '../lib/i18n.js';
+import { fmtRest, lastSetAt, STALE_FINISH_MS } from '../lib/body.js';
 
 // Časovač tréninku jako samostatná komponenta – tik každou sekundu nepřekresluje série.
 function Elapsed({ since }) {
@@ -75,11 +76,11 @@ const ExerciseCard = memo(function ExerciseCard({ ex, pb, ssLabel, ssEnd, step, 
       <div className="ex-head">
         <div className="ex-title">
           <h2><button className="ex-name" onClick={() => handlers.detail(ex.key)}>{ex.name}</button> <InfoButton name={ex.name} /></h2>
-          <p className="muted small">{[ex.plan, ex.hint && t('wo.recommended', { w: ex.hint }), ex.note].filter(Boolean).join(' · ')}</p>
+          <p className="muted small">{[ex.plan, ex.rest && t('wo.restIs', { t: fmtRest(ex.rest) }), ex.hint && t('wo.recommended', { w: ex.hint }), ex.note].filter(Boolean).join(' · ')}</p>
         </div>
         {pb && <span className="pb" title={t('wo.pb')}>{t('rec.max')} {fmtSet(pb.weight, pb.reps, pb.time)}</span>}
       </div>
-      <div className="set-cols label" aria-hidden="true"><span>{t('wo.col.set')}</span><span>{timed ? t('wo.col.min') : t('wo.col.reps')}</span><span>{t('wo.col.kg')}</span><span /></div>
+      <div className="set-cols label" aria-hidden="true"><span>{t('wo.col.set')}</span><span>{timed ? t('wo.col.min') : t('wo.col.reps')}</span><span>{ex.bwf > 0 ? t('wo.col.kgAdd') : t('wo.col.kg')}</span><span /></div>
       {ex.sets.map((s) => {
         if (!s.warm) j++;
         const prev = !s.warm && ex.prev ? ex.prev[j] || null : null;
@@ -190,7 +191,7 @@ export default function Workout({ go }) {
     if (!set.done && !(timed ? num(set.time) > 0 : num(set.reps) > 0)) return notify(t('wo.needReps'));
     navigator.vibrate?.(12);
     primeAudio();
-    patchSet(exId, set.id, { done: !set.done });
+    patchSet(exId, set.id, { done: !set.done, at: set.done ? undefined : Date.now() }); // E1: čas odškrtnutí
     if (set.done) return stopRest();
     markGuide('set');
     if (set.warm) return; // po rozcvičce bez pauzy
@@ -205,7 +206,7 @@ export default function Workout({ go }) {
       setTimeout(() => document.getElementById('ex-' + nx.id)?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' }), 350);
     }
     if (cur?.ss && nx?.ss === cur.ss) { stopRest(); return; }
-    startRest();
+    startRest(cur?.rest); // E2: pauza cviku ze šablony
   }, [notify, patchSet, startRest, stopRest]);
 
   // Rozcvičková série na začátek (cca polovina pracovní váhy)
@@ -305,6 +306,24 @@ export default function Workout({ go }) {
   }
 
   const finish = async () => {
+    // E1: zapomenuté „Dokončit“ – od poslední série uběhlo moc času → nabídnout konec hned po ní
+    let finishedAt;
+    const last = lastSetAt(active);
+    if (last && Date.now() - last > STALE_FINISH_MS) {
+      const end = last + 2 * 60000;
+      const hhmm = (ms) => new Date(ms).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
+      const c = await dialog.choose({
+        title: t('wo.staleTitle'),
+        message: t('wo.staleMsg', { time: hhmm(last), ago: fmtDuration(Date.now() - last) }),
+        actions: [
+          { value: 'last', label: t('wo.staleLast', { time: hhmm(end) }), primary: true },
+          { value: 'now', label: t('wo.staleNow') },
+          { value: null, label: t('dlg.cancel') },
+        ],
+      });
+      if (!c) return;
+      if (c === 'last') finishedAt = end;
+    }
     const pending = countUnchecked(active);
     let includeUnchecked = false;
     if (pending) {
@@ -337,7 +356,7 @@ export default function Workout({ go }) {
       sync = c === 'yes';
     }
     const snapshot = active;
-    const r = finishWorkout({ includeUnchecked });
+    const r = finishWorkout({ includeUnchecked, finishedAt });
     if (r.empty) return notify(t('wo.needOne'));
     if (sync && syncTemplate(tpl.id, snapshot)) notify(t('wo.synced', { name: tpl.name }));
     window.scrollTo({ top: 0 });

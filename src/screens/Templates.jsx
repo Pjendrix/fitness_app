@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { fmtRest } from '../lib/body.js';
+import { getRestDefault } from '../lib/rest.js';
 import { useStore } from '../lib/store.jsx';
 import { colorHex, TEMPLATE_COLORS } from '../data/defaultTemplates.js';
 import { DECIMAL_INPUT, defaultTop, exKey, LIMITS, planLabel, sanitizeName, uid } from '../lib/util.js';
@@ -67,7 +69,12 @@ function ColorPicker({ value, onChange }) {
   );
 }
 
+// E2: pauza pro cvik v šabloně (s); prázdné = výchozí z Nastavení
+const REST_CHOICES = [45, 60, 90, 120, 150, 180, 240, 300];
+
 function Editor({ initial, onSave, onClose, typeOf, isMain, groupLabel }) {
+  const restDefault = getRestDefault();
+  const restOff = !(restDefault > 0);
   const [name, setName] = useState(initial.name);
   const [variant, setVariant] = useState(initial.variant || '');
   const [color, setColor] = useState(initial.color || '');
@@ -149,6 +156,15 @@ function Editor({ initial, onSave, onClose, typeOf, isMain, groupLabel }) {
               <span className="muted small">{t('tpl.range', { lo: parseInt(e.reps, 10) || 8 })}</span>
               <Stepper value={e.repsTo || defaultTop(parseInt(e.reps, 10) || 8)} min={parseInt(e.reps, 10) || 8} max={60} onChange={(v) => upd(i, { repsTo: v })} />
             </div>
+          )}
+          {e.type !== 'time' && (
+            <label className="edit-rest">
+              <span className="muted small">{t('tpl.rest')}</span>
+              <select className="input input-sm" value={e.rest || ''} onChange={(ev) => upd(i, { rest: ev.target.value ? Number(ev.target.value) : undefined })}>
+                <option value="">{restOff ? t('tpl.restOff') : t('tpl.restDefault', { t: fmtRest(restDefault) })}</option>
+                {REST_CHOICES.map((sec) => <option key={sec} value={sec}>{fmtRest(sec)}</option>)}
+              </select>
+            </label>
           )}
           <input className="input edit-note" maxLength={120} value={e.note || ''} placeholder={t('tpl.note')} onChange={(ev) => upd(i, { note: ev.target.value })} />
           {e.plan?.length > 0 && <p className="muted small edit-plan">{t('tpl.planIs', { p: e.plan.map((p) => (p.t ? `${p.w || 0}×${p.t} min` : `${p.w}×${p.r}`)).join(', ') })}</p>}

@@ -842,3 +842,22 @@ html[data-theme='dark'] { --gold: #e3c170; }
 /* Demo lišta + Zpět/Offline odznak: odznaky sjedou pod lištu → obrazovka musí začít až pod nimi (jinak kryjí „Dokončit“) */
 html:not(.desktop) body:has(.demo-bar):has(.undo-btn) .screen,
 html:not(.desktop) body:has(.demo-bar):has(.sync-badge) .screen { padding-top: calc(env(safe-area-inset-top) + 96px); }
+/* 5.3 – E2: pauza cviku v editoru šablony */
+.edit-rest { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.edit-rest select { max-width: 170px; }
+/* 5.3 – E3: tělesná váha */
+.body-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.body-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.body-now .num { font-size: 22px; }
+.body-log { pointer-events: none; flex: none; }
+.body-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end; }
+.body-list .row-end { display: inline-flex; align-items: center; gap: 8px; }
+/* 5.3 – E3: přepínač „počítat tělesnou váhu“ v knihovně */
+.bw-toggle { margin-left: 4px; border: 0; cursor: pointer; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.04em; color: var(--stone); background: none; box-shadow: 0 0 0 1px var(--hairline); border-radius: 4px; padding: 1px 5px; vertical-align: middle; }
+.bw-toggle.is-on { color: var(--ink); background: var(--paper); box-shadow: 0 0 0 1px var(--ash); }
+/* 5.3 – verze: drobně a světle na konci obrazovky, nad spodní lištou */
+.main { position: relative; }
+.app-version { position: absolute; left: 0; right: 0; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 8px); margin: 0; text-align: center; font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; color: var(--stone); opacity: 0.45; pointer-events: none; user-select: none; }
+body:has(.rest-bar) .app-version { bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 76px); }
+html.desktop .app-version { bottom: 16px; }
+.app-version.is-login { position: fixed; bottom: calc(env(safe-area-inset-bottom) + 6px); color: #fff; opacity: 0.25; z-index: 1; }

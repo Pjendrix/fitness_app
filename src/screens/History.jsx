@@ -11,6 +11,7 @@ import { useDialog } from '../components/Dialog.jsx';
 import WorkoutEditor from '../components/WorkoutEditor.jsx';
 import { previousSame } from '../lib/metrics.js';
 import { metricsOf, recordsOf } from '../lib/derived.js';
+import { fmtRest } from '../lib/body.js';
 
 const dayKey = (ms) => new Date(ms).toDateString();
 const monday = (ms) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); };
@@ -25,6 +26,8 @@ function Compare({ cur, prev, prevDate }) {
     { l: t('wl.m.density'), v: cur.density != null ? `${Math.round(cur.density)} kg/min` : '–', d: pct(cur.density, prev.density), u: ' %' },
     { l: t('wl.m.intensity'), v: cur.intensity != null ? `${Math.round(cur.intensity)} %` : '–', d: cur.intensity != null && prev.intensity != null ? Math.round(cur.intensity - prev.intensity) : null, u: ` ${t('wl.pts')}` },
     { l: t('wl.m.minutes'), v: `${Math.round(cur.minutes)} min`, d: Math.round(cur.minutes - prev.minutes), u: ' min', neutral: true },
+    // E1: typická pauza – jen když má trénink časy sérií
+    ...(cur.rest != null ? [{ l: t('wl.m.rest'), v: fmtRest(cur.rest), d: prev.rest != null ? Math.round(cur.rest - prev.rest) : null, u: ' s', neutral: true }] : []),
   ];
   // Základ: objem, série, délka. Hustota a intenzita až po rozbalení, s vysvětlením.
   const rows = more ? all : all.filter((r) => r.l !== t('wl.m.density') && r.l !== t('wl.m.intensity'));

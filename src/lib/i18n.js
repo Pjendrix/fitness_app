@@ -217,6 +217,16 @@ const D = {
     'hist.edit': 'Edit', 'edit.title': 'Edit workout', 'edit.name': 'Name', 'edit.start': 'Start', 'edit.duration': 'Duration (min)',
     'edit.save': 'Save changes', 'edit.saved': 'Workout updated', 'edit.needSet': 'Keep at least one set with reps or time.',
     'edit.future': 'The start cannot be in the future.', 'edit.discard': 'Discard your changes?', 'edit.discardOk': 'Discard', 'undo.workoutEdit': 'workout edit',
+    // 5.3 – E1 časy sérií, E2 pauza cviku, E3 tělesná váha
+    'wl.m.rest': 'Typical rest', 'sum.rest': 'typical rest {t}', 'wo.restIs': 'rest {t}', 'wo.col.kgAdd': '+kg',
+    'wo.staleTitle': 'Forgot to finish?', 'wo.staleMsg': 'Your last set was at {time} ({ago} ago).', 'wo.staleLast': 'Finish at {time}', 'wo.staleNow': 'Finish now',
+    'tpl.rest': 'Rest after each set', 'tpl.restOff': 'Default (timer is off)', 'tpl.restDefault': 'Default ({t})',
+    'set.restSub': 'Default length. Templates can set their own per exercise; Off turns every rest timer off.',
+    'body.title': 'Body weight', 'body.empty': 'Not logged yet', 'body.in30': 'in 30 days', 'body.log': 'Log', 'body.date': 'Date', 'body.save': 'Save weight',
+    'body.help': 'Counts towards the volume of bodyweight exercises (pull-ups, dips, push-ups). One entry per day.', 'body.delete': 'Delete entry',
+    'body.bad': 'Enter a weight between 20 and 400 kg.', 'body.saved': 'Saved {w} kg', 'body.since': 'since {d}', 'body.more': 'Log it again in a few days to see the trend.',
+    'body.emptyRange': 'No body weight in this period.', 'body.imported': { one: '{n} body weight', other: '{n} body weights' },
+    'ex.bwTitle': 'Bodyweight exercise – body weight counts towards volume',
   }
 };
 

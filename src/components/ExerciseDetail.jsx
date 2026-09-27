@@ -26,7 +26,7 @@ export function sessionsOf(workouts, key) {
     out.push({
       t: w.startedAt, name: e.name, sets, top,
       e1: Math.max(...sets.map((s) => e1rm(s.weight, s.reps))),
-      vol: sets.reduce((a, s) => a + s.weight * s.reps, 0),
+      vol: sets.reduce((a, s) => a + (s.weight + (Number(e.bw) || 0)) * s.reps, 0), // E3: + tělesná váha
     });
   }
   const kind = out.some((s) => s.top.time > 0) ? 'time' : out.every((s) => s.top.weight === 0) ? 'reps' : 'e1';

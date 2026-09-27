@@ -10,7 +10,7 @@ import { InfoButton } from '../components/ExerciseInfo.jsx';
 import { useDialog } from '../components/Dialog.jsx';
 
 export default function Exercises() {
-  const { library, saveLibrary, addToLibrary, prs, workouts, notify, renamePreview, renameExercise } = useStore();
+  const { library, saveLibrary, addToLibrary, prs, workouts, notify, renamePreview, renameExercise, bwOf, setBw } = useStore();
   const [q, setQ] = useState('');
   const [name, setName] = useState('');
   const [cat, setCat] = useState(CATEGORIES[0]);
@@ -152,7 +152,8 @@ export default function Exercises() {
               return (
                 <div className="lib-row" key={e.name}>
                   <div className="lib-main">
-                    <span>{e.name} <InfoButton name={e.name} /> <button className="type-toggle" title={t('type.label')} onClick={() => saveLibrary(library.map((x) => (x === e ? (e.type === 'time' ? (({ type: _type, ...rest }) => rest)(x) : { ...x, type: 'time' }) : x)))}><TypeTag type={e.type} /></button></span>
+                    <span>{e.name} <InfoButton name={e.name} /> <button className="type-toggle" title={t('type.label')} onClick={() => saveLibrary(library.map((x) => (x === e ? (e.type === 'time' ? (({ type: _type, ...rest }) => rest)(x) : { ...x, type: 'time' }) : x)))}><TypeTag type={e.type} /></button>
+                      {e.type !== 'time' && <button className={'bw-toggle' + (bwOf(e.name) > 0 ? ' is-on' : '')} aria-pressed={bwOf(e.name) > 0} title={t('ex.bwTitle')} onClick={() => setBw(e.name, !(bwOf(e.name) > 0))}>BW</button>}</span>
                     <span className="label">{[prs[k] && `${t('rec.max')} ${fmtSet(prs[k].weight, prs[k].reps, prs[k].time)}`, counts[k] && t('ex.sessions', { n: counts[k] })].filter(Boolean).join(' · ')}</span>
                   </div>
                   <select className="lib-cat" value={e.cat} onChange={(ev) => recat(e, ev.target.value)} aria-label={t('pick.category')}>

@@ -3,6 +3,7 @@
 import { STARTERS } from '../data/defaultTemplates.js';
 import { exKey, firstNum, num, uid } from './util.js';
 import { applyWorkout } from './records.js';
+import { bodyAt, bodyEntry, defaultBw } from './body.js';
 
 const WEEKS = 16;
 const SKIP_WEEKS = new Set([5, 11]); // dovolená / nemoc – ať to vypadá reálně
@@ -18,6 +19,15 @@ export function generateDemo(now = Date.now()) {
   today.setHours(0, 0, 0, 0);
   const first = new Date(today);
   first.setDate(today.getDate() - ((today.getDay() + 6) % 7) - WEEKS * 7); // pondělí před 16 týdny
+
+  // E3: tělesná váha jednou týdně (pondělí ráno), pozvolna dolů 84,5 → ~82 kg
+  const body = [];
+  for (let wk = 0; wk <= WEEKS; wk++) {
+    const day = new Date(first);
+    day.setDate(first.getDate() + wk * 7);
+    if (day > today) break;
+    body.push(bodyEntry(day.getTime(), 84.5 - (2.5 * wk) / WEEKS + (rnd() - 0.5) * 0.6));
+  }
 
   const workouts = [];
   let rotation = 0;
@@ -49,16 +59,21 @@ export function generateDemo(now = Date.now()) {
         const reps = Math.max(1, target + (rnd() < 0.25 ? -1 : 0) + (rnd() < 0.2 ? 1 : 0) + (base > 0 ? 0 : Math.round(progress * 3)));
         return { weight, reps };
       });
-      return { key: exKey(e.name), name: e.name, ...(timed ? { type: 'time' } : {}), sets };
+      const bwf = timed ? 0 : defaultBw(e.name);
+      const bw = bwf ? Math.round(bodyAt(body, startedAt) * bwf * 10) / 10 : 0;
+      return { key: exKey(e.name), name: e.name, ...(timed ? { type: 'time' } : {}), sets, ...(bw ? { bw } : {}) };
     });
+    // E1: časy odškrtnutí sérií – série ~40 s + pauza 75–150 s
+    let clock = startedAt + 4 * 60000;
+    for (const e of exercises) for (const s of e.sets) { clock += (40 + 75 + Math.floor(rnd() * 75)) * 1000; s.at = clock; }
 
     workouts.push({
       id: uid(), templateId: tpl.id, name: tpl.name, group: tpl.group, variant: tpl.variant,
-      startedAt, finishedAt: startedAt + (48 + Math.floor(rnd() * 35)) * 60000, exercises,
+      startedAt, finishedAt: Math.max(clock + 120000, startedAt + (48 + Math.floor(rnd() * 35)) * 60000), exercises,
     });
   }
 
   let prs = {};
   for (const w of workouts) prs = applyWorkout(w, prs).next; // chronologicky
-  return { templates: [], workouts, prs, exercises: [], profile: 'ppl', settings: { weeklyGoal: 3 } };
+  return { templates: [], workouts, prs, exercises: [], body, profile: 'ppl', settings: { weeklyGoal: 3 } };
 }

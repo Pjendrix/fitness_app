@@ -6,6 +6,7 @@ import { templateFromActive } from '../templateSync.js';
 import { markGuide } from '../guide.js';
 import { t } from '../i18n.js';
 import { keepExercises, newSet, normalizeExercise, prevOf, withIds } from './model.js';
+import { bodyAt } from '../body.js';
 
 // ——— Draft rozdělaného tréninku (per uživatel, localStorage) ———
 const draftKey = (u) => `forge:active:${u}`;
@@ -25,7 +26,7 @@ const loadDraft = (u) => {
 };
 
 // Aktivní trénink: draft, pauza, zápis sérií, dokončení. Psaní v tréninku mění jen tenhle stav (SessionCtx).
-export function useActiveWorkout({ user, api, notify, prs, setPrs, workouts, setWorkouts, typeOf, templates, saveMainTemplate, saveTemplate }) {
+export function useActiveWorkout({ user, api, notify, prs, setPrs, workouts, setWorkouts, typeOf, bwOf, body, templates, saveMainTemplate, saveTemplate }) {
   const [active, setActive] = useState(null);
   const [rest, setRest] = useState(null); // {until, total}
 
@@ -88,12 +89,14 @@ export function useActiveWorkout({ user, api, notify, prs, setPrs, workouts, set
       return {
         id: uid(), key, name: e.name, type, plan: type === 'time' ? t('count.sets', { n: e.sets }) : planLabel(e), hint: last ? '' : e.hint || '', note: e.note || '', sets,
         prev: last ? last.map(prevOf) : null, spec: e.reps ?? '', specTo: e.repsTo || null, specs: e.plan ? e.plan.map((p) => p.r) : null, ss: e.ss || '',
+        rest: Number(e.rest) > 0 ? Number(e.rest) : null, // E2: pauza cviku ze šablony (s); null = výchozí z Nastavení
+        bwf: type === 'time' ? 0 : bwOf(e.name), // E3: podíl tělesné váhy (0 = běžný cvik)
       };
     });
     setRest(null);
     markGuide('start');
     setActive({ id: uid(), templateId: tpl.id, name: tpl.name, group: tpl.group || '', variant: tpl.variant || '', startedAt: Date.now(), exercises });
-  }, [lastSets, typeOf]);
+  }, [lastSets, typeOf, bwOf]);
 
   const startEmptyWorkout = useCallback(() => {
     setRest(null);
@@ -102,16 +105,19 @@ export function useActiveWorkout({ user, api, notify, prs, setPrs, workouts, set
   }, []);
   const discardWorkout = useCallback(() => { setActive(null); setRest(null); }, []);
 
-  const finishWorkout = useCallback(({ includeUnchecked = false } = {}) => {
+  // finishedAt: vlastní konec (E1 – zapomenuté „Dokončit“ → konec po poslední sérii); jinak teď
+  const finishWorkout = useCallback(({ includeUnchecked = false, finishedAt: endAt } = {}) => {
     if (!active) return { empty: true };
     const draft = active, prevPrs = prs;
-    const finishedAt = Date.now();
+    const finishedAt = Number.isFinite(endAt) ? Math.min(Date.now(), endAt) : Date.now();
+    const bodyKg = bodyAt(body, active.startedAt); // E3: tělesná váha k datu tréninku
     const exercises = keepExercises(active.exercises.map((e) => {
       const timed = e.type === 'time';
       const sets = e.sets
         .filter((s) => !s.warm) // rozcvičkové série se neukládají (nepočítají se do objemu ani rekordů)
         .filter((s) => isDone(s) || (includeUnchecked && hasValue(s, timed)));
-      return normalizeExercise({ key: e.key, name: e.name, type: e.type, note: e.memo, rpe: e.rpe, ss: e.ss }, sets);
+      const bw = e.bwf > 0 && bodyKg ? bodyKg * e.bwf : undefined;
+      return normalizeExercise({ key: e.key, name: e.name, type: e.type, note: e.memo, rpe: e.rpe, ss: e.ss, bw }, sets);
     }));
     if (!exercises.length) return { empty: true };
 
@@ -134,7 +140,7 @@ export function useActiveWorkout({ user, api, notify, prs, setPrs, workouts, set
       notify(t('err.saveWorkout', { m: e?.code || e?.message || '?' }), { duration: 8000 });
     });
     return { empty: false, beaten, done };
-  }, [active, prs, api, notify, setPrs, setWorkouts]);
+  }, [active, prs, api, notify, setPrs, setWorkouts, body]);
 
   const patchActive = useCallback((fn) => setActive((a) => (a ? fn(a) : a)), []);
   const addExerciseToActive = useCallback((ex) => {
@@ -143,8 +149,8 @@ export function useActiveWorkout({ user, api, notify, prs, setPrs, workouts, set
     const type = ex.type || typeOf(ex.name);
     const sets = (last || [{}]).map(newSet);
     while (sets.length < (type === 'time' ? 1 : 3)) sets.push(newSet(sets[sets.length - 1]));
-    patchActive((a) => ({ ...a, exercises: [...a.exercises, { id: uid(), key, name: ex.name, type, plan: '', hint: '', note: '', sets, prev: last ? last.map(prevOf) : null, ss: '' }] }));
-  }, [lastSets, patchActive, typeOf]);
+    patchActive((a) => ({ ...a, exercises: [...a.exercises, { id: uid(), key, name: ex.name, type, plan: '', hint: '', note: '', sets, prev: last ? last.map(prevOf) : null, ss: '', rest: null, bwf: type === 'time' ? 0 : bwOf(ex.name) }] }));
+  }, [lastSets, patchActive, typeOf, bwOf]);
 
   // Nahrazení cviku v aktivním tréninku (obsazené stanoviště).
   // Bez odškrtnutých sérií → výměna na místě. S odškrtnutými → hotové série zůstanou u původního cviku,
@@ -160,7 +166,7 @@ export function useActiveWorkout({ user, api, notify, prs, setPrs, workouts, set
     const count = Math.max(1, old.sets.length - done.length);
     const sets = Array.from({ length: count }, (_, i) => newSet(last ? last[Math.min(i, last.length - 1)] : {}));
     const plan = type === (old.type || 'reps') ? old.plan : type === 'time' ? t('count.sets', { n: count }) : '';
-    const fresh = { id: uid(), key, name: ex.name, type, plan, hint: '', note: '', sets, prev: last ? last.map(prevOf) : null, spec: type === (old.type || 'reps') ? old.spec : undefined, specTo: type === (old.type || 'reps') ? old.specTo : null, ss: old.ss || '' };
+    const fresh = { id: uid(), key, name: ex.name, type, plan, hint: '', note: '', sets, prev: last ? last.map(prevOf) : null, spec: type === (old.type || 'reps') ? old.spec : undefined, specTo: type === (old.type || 'reps') ? old.specTo : null, ss: old.ss || '', rest: old.rest ?? null, bwf: type === 'time' ? 0 : bwOf(ex.name) };
     const split = done.length > 0;
     patchActive((a) => {
       const i = a.exercises.findIndex((e) => e.id === exId);
@@ -182,12 +188,15 @@ export function useActiveWorkout({ user, api, notify, prs, setPrs, workouts, set
         }),
       },
     });
-  }, [active, lastSets, typeOf, patchActive, notify]);
+  }, [active, lastSets, typeOf, bwOf, patchActive, notify]);
 
   // ——— Pauza ———
-  const startRest = useCallback(() => {
-    const total = getRestDefault();
-    if (total > 0) setRest({ until: Date.now() + total * 1000, total });
+  // E2: délka pauzy = pauza cviku ze šablony, jinak výchozí. Vypnutá pauza v Nastavení vypíná i pauzy cviků.
+  const startRest = useCallback((sec) => {
+    const def = getRestDefault();
+    if (!(def > 0)) return;
+    const total = Number(sec) > 0 ? Number(sec) : def;
+    setRest({ until: Date.now() + total * 1000, total });
   }, []);
   const adjustRest = useCallback((delta) => setRest((r) => (r ? { ...r, until: Math.max(Date.now() + 5000, r.until + delta * 1000), total: Math.max(5, r.total + delta) } : r)), []);
   const stopRest = useCallback(() => setRest(null), []);

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { BodyChart } from '../components/BodyWeight.jsx';
 import { markGuide } from '../lib/guide.js';
 import { useStore } from '../lib/store.jsx';
 import { CATEGORIES } from '../data/exercises.js';
@@ -84,7 +85,7 @@ export default function Analytics({ go }) {
       sessions.push({
         t: w.startedAt, top, sets: e.sets,
         e1: Math.max(...e.sets.map((s) => e1rm(s.weight, s.reps))),
-        vol: e.sets.reduce((s, x) => s + x.weight * x.reps, 0),
+        vol: e.sets.reduce((s, x) => s + (x.weight + (Number(e.bw) || 0)) * x.reps, 0),
       });
     }
     return sessions;
@@ -164,6 +165,7 @@ export default function Analytics({ go }) {
         <section className="card"><div className="card-head"><h2>{t('an.weeklyN')}</h2></div><BarChart label={t('an.weeklyN')} data={weekly.n} format={(v) => fmtNum(Math.round(v * 10) / 10)} /></section>
         <section className="card"><div className="card-head"><h2>{t('an.muscles')}</h2></div><HBars data={muscles} /></section>
         <WeeklyGoal workouts={workouts} goal={weeklyGoal} setGoal={setWeeklyGoal} groups={main.groups} />
+        <BodyChart weeks={range} />
 
         <section className="card span-2">
           <div className="card-head"><h2>{t('an.prs')}</h2><span className="label">{Object.keys(prs).length}</span></div>

@@ -36,6 +36,12 @@ const SCREENS = { home: Home, workout: Workout, history: History, templates: Tem
 const Nav = memo(BottomNav);
 const Undo = memo(UndoButton);
 
+// Verze appky nenápadně na konci každé obrazovky (5.3.0 → „v5.3“)
+export const APP_VERSION = String(import.meta.env.APP_VERSION || '').replace(/\.0$/, '');
+function AppVersion({ className = 'app-version' }) {
+  return APP_VERSION ? <p className={className} aria-label={`Forge ${APP_VERSION}`}>v{APP_VERSION}</p> : null;
+}
+
 function Shell() {
   const { user, live, appearance } = useStore();
   // Vzhled účtu (podbarvení + akcent) → CSS proměnné na <html>
@@ -79,7 +85,7 @@ function Shell() {
   }, [live, go]);
 
   if (user === undefined) return <div className="splash" aria-busy="true">Forge</div>;
-  if (!user) return <><Login /><Toast /></>;
+  if (!user) return <><Login /><AppVersion className="app-version is-login" /><Toast /></>;
 
   const Screen = SCREENS[tab];
   return (
@@ -90,6 +96,7 @@ function Shell() {
             <Screen go={go} />
           </Suspense>
         </ErrorBoundary>
+        <AppVersion />
       </main>
       <DemoBar />
       <SyncBadge />

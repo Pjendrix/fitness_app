@@ -17,6 +17,7 @@ import { clean } from './util.js';
 import { generateDemo } from './demoData.js';
 
 export const HISTORY_LIMIT = 1000;
+export const BODY_LIMIT = 800;
 const BATCH_OPS = 15;
 // Jen pole, která rules u šablony povolí (starší zálohy / verze mohly nést další – zápis by pak selhal)
 const TEMPLATE_KEYS = ['id', 'name', 'color', 'group', 'variant', 'exercises'];
@@ -162,14 +163,22 @@ const firebaseBackend = {
       applyPrChanges: (changes) => commitOps(prOps(changes)),
       // F2: smazání všech dat účtu (tréninky, rekordy, šablony, nastavení). Přihlašovací účet maže deleteAccount.
       async deleteAllData() {
-        const [w, p, t] = await Promise.all([getDocs(col('workouts')), getDocs(col('prs')), getDocs(col('templates'))]);
-        const docs = [...w.docs, ...p.docs, ...t.docs].map((d) => ({ ref: d.ref, del: true }));
+        const [w, p, t, b] = await Promise.all([getDocs(col('workouts')), getDocs(col('prs')), getDocs(col('templates')), getDocs(col('body'))]);
+        const docs = [...w.docs, ...p.docs, ...t.docs, ...b.docs].map((d) => ({ ref: d.ref, del: true }));
         const meta = ['exercises', 'profile', 'main', 'settings'].map((id) => ({ ref: ref('meta', id), del: true }));
         await commitOps([...docs, ...meta]);
       },
       saveExercises: (list) => setDoc(ref('meta', 'exercises'), { list: clean(list), v: 2 }),
       saveProfile: (id) => setDoc(ref('meta', 'profile'), { id }),
       saveSettings: (s) => setDoc(ref('meta', 'settings'), s, { merge: true }),
+      // E3: tělesná váha – users/{uid}/body/{YYYY-MM-DD} = { date, weight }, živě (posledních ~2 roky záznamů)
+      subscribeBody(cb, onError) {
+        const q = query(col('body'), orderBy('date', 'desc'), limit(BODY_LIMIT));
+        return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), onError);
+      },
+      saveBody: (e) => setDoc(ref('body', e.id), { date: e.date, weight: e.weight }),
+      deleteBody: (id) => deleteDoc(ref('body', id)),
+      saveBodies: (list) => commitOps(list.map((e) => ({ ref: ref('body', e.id), data: { date: e.date, weight: e.weight } }))),
       // Hlavní šablony účtu (klíč own); starší klíče krystof/chiara zůstávají jako záloha
       saveMain: (cfg) => setDoc(ref('meta', 'main'), { own: cfg ? clean(cfg) : deleteField() }, { merge: true }),
     };
@@ -178,12 +187,14 @@ const firebaseBackend = {
 
 // ——— DEMO (localStorage, bez přihlášení) ———
 const LS = 'forge:demo';
-const empty = () => ({ templates: [], workouts: [], prs: {}, exercises: [] });
+const empty = () => ({ templates: [], workouts: [], prs: {}, exercises: [], body: [] });
 const readLS = () => { try { return JSON.parse(localStorage.getItem(LS)) || empty(); } catch { return empty(); } };
 const writeLS = (d) => localStorage.setItem(LS, JSON.stringify(d));
 const DEMO_USER = { uid: 'demo', name: 'Demo', email: '', photo: '' };
 const listeners = new Set();
 const emit = () => { const w = [...readLS().workouts].sort((a, b) => b.startedAt - a.startedAt); listeners.forEach((f) => f(w, { pending: false, fromCache: false })); };
+const bodyListeners = new Set();
+const emitBody = () => { const b = [...(readLS().body || [])].sort((x, y) => y.date - x.date); bodyListeners.forEach((f) => f(b)); };
 const edit = (fn) => { const d = readLS(); fn(d); writeLS(d); };
 const putDemoPrs = (d, changes) => { for (const [k, v] of Object.entries(changes)) { if (v) d.prs[k] = v; else delete d.prs[k]; } };
 
@@ -221,7 +232,11 @@ const demoBackend = {
         emit();
       },
       async applyPrChanges(ch) { edit((d) => { putDemoPrs(d, ch); }); },
-      async deleteAllData() { writeLS(empty()); emit(); },
+      async deleteAllData() { writeLS(empty()); emit(); emitBody(); },
+      subscribeBody(cb) { bodyListeners.add(cb); emitBody(); return () => bodyListeners.delete(cb); },
+      async saveBody(e) { edit((d) => { d.body = [...(d.body || []).filter((x) => x.id !== e.id), { id: e.id, date: e.date, weight: e.weight }]; }); emitBody(); },
+      async deleteBody(id) { edit((d) => { d.body = (d.body || []).filter((x) => x.id !== id); }); emitBody(); },
+      async saveBodies(list) { const ids = new Set(list.map((e) => e.id)); edit((d) => { d.body = [...(d.body || []).filter((x) => !ids.has(x.id)), ...list]; }); emitBody(); },
       async saveExercises(list) { edit((d) => { d.library = { list, v: 2 }; }); },
       async saveProfile(id) { edit((d) => { d.profile = id; }); },
       async saveSettings(s) { edit((d) => { d.settings = { ...(d.settings || {}), ...s }; }); },

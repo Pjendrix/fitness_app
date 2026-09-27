@@ -6,6 +6,7 @@ import { exKey, LIMITS, sanitizeName } from '../util.js';
 import { defaultStep, learnedSteps } from '../progress.js';
 import { t } from '../i18n.js';
 import { MAX_PINS, migrateTemplate, toLibEntry } from './model.js';
+import { defaultBw } from '../body.js';
 
 const cleanMainTpl = (x) => { const { builtin: _b, ...rest } = x; return rest; };
 
@@ -108,6 +109,12 @@ export function useAccountActions({ api, fail, notify, remember, user, acc, work
     return l && l >= d / 2 ? l : d;
   }, [libMap, learned]);
   const stepIsManual = useCallback((name) => Boolean(libMap.get(exKey(name))?.step), [libMap]);
+  // E3: podíl tělesné váhy cviku – z knihovny (bw), jinak výchozí podle názvu (shyby, dipy, kliky…)
+  const bwOf = useCallback((name) => {
+    const e = libMap.get(exKey(name));
+    if (e?.type === 'time') return 0;
+    return e && e.bw !== undefined ? e.bw : defaultBw(name);
+  }, [libMap]);
   const infoOf = useCallback((name) => {
     const k = exKey(name);
     const e = libMap.get(k);
@@ -135,6 +142,14 @@ export function useAccountActions({ api, fail, notify, remember, user, acc, work
     writeLibrary([...libRef.current.filter((x) => exKey(x.name) !== k), entry].slice(0, LIMITS.library));
   }, [remember, writeLibrary]);
   const resetLibrary = useCallback(() => saveLibrary(EXERCISES), [saveLibrary]);
+  // E3: zapnout / vypnout započítání tělesné váhy u cviku (on = výchozí podíl nebo 100 %)
+  const setBw = useCallback((name, on) => {
+    const k = exKey(name);
+    const lib = libRef.current;
+    const cur = lib.find((x) => exKey(x.name) === k) || { name, cat: catOf(name) || 'other' };
+    remember('undo.library');
+    writeLibrary([...lib.filter((x) => exKey(x.name) !== k), toLibEntry({ ...cur, bw: on ? defaultBw(name) || 1 : 0 })].slice(0, LIMITS.library));
+  }, [catOf, remember, writeLibrary]);
   // Ruční krok váhy cviku (null = zase automaticky)
   const setStep = useCallback((name, step) => {
     const k = exKey(name);
@@ -149,8 +164,8 @@ export function useAccountActions({ api, fail, notify, remember, user, acc, work
   return useMemo(() => ({
     main, templates, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, chooseStarter,
     saveTemplate, deleteTemplate, setAppearance, setWeeklyGoal, togglePin,
-    typeOf, catOf, stepOf, stepIsManual, infoOf, saveLibrary, addToLibrary, resetLibrary, setStep,
+    typeOf, catOf, stepOf, stepIsManual, infoOf, saveLibrary, addToLibrary, resetLibrary, setStep, bwOf, setBw,
   }), [main, templates, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, chooseStarter,
     saveTemplate, deleteTemplate, setAppearance, setWeeklyGoal, togglePin,
-    typeOf, catOf, stepOf, stepIsManual, infoOf, saveLibrary, addToLibrary, resetLibrary, setStep]);
+    typeOf, catOf, stepOf, stepIsManual, infoOf, saveLibrary, addToLibrary, resetLibrary, setStep, bwOf, setBw]);
 }

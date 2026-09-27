@@ -5,6 +5,7 @@ import { ArrowIcon, XIcon } from '../components/Icons.jsx';
 import { guideState, hideGuide } from '../lib/guide.js';
 import { useStartTour } from '../components/Tour.jsx';
 import ProfileBadge from '../components/ProfileBadge.jsx';
+import BodyCard from '../components/BodyWeight.jsx';
 import { colorHex, STARTER_IDS } from '../data/defaultTemplates.js';
 import { fmtDate, fmtNum, fmtSet, startOfWeek, workoutVolume } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
@@ -107,6 +108,8 @@ export default function Home({ go }) {
         <div className="card stat"><span className="num">{workouts.length}</span><span className="muted small">{t('home.total')}</span></div>
         <span className="stats-more label">{t('home.allStats')} <ArrowIcon width={12} height={12} style={{ transform: 'rotate(180deg)' }} /></span>
       </section>
+
+      <BodyCard />
 
       {!active && (
         <>

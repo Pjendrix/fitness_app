@@ -1,10 +1,15 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { readFileSync } from 'node:fs';
+
+// Verze appky z package.json → import.meta.env.APP_VERSION (malý štítek dole na obrazovce)
+const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 
 // base './' → funguje na Vercelu i v podadresáři
 export default defineConfig({
   base: './',
+  define: { 'import.meta.env.APP_VERSION': JSON.stringify(version) },
   plugins: [
     react(),
     VitePWA({

@@ -14,7 +14,7 @@ import { useRef, useState } from 'react';
 import { UploadIcon } from '../components/Icons.jsx';
 
 export default function Settings({ go }) {
-  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, deleteAccount, notify, starter, chooseStarter, resetDemo, importData, online } = useStore();
+  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, deleteAccount, notify, starter, chooseStarter, resetDemo, importData, importBody, body, online } = useStore();
   const demo = mode === 'demo';
   const { lang, setLang } = useLang();
   const { theme, setTheme } = useTheme();
@@ -22,7 +22,7 @@ export default function Settings({ go }) {
   const [restSec, setRestSec] = useState(getRestDefault);
 
   const exportData = () => {
-    download('forge-export.json', JSON.stringify({ exportedAt: new Date().toISOString(), workouts, prs, templates: templates.filter((x) => !x.builtin), library }, null, 2), 'application/json');
+    download('forge-export.json', JSON.stringify({ exportedAt: new Date().toISOString(), workouts, prs, templates: templates.filter((x) => !x.builtin), library, body }, null, 2), 'application/json');
     notify(t('set.exported'));
   };
   // S3: import zálohy – sloučí se s existujícími daty
@@ -39,7 +39,8 @@ export default function Settings({ go }) {
     if (!(await dialog.confirm(msg, { ok: t('set.import') }))) return;
     try {
       const r = await importData(json);
-      notify(t('set.importDone', { w: r.workouts, t: r.templates, e: r.exercises }), { duration: 6000 });
+      const b = await importBody(json.body); // E3: tělesná váha ze zálohy (jen chybějící dny)
+      notify(t('set.importDone', { w: r.workouts, t: r.templates, e: r.exercises }) + (b ? ` · ${t('body.imported', { n: b })}` : ''), { duration: 6000 });
     } catch (e) { console.error(e); notify(t(e?.message === 'offline' ? 'set.importOffline' : 'set.importBad')); }
   };
   // Hlavní šablony znovu ze startovního splitu (i jiného než dosud)
@@ -101,7 +102,7 @@ export default function Settings({ go }) {
             {['light', 'dark', 'auto'].map((id) => <button key={id} role="radio" aria-checked={theme === id} className={theme === id ? 'is-on' : ''} onClick={() => setTheme(id)}>{t('theme.' + id)}</button>)}
           </div>
         </div>
-        <div className="row"><span>{t('set.rest')}</span>
+        <div className="row"><span>{t('set.rest')}<span className="muted small row-sub">{t('set.restSub')}</span></span>
           <div className="seg seg-sm seg-inline" role="radiogroup" aria-label={t('set.rest')}>
             {REST_OPTIONS.map((s) => <button key={s} role="radio" aria-checked={restSec === s} className={restSec === s ? 'is-on' : ''} onClick={() => { setRestDefault(s); setRestSec(s); }}>{s ? (s % 60 ? `${s}s` : `${s / 60}m`) : t('rest.off')}</button>)}
           </div>

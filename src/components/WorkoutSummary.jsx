@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { previousSame } from '../lib/metrics.js';
 import { metricsOf, recordsOf } from '../lib/derived.js';
+import { fmtRest } from '../lib/body.js';
 import { fmtDate, fmtDuration, fmtNum, fmtSet, workoutVolume } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
 import { ContactSheet } from './DemoBar.jsx';
@@ -38,7 +39,9 @@ export default function WorkoutSummary({ done, onClose }) {
         <div className="card kpi"><span className="label">{t('an.sets')}</span><span className="num">{sets}</span><span className="small">{pm && delta(sets, pm.sets)}</span></div>
         <div className="card kpi"><span className="label">{t('sum.records')}</span><span className="num">{records.length}</span><span className="muted small">{t('sum.recordsSub')}</span></div>
       </section>
-      {pm && <p className="muted small">{t('sum.vsPrev', { d: fmtDate(prev.startedAt) })}</p>}
+      {(pm || cur?.rest != null) && (
+        <p className="muted small">{[pm && t('sum.vsPrev', { d: fmtDate(prev.startedAt) }), cur?.rest != null && t('sum.rest', { t: fmtRest(cur.rest) })].filter(Boolean).join(' · ')}</p>
+      )}
       {records.length > 0 && (
         <section className="card ms-flush">
           <div className="card-head ms-pad"><h2>{t('sum.newRecords')}</h2></div>

@@ -177,4 +177,14 @@ export default {
     'hist.edit': 'Upravit', 'edit.title': 'Upravit trénink', 'edit.name': 'Název', 'edit.start': 'Začátek', 'edit.duration': 'Délka (min)',
     'edit.save': 'Uložit změny', 'edit.saved': 'Trénink upraven', 'edit.needSet': 'Nech aspoň jednu sérii s opakováním nebo časem.',
     'edit.future': 'Začátek nemůže být v budoucnu.', 'edit.discard': 'Zahodit provedené změny?', 'edit.discardOk': 'Zahodit', 'undo.workoutEdit': 'úprava tréninku',
+    // 5.3 – E1 časy sérií, E2 pauza cviku, E3 tělesná váha
+    'wl.m.rest': 'Typická pauza', 'sum.rest': 'typická pauza {t}', 'wo.restIs': 'pauza {t}', 'wo.col.kgAdd': '+kg',
+    'wo.staleTitle': 'Zapomněl jsi dokončit?', 'wo.staleMsg': 'Poslední série byla v {time} (před {ago}).', 'wo.staleLast': 'Ukončit v {time}', 'wo.staleNow': 'Ukončit teď',
+    'tpl.rest': 'Pauza po každé sérii', 'tpl.restOff': 'Výchozí (pauza je vypnutá)', 'tpl.restDefault': 'Výchozí ({t})',
+    'set.restSub': 'Výchozí délka. Šablona může mít u cviku vlastní; Vyp. vypne všechny pauzy.',
+    'body.title': 'Tělesná váha', 'body.empty': 'Zatím nezapsaná', 'body.in30': 'za 30 dní', 'body.log': 'Zapsat', 'body.date': 'Datum', 'body.save': 'Uložit váhu',
+    'body.help': 'Počítá se do objemu cviků s vlastní vahou (shyby, dipy, kliky). Jeden záznam na den.', 'body.delete': 'Smazat záznam',
+    'body.bad': 'Zadej váhu mezi 20 a 400 kg.', 'body.saved': 'Uloženo {w} kg', 'body.since': 'od {d}', 'body.more': 'Zapiš ji znovu za pár dní a uvidíš vývoj.',
+    'body.emptyRange': 'V tomhle období žádná tělesná váha.', 'body.imported': { one: '{n} tělesná váha', few: '{n} tělesné váhy', other: '{n} tělesných vah' },
+    'ex.bwTitle': 'Cvik s vlastní vahou – tělesná váha se počítá do objemu',
 };

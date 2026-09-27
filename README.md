@@ -81,3 +81,10 @@ Otevři nasazenou URL → Safari: *Sdílet → Přidat na plochu* / Chrome: *Nai
 - Zápisy po dávkách max. 15 operací (limit volání `exists()` v rules pro přidané účty).
 - Smazání účtu a všech dat (Nastavení → Smazání účtu), zásady ochrany osobních údajů `public/privacy.html`.
 - Historie po 8 týdnech, sdílené výpočty (`lib/derived.js`), čeština jako samostatný chunk (`lib/i18n.cs.js`).
+
+## 5.3 – nové funkce
+- **Časy sérií (E1):** každá odškrtnutá série má čas `at` → typická pauza v souhrnu a historii, nabídka konce zapomenutého tréninku.
+- **Pauza cviku (E2):** `rest` (s) u cviku v šabloně; Nastavení → Pauza → Vyp. vypíná vše.
+- **Tělesná váha (E3):** `users/{uid}/body/{YYYY-MM-DD}` = `{date, weight}`; dlaždice na Domů, graf ve statistikách.
+  Cviky s vlastní vahou (knihovna `bw` = podíl tělesné váhy) ukládají `bw` (kg) do tréninku a objem ho započítá.
+- Verze z `package.json` dole na obrazovce (`import.meta.env.APP_VERSION`).

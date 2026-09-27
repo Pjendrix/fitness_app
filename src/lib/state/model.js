@@ -34,21 +34,25 @@ export const migratePrs = (prs) => {
 export const migrateTemplate = (tpl) => ({ ...tpl, exercises: tpl.exercises.map((e) => ({ ...e, name: modernName(e.name) })) });
 
 // ——— Knihovna cviků ———
+// E3: bw = podíl tělesné váhy (0 = výslovně vypnuto, chybí = výchozí podle názvu)
+const bwField = (e) => (e.bw === undefined || e.bw === null || e.bw === '' ? {} : { bw: Math.min(1, Math.max(0, Math.round(Number(e.bw) * 100) / 100 || 0)) });
 export const loadLibrary = (d) => {
   if (!d) return EXERCISES;
-  const list = (d.list || []).map((e) => ({ name: modernName(e.name), cat: normCat(e.cat), ...(e.type === 'time' ? { type: 'time' } : {}), ...(e.db ? { db: e.db } : {}), ...(Number(e.step) > 0 ? { step: Number(e.step) } : {}) }));
+  const list = (d.list || []).map((e) => ({ name: modernName(e.name), cat: normCat(e.cat), ...(e.type === 'time' ? { type: 'time' } : {}), ...(e.db ? { db: e.db } : {}), ...(Number(e.step) > 0 ? { step: Number(e.step) } : {}), ...bwField(e) }));
   if (d.v === 2) return list;
   const have = new Set(EXERCISES.map((e) => exKey(e.name)));
   return [...EXERCISES, ...list.filter((e) => !have.has(exKey(e.name)))];
 };
 export const toLibEntry = (ex) => {
   const cat = normCat(ex.cat);
-  return { name: sanitizeName(ex.name), cat, ...(ex.type === 'time' || (!ex.type && cat === 'cardio') ? { type: 'time' } : {}), ...(ex.db ? { db: String(ex.db).slice(0, 120) } : {}), ...(Number(ex.step) > 0 ? { step: Math.min(50, Math.round(Number(ex.step) * 4) / 4) } : {}) };
+  return { name: sanitizeName(ex.name), cat, ...(ex.type === 'time' || (!ex.type && cat === 'cardio') ? { type: 'time' } : {}), ...(ex.db ? { db: String(ex.db).slice(0, 120) } : {}), ...(Number(ex.step) > 0 ? { step: Math.min(50, Math.round(Number(ex.step) * 4) / 4) } : {}), ...bwField(ex) };
 };
 
 // ——— Normalizace před zápisem (B6: jedno místo pro dokončení, úpravu i import tréninku) ———
+// E1: série si nese čas odškrtnutí (at, ms) – slouží k pauzám a ke konci zapomenutého tréninku
+const validAt = (v) => Number.isFinite(v) && v > 1e12 && v < 1e13;
 export const cleanSets = (sets, timed) =>
-  (sets || []).map((s) => sanitizeSet(s, timed)).filter((s) => (timed ? s.time > 0 : s.reps > 0));
+  (sets || []).map((s) => ({ ...sanitizeSet(s, timed), ...(validAt(s.at) ? { at: Math.round(s.at) } : {}) })).filter((s) => (timed ? s.time > 0 : s.reps > 0));
 
 // Cvik k uložení. sets = už vybrané série (např. jen odškrtnuté); klíč se dopočítá z názvu, když chybí.
 export const normalizeExercise = (e, sets = e.sets) => {
@@ -56,9 +60,11 @@ export const normalizeExercise = (e, sets = e.sets) => {
   const name = sanitizeName(e.name);
   const note = e.note ? sanitizeName(e.note, 200) : '';
   const rpe = Number(e.rpe);
+  const bw = Number(e.bw); // E3: tělesná váha započtená u cviku s vlastní vahou (kg)
   return {
     key: e.key || exKey(name), name, ...(timed ? { type: 'time' } : {}), sets: cleanSets(sets, timed),
     ...(note ? { note } : {}), ...(rpe >= 1 && rpe <= 10 ? { rpe } : {}), ...(e.ss ? { ss: String(e.ss).slice(0, 8) } : {}),
+    ...(!timed && bw >= 10 && bw <= 400 ? { bw: Math.round(bw * 10) / 10 } : {}),
   };
 };
 // Jen cviky s aspoň jednou platnou sérií, max. limit na trénink
