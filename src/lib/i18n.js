@@ -227,6 +227,10 @@ const D = {
     'body.bad': 'Enter a weight between 20 and 400 kg.', 'body.saved': 'Saved {w} kg', 'body.since': 'since {d}', 'body.more': 'Log it again in a few days to see the trend.',
     'body.emptyRange': 'No body weight in this period.', 'body.imported': { one: '{n} body weight', other: '{n} body weights' },
     'ex.bwTitle': 'Bodyweight exercise – body weight counts towards volume',
+    'sr.quickLabel': 'RPE · note', 'sr.detail': 'Set {n}: RPE, note, warm-up', 'sr.notePh': 'Note for this set – grip, pain, technique…', 'sr.done': '✓ Done',
+    'sr.title': 'Set {n}', 'sr.warm': 'Warm-up set', 'sr.warmSub': 'Not counted in volume or records',
+    'set.swipe': 'Swipe right on a set', 'set.swipeSub': 'Opens RPE and a note right under the set. Tapping the set number always works.',
+    'wo.swipeHint2': '← delete a set · → RPE and note · tap the number for more',
     'hist.summary': 'Workout summary', 'sum.same': '= same', 'sum.reps': { one: 'rep', other: 'reps' },
   }
 };

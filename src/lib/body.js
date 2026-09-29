@@ -61,7 +61,7 @@ export const STALE_FINISH_MS = 45 * 60000;
 export const fmtRest = (sec) => (sec >= 60 ? `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}` : `${Math.round(sec)} s`);
 
 // ——— Souhrn tréninku: sloučené série a srovnání cviku s minule ———
-const same = (a, b) => num(a.weight) === num(b.weight) && num(a.reps) === num(b.reps) && num(a.time) === num(b.time);
+const same = (a, b) => num(a.weight) === num(b.weight) && num(a.reps) === num(b.reps) && num(a.time) === num(b.time) && num(a.rpe) === num(b.rpe);
 // [{weight,reps,time}] → skupiny po sobě jdoucích stejných sérií [{ n, set }]
 export function groupSets(sets) {
   const out = [];
@@ -83,3 +83,7 @@ export function exerciseTrend(sets, prevSets) {
   const dr = num(a.reps) - num(b.reps);
   return { dir: Math.sign(dr), kind: 'reps', diff: Math.abs(dr) };
 }
+// Text série včetně RPE: „85 kg × 6 @9“
+export const withRpe = (text, s) => (num(s.rpe) > 0 ? `${text} @${num(s.rpe)}` : text);
+// Poznámky sérií cviku → [{ n (pořadí série), note }]
+export const setNotes = (sets) => sets.map((s, i) => ({ n: i + 1, note: s.note })).filter((x) => x.note);

@@ -3,7 +3,7 @@ import { useSession, useStore } from '../lib/store.jsx';
 import { better, countUnchecked, uid, DECIMAL_INPUT, fmtClock, fmtDuration, fmtNum, fmtSet, INT_INPUT, isDone, num } from '../lib/util.js';
 import NumField, { oneStep, weightStep } from '../components/NumField.jsx';
 import { primeAudio } from '../lib/rest.js';
-import { StepIcon, ArrowDownIcon, ArrowUpIcon, CheckIcon, FlagIcon, FlameIcon, LinkIcon, MoreIcon, PencilIcon, PlateIcon, PlusIcon, SwapIcon, TrashIcon } from '../components/Icons.jsx';
+import { StepIcon, ArrowDownIcon, ArrowUpIcon, CheckIcon, FlagIcon, FlameIcon, LinkIcon, MoreIcon, PlateIcon, PlusIcon, SwapIcon, TrashIcon } from '../components/Icons.jsx';
 import Sheet from '../components/Sheet.jsx';
 import PlateCalc from '../components/PlateCalc.jsx';
 import ExerciseSheet from '../components/ExerciseSheet.jsx';
@@ -11,6 +11,7 @@ import WorkoutSummary from '../components/WorkoutSummary.jsx';
 import { exerciseTargets } from '../lib/progress.js';
 import { templateDiffers } from '../lib/templateSync.js';
 import { markGuide } from '../lib/guide.js';
+import { usePref } from '../lib/prefs.js';
 import ExercisePicker from '../components/ExercisePicker.jsx';
 import SwipeRow from '../components/SwipeRow.jsx';
 import { InfoButton } from '../components/ExerciseInfo.jsx';
@@ -34,17 +35,59 @@ const ssLetter = (active, ss) => {
   return 'ABCDEFGH'[ids.indexOf(ss)] || '';
 };
 
+const RPE = [6, 7, 8, 9, 10];
+function RpeChips({ value, onPick }) {
+  return (
+    <span className="rpe-chips" role="radiogroup" aria-label={t('wo.rpe')}>
+      {RPE.map((v) => <button key={v} type="button" role="radio" aria-checked={Number(value) === v} className={'chip' + (Number(value) === v ? ' is-on' : '')} onClick={() => onPick(Number(value) === v ? null : v)}>{v}</button>)}
+    </span>
+  );
+}
+// 5.5: rychlý panel po swipu doprava – RPE a poznámka přímo pod sérií
+function QuickPanel({ set, onPatch, onClose }) {
+  const [note, setNote] = useState(set.note || '');
+  const close = () => { onPatch({ note: note.trim() }); onClose(); };
+  return (
+    <div className="set-quick">
+      <div className="set-quick-row"><span className="label">RPE</span><RpeChips value={set.rpe} onPick={(rpe) => onPatch({ rpe })} /></div>
+      <input className="input input-sm" maxLength={120} placeholder={t('sr.notePh')} value={note} onChange={(e) => setNote(e.target.value)} onBlur={() => onPatch({ note: note.trim() })} onKeyDown={(e) => e.key === 'Enter' && close()} />
+      <button type="button" className="btn btn-ghost btn-sm set-quick-done" onClick={close}>{t('sr.done')}</button>
+    </div>
+  );
+}
+// 5.5: panel série po klepnutí na číslo – RPE, poznámka, rozcvička
+function SetSheet({ set, n, onPatch, onClose }) {
+  const [rpe, setRpe] = useState(set.rpe || null);
+  const [note, setNote] = useState(set.note || '');
+  const [warm, setWarm] = useState(Boolean(set.warm));
+  const save = () => { onPatch({ rpe, note: note.trim(), warm }); onClose(); };
+  return (
+    <Sheet label={t('sr.title', { n })} onClose={onClose} className="sheet-short">
+      <div className="sheet-head"><h2>{t('sr.title', { n })}</h2><button className="btn btn-ghost btn-sm" onClick={onClose}>{t('pick.close')}</button></div>
+      <span className="label">{t('wo.rpe')}</span>
+      <RpeChips value={rpe} onPick={setRpe} />
+      <p className="muted small">{t('wo.rpeHelp')}</p>
+      <textarea className="input" rows={2} maxLength={120} placeholder={t('sr.notePh')} value={note} onChange={(e) => setNote(e.target.value)} />
+      <label className="toggle-row"><span>{t('sr.warm')}<span className="muted small row-sub">{t('sr.warmSub')}</span></span>
+        <button type="button" className="switch" role="switch" aria-checked={warm} onClick={() => setWarm(!warm)} /></label>
+      <button className="btn btn-primary btn-block" onClick={save}>{t('tpl.save')}</button>
+    </Sheet>
+  );
+}
+
 // Pořadí sloupců: opakování (nebo minuty) vlevo, váha vpravo.
-// Pod sérií: „minule“ a cíl progrese (W1/W2). Klepnutí na číslo série = rozcvička (W8).
-const SetRow = memo(function SetRow({ exId, set, n, timed, pb, prev, target, onPatch, onToggle, onRemove }) {
+// Pod sérií: „minule“ a cíl progrese (W1/W2), nebo RPE a poznámka série (5.5).
+// Klepnutí na číslo série = panel série (RPE, poznámka, rozcvička); swipe doprava = rychlý panel (volba v Nastavení).
+const SetRow = memo(function SetRow({ exId, set, n, timed, pb, prev, target, onPatch, onToggle, onRemove, onDetail, onQuick, quickOpen, swipe }) {
   const warm = Boolean(set.warm);
   const newPb = !warm && set.done && pb && better({ weight: num(set.weight), reps: timed ? 0 : num(set.reps), time: timed ? num(set.time) : 0 }, pb);
   const hit = target && set.done && num(set.weight) >= target.weight && num(set.reps) >= target.reps;
   // C3: „minule“ jen když se hodnoty v polích liší (předvyplnění z minula by se jinak jen opakovalo)
   const showPrev = prev && (num(set.weight) !== prev.weight || (timed ? num(set.time) !== prev.time : num(set.reps) !== prev.reps));
   return (
-    <SwipeRow onDelete={() => onRemove(exId, set.id)} deleteLabel={t('wo.delSet', { n })} className={'set' + (set.done ? ' is-done' : '') + (warm ? ' is-warm' : '')}>
-      <button type="button" className="set-n" aria-pressed={warm} aria-label={warm ? t('wo.warmOff') : t('wo.warmOn')} title={warm ? t('wo.warmOff') : t('wo.warmOn')} onClick={() => onPatch(exId, set.id, { warm: !warm })}>{warm ? 'W' : n}</button>
+    <SwipeRow onDelete={() => onRemove(exId, set.id)} deleteLabel={t('wo.delSet', { n })} onRight={swipe ? () => onQuick(exId, set.id) : undefined} rightLabel={t('sr.quickLabel')}
+      className={'set' + (set.done ? ' is-done' : '') + (warm ? ' is-warm' : '')}>
+      <button type="button" className={'set-n' + (set.rpe || set.note ? ' has-info' : '')} aria-label={t('sr.detail', { n })} title={t('sr.detail', { n })} onClick={() => onDetail(exId, set.id)}>{warm ? 'W' : n}</button>
       {timed
         ? <NumField label={t('wo.time', { n })} placeholder="0" mode="decimal" pattern={DECIMAL_INPUT} value={set.time || ''} step={oneStep} onChange={(v) => onPatch(exId, set.id, { time: v })} />
         : <NumField label={t('wo.reps', { n })} placeholder="0" mode="numeric" pattern={INT_INPUT} value={set.reps} step={oneStep} onChange={(v) => onPatch(exId, set.id, { reps: v })} />}
@@ -53,9 +96,15 @@ const SetRow = memo(function SetRow({ exId, set, n, timed, pb, prev, target, onP
         <CheckIcon width={20} height={20} />
       </button>
       {newPb && <span className="new-pb">{t('wo.newPb')}</span>}
-      {!warm && (showPrev || target) && (
+      {quickOpen && <QuickPanel set={set} onPatch={(patch) => onPatch(exId, set.id, patch)} onClose={() => onQuick(exId, null)} />}
+      {!quickOpen && !warm && (set.rpe || set.note) && (
+        <button type="button" className="set-sub set-info" onClick={() => onDetail(exId, set.id)}>
+          {set.rpe ? <b>@{set.rpe}</b> : null}{set.rpe && set.note ? ' · ' : ''}{set.note}
+        </button>
+      )}
+      {!quickOpen && !warm && !(set.rpe || set.note) && (showPrev || target) && (
         <span className="set-sub">
-          {showPrev ? <span>{t('wo.last')} {fmtSet(prev.weight, prev.reps, prev.time)}</span> : <span />}
+          {showPrev ? <span>{t('wo.last')} {fmtSet(prev.weight, prev.reps, prev.time)}{prev.rpe ? ` @${prev.rpe}` : ''}</span> : <span />}
           {target && <span className={hit ? 'is-hit' : ''}>{hit ? '✓ ' : ''}{target.hold ? t('wo.hold') : t('wo.goal')} {fmtSet(target.weight, target.reps)}</span>}
         </span>
       )}
@@ -64,7 +113,7 @@ const SetRow = memo(function SetRow({ exId, set, n, timed, pb, prev, target, onP
   );
 });
 
-const ExerciseCard = memo(function ExerciseCard({ ex, pb, ssLabel, ssEnd, step, handlers }) {
+const ExerciseCard = memo(function ExerciseCard({ ex, pb, ssLabel, ssEnd, step, handlers, quick, swipe }) {
   const timed = ex.type === 'time';
   // Cíle pro celý cvik: váha až když všechny série dosáhly horní hranice rozsahu
   const working = ex.prev || [];
@@ -85,13 +134,9 @@ const ExerciseCard = memo(function ExerciseCard({ ex, pb, ssLabel, ssEnd, step, 
         if (!s.warm) j++;
         const prev = !s.warm && ex.prev ? ex.prev[j] || null : null;
         const target = prev ? targets[j] || null : null;
-        return <SetRow key={s.id} exId={ex.id} set={s} n={j + 1} timed={timed} pb={pb} prev={prev} target={target} onPatch={handlers.patchSet} onToggle={handlers.toggle} onRemove={handlers.removeSet} />;
+        return <SetRow key={s.id} exId={ex.id} set={s} n={j + 1} timed={timed} pb={pb} prev={prev} target={target} onPatch={handlers.patchSet} onToggle={handlers.toggle} onRemove={handlers.removeSet}
+          onDetail={handlers.setDetail} onQuick={handlers.setQuick} quickOpen={quick === s.id} swipe={swipe} />;
       })}
-      {(ex.rpe || ex.memo) && (
-        <button className="ex-memo" onClick={() => handlers.menu(ex.id, 'note')}>
-          {ex.rpe ? <span className="mono">RPE {ex.rpe}</span> : null}{ex.memo ? <span>{ex.memo}</span> : null}
-        </button>
-      )}
       <div className="ex-actions">
         <button className="btn btn-ghost btn-sm" onClick={() => handlers.addSet(ex.id)}><PlusIcon width={16} height={16} /> {t('wo.addSet')}</button>
         <button className="btn btn-ghost btn-sm replace-btn" onClick={() => handlers.replace(ex.id)}><SwapIcon width={16} height={16} /> {t('rep.btn')}</button>
@@ -105,23 +150,6 @@ const ExerciseCard = memo(function ExerciseCard({ ex, pb, ssLabel, ssEnd, step, 
 // Menu cviku (W10: velké cíle 44 px): rozcvička, poznámka + RPE, kotouče, superset, pořadí, odebrat.
 function ExerciseMenu({ ex, index, count, next, view, onClose, act }) {
   const [mode, setMode] = useState(view || 'menu');
-  const [memo, setMemo] = useState(ex.memo || '');
-  const [rpe, setRpe] = useState(ex.rpe || '');
-  if (mode === 'note') {
-    return (
-      <Sheet label={t('wo.noteTitle')} onClose={onClose} className="sheet-short">
-        <div className="sheet-head"><h2>{t('wo.noteTitle')}</h2><button className="btn btn-ghost btn-sm" onClick={onClose}>{t('pick.close')}</button></div>
-        <p className="muted small">{ex.name}</p>
-        <span className="label">{t('wo.rpe')}</span>
-        <div className="rpe-row" role="radiogroup" aria-label={t('wo.rpe')}>
-          {[6, 7, 8, 9, 10].map((v) => <button key={v} role="radio" aria-checked={Number(rpe) === v} className={'chip' + (Number(rpe) === v ? ' is-on' : '')} onClick={() => setRpe(Number(rpe) === v ? '' : v)}>{v}</button>)}
-        </div>
-        <p className="muted small">{t('wo.rpeHelp')}</p>
-        <textarea className="input" rows={3} maxLength={200} placeholder={t('wo.notePh')} value={memo} onChange={(e) => setMemo(e.target.value)} />
-        <button className="btn btn-primary btn-block" onClick={() => { act.patch(ex.id, { memo: memo.trim(), rpe }); onClose(); }}>{t('tpl.save')}</button>
-      </Sheet>
-    );
-  }
   if (mode === 'step') {
     const opts = [1, 1.25, 2, 2.5, 5, 10];
     return (
@@ -145,7 +173,6 @@ function ExerciseMenu({ ex, index, count, next, view, onClose, act }) {
       <div className="sheet-head"><h2>{ex.name}</h2><button className="btn btn-ghost btn-sm" onClick={onClose}>{t('pick.close')}</button></div>
       <div className="menu-list">
         {row(FlameIcon, t('wo.addWarm'), () => { act.addWarm(ex.id); onClose(); })}
-        {row(PencilIcon, t('wo.noteTitle'), () => setMode('note'))}
         {ex.type !== 'time' && row(PlateIcon, t('plate.title'), () => setMode('plates'))}
         {ex.type !== 'time' && row(StepIcon, t('step.row', { n: fmtNum(act.step) }), () => setMode('step'))}
         {next && !(inSs && next.ss === ex.ss) && row(LinkIcon, t('ss.link', { name: next.name }), () => { act.link(ex.id); onClose(); })}
@@ -164,6 +191,9 @@ export default function Workout({ go }) {
   const dialog = useDialog();
   const [picking, setPicking] = useState(() => Boolean(active && !active.exercises.length));
   const [menu, setMenu] = useState(null); // { id, view }
+  const [detail, setDetail] = useState(null); // 5.5: { exId, setId } – panel série
+  const [quick, setQuick] = useState(null); // 5.5: { exId, setId } – rychlý panel po swipu doprava
+  const swipe = usePref('swipeSet');
   const [detailKey, setDetailKey] = useState(null);
   const [summary, setSummary] = useState(null);
   const activeRef = useRef(active);
@@ -290,6 +320,8 @@ export default function Workout({ go }) {
   Object.assign(handlers, {
     patchSet, toggle, addSet, removeSet, removeExercise, move, replace: setReplacingId,
     menu: (id, view) => setMenu({ id, view }), detail: setDetailKey,
+    setDetail: (exId, setId) => { setQuick(null); setDetail({ exId, setId }); },
+    setQuick: (exId, setId) => setQuick(setId ? { exId, setId } : null),
   }); // stabilní objekt, aktuální funkce
 
   if (summary) return <WorkoutSummary done={summary} onClose={() => { setSummary(null); go('history'); }} />;
@@ -379,12 +411,13 @@ export default function Workout({ go }) {
         <button className="btn btn-finish" onClick={finish}>{t('wo.finish')}</button>
       </header>
       <div className="progress" aria-hidden="true"><i style={{ width: `${total ? (doneCount / total) * 100 : 0}%` }} /></div>
-      {active.exercises.length > 0 && <p className="muted small swipe-hint">{t('wo.swipeHint')}</p>}
+      {active.exercises.length > 0 && <p className="muted small swipe-hint">{t(swipe ? 'wo.swipeHint2' : 'wo.swipeHint')}</p>}
 
       {active.exercises.map((e, ei) => {
         const prevEx = active.exercises[ei - 1], nextEx = active.exercises[ei + 1];
         const first = e.ss && prevEx?.ss !== e.ss;
-        return <ExerciseCard key={e.id} ex={e} step={stepOf(e.name)} pb={prs[e.key]} ssLabel={first ? ssLetter(active, e.ss) : ''} ssEnd={!e.ss || nextEx?.ss !== e.ss} handlers={handlers} />;
+        return <ExerciseCard key={e.id} ex={e} step={stepOf(e.name)} pb={prs[e.key]} ssLabel={first ? ssLetter(active, e.ss) : ''} ssEnd={!e.ss || nextEx?.ss !== e.ss} handlers={handlers}
+          quick={quick?.exId === e.id ? quick.setId : null} swipe={swipe} />;
       })}
 
       {!active.exercises.length && <p className="empty">{t('wo.addFirst')}</p>}
@@ -408,6 +441,13 @@ export default function Workout({ go }) {
           <ExerciseMenu key={menu.id + (menu.view || '')} ex={active.exercises[i]} index={i} count={active.exercises.length} next={active.exercises[i + 1]} view={menu.view}
             onClose={() => setMenu(null)} act={{ addWarm, link, unlink, move, remove: removeExercise, patch: patchEx, step: stepOf(active.exercises[i].name), stepManual: stepIsManual(active.exercises[i].name), setStep }} />
         );
+      })()}
+      {detail && (() => {
+        const ex = active.exercises.find((x) => x.id === detail.exId);
+        const s = ex?.sets.find((x) => x.id === detail.setId);
+        if (!s) return null;
+        const n = ex.sets.filter((x) => !x.warm).findIndex((x) => x.id === s.id) + 1;
+        return <SetSheet key={s.id} set={s} n={s.warm ? 'W' : n} onPatch={(patch) => patchSet(ex.id, s.id, patch)} onClose={() => setDetail(null)} />;
       })()}
       {detailKey && <ExerciseSheet exKey={detailKey} onClose={() => setDetailKey(null)} />}
       {replacing && (

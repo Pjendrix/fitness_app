@@ -12,7 +12,7 @@ import { useDialog } from '../components/Dialog.jsx';
 import WorkoutEditor from '../components/WorkoutEditor.jsx';
 import { previousSame } from '../lib/metrics.js';
 import { metricsOf, recordsOf } from '../lib/derived.js';
-import { fmtRest } from '../lib/body.js';
+import { fmtRest, setNotes, withRpe } from '../lib/body.js';
 
 const dayKey = (ms) => new Date(ms).toDateString();
 const monday = (ms) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); };
@@ -72,7 +72,8 @@ function WorkoutCard({ w, color, open, onToggle, onDelete, onEdit, metrics, all,
               <button className="ex-name" onClick={() => onExercise(e.key)}>{e.name}</button>
               {records?.some((r) => r.key === e.key) && <span className="pb">{recordText(records.find((r) => r.key === e.key))}</span>}
               {(e.rpe || e.note) && <div className="muted small">{[e.rpe && `RPE ${e.rpe}`, e.note].filter(Boolean).join(' · ')}</div>}
-              <div className="mono muted small sets-line">{e.sets.map((s) => fmtSet(s.weight, s.reps, s.time)).join('  ·  ')}</div>
+              <div className="mono muted small sets-line">{e.sets.map((s) => withRpe(fmtSet(s.weight, s.reps, s.time), s)).join('  ·  ')}</div>
+              {setNotes(e.sets).map((x) => <div key={x.n} className="muted small sum-note"><b>{x.n}.</b> {x.note}</div>)}
             </div>
           ))}
           {prev && metrics.get(w.id) && metrics.get(prev.id) && <Compare cur={metrics.get(w.id)} prev={metrics.get(prev.id)} prevDate={fmtDate(prev.startedAt)} />}

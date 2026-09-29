@@ -3,8 +3,10 @@ import { useRef, useState } from 'react';
 // Řádek, který jde smazat potažením doleva (dotyk i myš). Svislé scrollování zůstává funkční.
 // Pro klávesnici / čtečky je uvnitř skryté tlačítko „Smazat“, které se ukáže při focusu.
 const THRESHOLD = 90;
+const RIGHT = 70;
 
-export default function SwipeRow({ onDelete, deleteLabel, className = '', children }) {
+// onRight (volitelně): potažení doprava = detail série (RPE a poznámka, 5.5); bez něj jde táhnout jen doleva.
+export default function SwipeRow({ onDelete, deleteLabel, onRight, rightLabel, className = '', children }) {
   const [dx, setDx] = useState(0);
   const [anim, setAnim] = useState(false);
   const st = useRef(null);
@@ -25,14 +27,14 @@ export default function SwipeRow({ onDelete, deleteLabel, className = '', childr
     const mx = e.clientX - s.x, my = e.clientY - s.y;
     if (!s.on) {
       if (Math.abs(my) > 10 && Math.abs(my) > Math.abs(mx)) { s.dead = true; return; }
-      if (mx < -12 && Math.abs(mx) > Math.abs(my) * 1.4) {
+      if ((mx < -12 || (onRight && mx > 12)) && Math.abs(mx) > Math.abs(my) * 1.4) {
         s.on = true;
         swiped.current = true;
         e.currentTarget.setPointerCapture?.(e.pointerId);
         document.activeElement?.blur?.(); // zavřít klávesnici
       } else return;
     }
-    set(Math.max(-200, Math.min(0, mx)));
+    set(Math.max(-200, Math.min(onRight ? 140 : 0, mx)));
   };
   const end = () => {
     const s = st.current;
@@ -44,6 +46,10 @@ export default function SwipeRow({ onDelete, deleteLabel, className = '', childr
       navigator.vibrate?.(15);
       set(-window.innerWidth);
       setTimeout(onDelete, 160);
+    } else if (onRight && dxRef.current >= RIGHT) {
+      navigator.vibrate?.(10);
+      reset();
+      onRight();
     } else reset();
   };
   // Klepnutí, které bylo ve skutečnosti swipe, nesmí odškrtnout sérii ani kliknout na +/−
@@ -53,7 +59,9 @@ export default function SwipeRow({ onDelete, deleteLabel, className = '', childr
 
   return (
     <div className={'swipe' + (dx < 0 ? ' is-swiping' : '')}>
-      <div className={'swipe-bg' + (dx <= -THRESHOLD ? ' is-armed' : '')} aria-hidden="true">{deleteLabel}</div>
+      {dx > 0
+        ? <div className={'swipe-bg swipe-bg-right' + (dx >= RIGHT ? ' is-armed' : '')} aria-hidden="true">{rightLabel}</div>
+        : <div className={'swipe-bg' + (dx <= -THRESHOLD ? ' is-armed' : '')} aria-hidden="true">{deleteLabel}</div>}
       <div className={'swipe-fg ' + className} style={{ transform: dx ? `translateX(${dx}px)` : undefined, transition: anim ? 'transform 0.18s ease-out' : 'none' }}
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={end} onPointerCancel={() => { st.current = null; reset(); }}
         onClickCapture={onClickCapture}>

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { previousSame } from '../lib/metrics.js';
 import { metricsOf, recordsOf } from '../lib/derived.js';
-import { exerciseTrend, fmtRest, groupSets } from '../lib/body.js';
+import { exerciseTrend, fmtRest, groupSets, setNotes, withRpe } from '../lib/body.js';
 import { fmtDate, fmtDuration, fmtNum, fmtSet, workoutVolume } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
 import { ContactSheet } from './DemoBar.jsx';
@@ -21,7 +21,7 @@ const prevSetsOf = (all, w, key) => {
 };
 // „4 × 6 · 70 kg“ pro stejné série, jinak jednotlivě
 const setsText = (sets) => groupSets(sets).map(({ n, set }) => {
-  const one = fmtSet(set.weight, set.reps, set.time);
+  const one = withRpe(fmtSet(set.weight, set.reps, set.time), set);
   return n > 1 ? `${n} × ${one}` : one;
 }).join(' · ');
 const trendText = (tr) => (tr.dir === 0 ? t('sum.same') : `${tr.dir > 0 ? '▲ +' : '▼ −'}${fmtNum(tr.diff)} ${tr.kind === 'reps' ? t('sum.reps', { n: tr.diff }) : tr.kind}`);
@@ -75,6 +75,7 @@ export default function WorkoutSummary({ done, onClose, actions = null }) {
               </div>
               <span className="mono small muted">{setsText(e.sets)}{e.rpe ? ` · RPE ${e.rpe}` : ''}</span>
               {e.note && <span className="small muted">{e.note}</span>}
+              {setNotes(e.sets).map((x) => <span key={x.n} className="small muted sum-note"><b>{x.n}.</b> {x.note}</span>)}
             </div>
           );
         })}

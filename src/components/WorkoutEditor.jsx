@@ -18,7 +18,7 @@ const toDraft = (w) => ({
   exercises: w.exercises.map((e) => ({
     // Poznámka, RPE, superset a tělesná váha se v editoru neukazují, ale musí přežít uložení
     id: uid(), key: e.key, name: e.name, type: e.type, note: e.note, rpe: e.rpe, ss: e.ss, bw: e.bw,
-    sets: e.sets.map((s) => ({ id: uid(), weight: s.weight ? String(s.weight) : '', reps: s.reps ? String(s.reps) : '', time: s.time ? String(s.time) : '', at: s.at })),
+    sets: e.sets.map((s) => ({ id: uid(), weight: s.weight ? String(s.weight) : '', reps: s.reps ? String(s.reps) : '', time: s.time ? String(s.time) : '', at: s.at, rpe: s.rpe, note: s.note })),
   })),
 });
 

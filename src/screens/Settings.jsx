@@ -12,6 +12,7 @@ import { useTheme } from '../lib/theme.js';
 import { getRestDefault, REST_OPTIONS, setRestDefault } from '../lib/rest.js';
 import { useRef, useState } from 'react';
 import { UploadIcon } from '../components/Icons.jsx';
+import { setPref, usePref } from '../lib/prefs.js';
 
 export default function Settings({ go }) {
   const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, deleteAccount, notify, starter, chooseStarter, resetDemo, importData, importBody, body, online } = useStore();
@@ -20,6 +21,7 @@ export default function Settings({ go }) {
   const { theme, setTheme } = useTheme();
   const dialog = useDialog();
   const [restSec, setRestSec] = useState(getRestDefault);
+  const swipeSet = usePref('swipeSet');
 
   const exportData = () => {
     download('forge-export.json', JSON.stringify({ exportedAt: new Date().toISOString(), workouts, prs, templates: templates.filter((x) => !x.builtin), library, body }, null, 2), 'application/json');
@@ -101,6 +103,9 @@ export default function Settings({ go }) {
           <div className="seg seg-sm seg-inline" role="radiogroup" aria-label={t('set.theme')}>
             {['light', 'dark', 'auto'].map((id) => <button key={id} role="radio" aria-checked={theme === id} className={theme === id ? 'is-on' : ''} onClick={() => setTheme(id)}>{t('theme.' + id)}</button>)}
           </div>
+        </div>
+        <div className="row"><span>{t('set.swipe')}<span className="muted small row-sub">{t('set.swipeSub')}</span></span>
+          <button type="button" className="switch" role="switch" aria-checked={swipeSet} aria-label={t('set.swipe')} onClick={() => setPref('swipeSet', !swipeSet)} />
         </div>
         <div className="row"><span>{t('set.rest')}<span className="muted small row-sub">{t('set.restSub')}</span></span>
           <div className="seg seg-sm seg-inline" role="radiogroup" aria-label={t('set.rest')}>

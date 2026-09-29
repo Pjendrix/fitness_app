@@ -187,5 +187,9 @@ export default {
     'body.bad': 'Zadej váhu mezi 20 a 400 kg.', 'body.saved': 'Uloženo {w} kg', 'body.since': 'od {d}', 'body.more': 'Zapiš ji znovu za pár dní a uvidíš vývoj.',
     'body.emptyRange': 'V tomhle období žádná tělesná váha.', 'body.imported': { one: '{n} tělesná váha', few: '{n} tělesné váhy', other: '{n} tělesných vah' },
     'ex.bwTitle': 'Cvik s vlastní vahou – tělesná váha se počítá do objemu',
+    'sr.quickLabel': 'RPE · poznámka', 'sr.detail': 'Série {n}: RPE, poznámka, rozcvička', 'sr.notePh': 'Poznámka k sérii – úchop, bolest, technika…', 'sr.done': '✓ Hotovo',
+    'sr.title': 'Série {n}', 'sr.warm': 'Rozcvičková série', 'sr.warmSub': 'Nepočítá se do objemu ani rekordů',
+    'set.swipe': 'Swipe doprava na sérii', 'set.swipeSub': 'Otevře RPE a poznámku přímo pod sérií. Klepnutí na číslo série funguje vždy.',
+    'wo.swipeHint2': '← smazat sérii · → RPE a poznámka · klepni na číslo pro víc',
     'hist.summary': 'Souhrn tréninku', 'sum.same': '= stejně', 'sum.reps': { one: 'opak.', few: 'opak.', other: 'opak.' },
 };
