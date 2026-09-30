@@ -11,17 +11,17 @@ import { useDialog } from '../components/Dialog.jsx';
 import { useTheme } from '../lib/theme.js';
 import { getRestDefault, REST_OPTIONS, setRestDefault } from '../lib/rest.js';
 import { useRef, useState } from 'react';
-import { UploadIcon } from '../components/Icons.jsx';
 import { setPref, usePref } from '../lib/prefs.js';
 
 export default function Settings({ go }) {
-  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, deleteAccount, notify, starter, chooseStarter, resetDemo, importData, importBody, body, online } = useStore();
+  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, deleteAccount, notify, starter, chooseStarter, resetDemo, importData, importBody, body, online, sync } = useStore();
   const demo = mode === 'demo';
   const { lang, setLang } = useLang();
   const { theme, setTheme } = useTheme();
   const dialog = useDialog();
   const [restSec, setRestSec] = useState(getRestDefault);
   const swipeSet = usePref('swipeSet');
+  const [showAccess, setShowAccess] = useState(false);
 
   const exportData = () => {
     download('forge-export.json', JSON.stringify({ exportedAt: new Date().toISOString(), workouts, prs, templates: templates.filter((x) => !x.builtin), library, body }, null, 2), 'application/json');
@@ -82,7 +82,7 @@ export default function Settings({ go }) {
   };
 
   return (
-    <div className="screen">
+    <div className="screen settings">
       <header className="screen-head"><h1>{t('set.title')}</h1></header>
 
       <section className="card profile">
@@ -90,13 +90,29 @@ export default function Settings({ go }) {
         <div>
           <div>{user.name || t('set.user')}</div>
           <div className="muted small">{demo ? t('demo.local') : user.email}</div>
+          {!demo && <div className={'sync-line' + (online ? '' : ' is-off')}><i aria-hidden="true" />{!online ? t('set.offline') : sync.pending ? t('set.syncing') : t('set.synced')}</div>}
         </div>
       </section>
 
+      <h2 className="set-sec">{t('set.secWorkout')}</h2>
+      <section className="card list">
+        <div className="row row-stack">
+          <span>{t('set.rest')}</span>
+          <div className="seg seg-sm" role="radiogroup" aria-label={t('set.rest')}>
+            {REST_OPTIONS.map((s) => <button key={s} role="radio" aria-checked={restSec === s} className={restSec === s ? 'is-on' : ''} onClick={() => { setRestDefault(s); setRestSec(s); }}>{s ? (s % 60 ? `${s}s` : `${s / 60}m`) : t('rest.off')}</button>)}
+          </div>
+          <span className="muted small">{restSec ? t('set.restShort') : t('set.restOffHint')}</span>
+        </div>
+        <div className="row"><span>{t('set.swipe')}<span className="muted small row-sub">{t('set.swipeShort')}</span></span>
+          <button type="button" className="switch" role="switch" aria-checked={swipeSet} aria-label={t('set.swipe')} onClick={() => setPref('swipeSet', !swipeSet)} />
+        </div>
+      </section>
+
+      <h2 className="set-sec">{t('look.title')}</h2>
       <section className="card list">
         <div className="row"><span>{t('set.lang')}</span>
-          <div className="seg seg-sm seg-inline" role="radiogroup">
-            {[['en', 'English'], ['cs', 'Čeština']].map(([id, l]) => <button key={id} role="radio" aria-checked={lang === id} className={lang === id ? 'is-on' : ''} onClick={() => setLang(id).catch(() => notify(t('set.langFail')))}>{l}</button>)}
+          <div className="seg seg-sm seg-inline" role="radiogroup" aria-label={t('set.lang')}>
+            {[['en', 'EN'], ['cs', 'CS']].map(([id, l]) => <button key={id} role="radio" aria-checked={lang === id} aria-label={id === 'en' ? 'English' : 'Čeština'} className={lang === id ? 'is-on' : ''} onClick={() => setLang(id).catch(() => notify(t('set.langFail')))}>{l}</button>)}
           </div>
         </div>
         <div className="row"><span>{t('set.theme')}</span>
@@ -104,57 +120,47 @@ export default function Settings({ go }) {
             {['light', 'dark', 'auto'].map((id) => <button key={id} role="radio" aria-checked={theme === id} className={theme === id ? 'is-on' : ''} onClick={() => setTheme(id)}>{t('theme.' + id)}</button>)}
           </div>
         </div>
-        <div className="row"><span>{t('set.swipe')}<span className="muted small row-sub">{t('set.swipeSub')}</span></span>
-          <button type="button" className="switch" role="switch" aria-checked={swipeSet} aria-label={t('set.swipe')} onClick={() => setPref('swipeSet', !swipeSet)} />
-        </div>
-        <div className="row"><span>{t('set.rest')}<span className="muted small row-sub">{t('set.restSub')}</span></span>
-          <div className="seg seg-sm seg-inline" role="radiogroup" aria-label={t('set.rest')}>
-            {REST_OPTIONS.map((s) => <button key={s} role="radio" aria-checked={restSec === s} className={restSec === s ? 'is-on' : ''} onClick={() => { setRestDefault(s); setRestSec(s); }}>{s ? (s % 60 ? `${s}s` : `${s / 60}m`) : t('rest.off')}</button>)}
-          </div>
-        </div>
-        <div className="row"><span>{t('set.view')}</span><ViewToggle full /></div>
-        <div className="row"><span>{t('set.storage')}</span><span className="muted">{mode === 'firebase' ? t('set.cloud') : t('set.local')}</span></div>
+        <div className="row"><span>{t('set.view')}</span><ViewToggle full short /></div>
+        <AppearanceCard embedded />
       </section>
 
-      <AppearanceCard />
-
-      {!demo && isAdmin(user.email) && backend.access && <AccessCard />}
-
+      <h2 className="set-sec">{t('set.secData')}</h2>
       <section className="card list">
-        <div className="row"><span>{t('set.library')}</span><span className="muted">{t('ex.count', { n: library.length })}</span></div>
-        <div className="row row-btns">
-          <button className="btn btn-ghost btn-sm" onClick={() => go('exercises')}>{t('set.openLibrary')}</button>
+        <button className="row row-link" onClick={() => go('exercises')}><span>{t('set.library')}</span><span className="muted">{library.length} ›</span></button>
+        <div className="row"><span>{t('set.backup')}<span className="muted small row-sub">{t('set.backupShort')}</span></span>
+          <span className="row-end">
+            <button className="btn btn-ghost btn-sm" onClick={exportData}>{t('set.exportShort')}</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => fileRef.current?.click()}>{t('set.import')}</button>
+            <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={onImport} />
+          </span>
         </div>
       </section>
 
+      <h2 className="set-sec">{t('set.secAccount')}</h2>
       <section className="card list">
-        <div className="row"><span>{t('set.backup')}<span className="muted small row-sub">{t('set.backupSub')}</span></span></div>
-        <div className="row row-btns">
-          <button className="btn btn-ghost btn-sm" onClick={exportData}>{t('set.export')}</button>
-          <button className="btn btn-ghost btn-sm" onClick={() => fileRef.current?.click()}><UploadIcon width={16} height={16} /> {t('set.import')}</button>
-          <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={onImport} />
+        {!demo && isAdmin(user.email) && backend.access && (
+          <button className="row row-link" aria-expanded={showAccess} onClick={() => setShowAccess(!showAccess)}><span>{t('acc.title')}</span><span className="muted">admin {showAccess ? '⌃' : '›'}</span></button>
+        )}
+        <div className="row"><span>{t('set.danger')}<span className="muted small row-sub">{t('set.resetShort')}</span></span>
+          <span className="row-end">
+            <button className="btn btn-ghost btn-sm" onClick={reset}>{t('set.resetLib')}</button>
+            <button className="btn btn-ghost btn-sm" onClick={resetTemplates}>{t('set.resetTplShort')}</button>
+          </span>
         </div>
-      </section>
-
-      <section className="card list danger-zone">
-        <div className="row"><span className="dz-title">{t('set.danger')}<span className="muted small row-sub">{t('set.dangerSub')}</span></span></div>
-        <div className="row row-btns">
-          <button className="btn btn-danger btn-sm" onClick={reset}>{t('set.reset')}</button>
-          <button className="btn btn-danger btn-sm" onClick={resetTemplates}>{t('set.resetTpl')}</button>
-          {demo && <button className="btn btn-danger btn-sm" onClick={async () => { if (await dialog.confirm(t('demo.resetConfirm'), { danger: true, ok: t('demo.reset') })) resetDemo(); }}>{t('demo.reset')}</button>}
-        </div>
-      </section>
-
-      {!demo && (
-        <section className="card list danger-zone">
-          <div className="row"><span className="dz-title">{t('del.section')}<span className="muted small row-sub">{t('del.sectionSub')}</span></span></div>
-          <div className="row row-btns">
-            <button className="btn btn-danger btn-sm" disabled={deleting} onClick={removeAccount}>{deleting ? t('del.busy') : t('del.btn')}</button>
+        {demo && (
+          <div className="row"><span>{t('demo.reset')}</span>
+            <button className="btn btn-ghost btn-sm dz" onClick={async () => { if (await dialog.confirm(t('demo.resetConfirm'), { danger: true, ok: t('demo.reset') })) resetDemo(); }}>{t('demo.resetBtn')}</button>
           </div>
-        </section>
-      )}
+        )}
+        {!demo && (
+          <div className="row"><span>{t('del.section')}</span>
+            <button className="btn btn-ghost btn-sm dz" disabled={deleting} onClick={removeAccount}>{deleting ? t('del.busy') : t('del.short')}</button>
+          </div>
+        )}
+      </section>
+      {showAccess && <AccessCard />}
 
-      <button className="btn btn-danger btn-block" onClick={signOut}>{demo ? t('demo.exit') : t('set.logout')}</button>
+      <button className="btn btn-danger btn-block set-logout" onClick={signOut}>{demo ? t('demo.exit') : t('set.logout')}</button>
       <p className="muted small legal-links"><a href="./privacy.html" target="_blank" rel="noopener">{t('legal.privacy')}</a></p>
     </div>
   );

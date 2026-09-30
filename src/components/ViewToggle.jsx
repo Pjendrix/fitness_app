@@ -2,13 +2,13 @@ import { useViewMode } from '../lib/viewMode.js';
 import { t } from '../lib/i18n.js';
 
 // Quick switch between mobile and desktop (analytics) layout.
-export default function ViewToggle({ full = false }) {
+export default function ViewToggle({ full = false, short = false }) {
   const { mode, desktop, setMode } = useViewMode();
   if (full) {
     return (
-      <div className="seg seg-sm" role="tablist" aria-label={t('set.view')}>
+      <div className={'seg seg-sm' + (short ? ' seg-inline' : '')} role="tablist" aria-label={t('set.view')}>
         {['auto', 'mobile', 'desktop'].map((id) => (
-          <button key={id} role="tab" aria-selected={mode === id} className={mode === id ? 'is-on' : ''} onClick={() => setMode(id)}>{t('view.' + id)}</button>
+          <button key={id} role="tab" aria-selected={mode === id} aria-label={t('view.' + id)} className={mode === id ? 'is-on' : ''} onClick={() => setMode(id)}>{short && id === 'desktop' ? t('view.deskShort') : t('view.' + id)}</button>
         ))}
       </div>
     );

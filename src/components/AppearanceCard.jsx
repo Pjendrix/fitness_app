@@ -16,13 +16,15 @@ function Swatches({ label, list, value, onPick }) {
   );
 }
 
-export default function AppearanceCard() {
+// embedded: jen obsah (řádek v kartě Vzhled v Nastavení), jinak samostatná karta
+export default function AppearanceCard({ embedded = false }) {
   const { appearance, setAppearance } = useStore();
   const look = { tint: null, strength: 50, accent: null, ...(appearance || {}) };
   return (
-    <section className="card look">
-      <div><h2>{t('look.title')}</h2><p className="muted small">{t('look.sub')}</p></div>
-      <span className="label">{t('look.tint')}</span>
+    <section className={embedded ? 'row row-stack look look-embedded' : 'card look'}>
+      {embedded
+        ? <span>{t('look.tint')}<span className="muted small row-sub">{t('look.sub')}</span></span>
+        : <><div><h2>{t('look.title')}</h2><p className="muted small">{t('look.sub')}</p></div><span className="label">{t('look.tint')}</span></>}
       <Swatches label={t('look.tint')} list={TINTS} value={look.tint} onPick={(tint) => setAppearance({ tint })} />
       <label className="label" htmlFor="look-strength">{t('look.strength', { n: look.strength })}</label>
       <input id="look-strength" type="range" min={10} max={100} step={5} disabled={!look.tint} value={look.strength} onChange={(e) => setAppearance({ strength: Number(e.target.value) })} />

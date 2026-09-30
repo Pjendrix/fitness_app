@@ -229,8 +229,12 @@ const D = {
     'ex.bwTitle': 'Bodyweight exercise – body weight counts towards volume',
     'sr.quickLabel': 'RPE · note', 'sr.detail': 'Set {n}: RPE, note, warm-up', 'sr.notePh': 'Note for this set – grip, pain, technique…', 'sr.done': '✓ Done',
     'sr.title': 'Set {n}', 'sr.warm': 'Warm-up set', 'sr.warmSub': 'Not counted in volume or records',
-    'set.swipe': 'Swipe right on a set', 'set.swipeSub': 'Opens RPE and a note right under the set. Tapping the set number always works.',
+    'set.swipe': 'Swipe right for RPE & note', 'set.swipeSub': 'Opens RPE and a note right under the set. Tapping the set number always works.',
     'wo.swipeHint2': '← delete a set · → RPE and note · tap the number for more',
+    'demo.resetBtn': 'Reset…', 'set.secWorkout': 'Workout', 'set.secData': 'Data', 'set.secAccount': 'Account', 'set.synced': 'Synced', 'set.syncing': 'Syncing…', 'set.offline': 'Offline – saved on this device',
+    'set.restShort': 'Default rest. Templates can set their own per exercise.', 'set.restOffHint': 'Rest timer is off everywhere, including template rests.',
+    'set.swipeShort': 'Tapping the set number always works.', 'set.backupShort': 'Import adds to what you have.', 'set.exportShort': 'Export',
+    'set.resetShort': 'History stays.', 'set.resetLib': 'Library', 'set.resetTplShort': 'Templates', 'del.short': 'Delete…', 'view.deskShort': 'Desk',
     'hist.summary': 'Workout summary', 'sum.same': '= same', 'sum.reps': { one: 'rep', other: 'reps' },
   }
 };

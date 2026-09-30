@@ -895,3 +895,17 @@ html.desktop .app-version { bottom: 16px; }
 .switch[aria-checked="true"] { background: var(--ink); }
 .switch[aria-checked="true"]::after { left: 21px; }
 .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+/* 5.6 – Nastavení po sekcích */
+.set-sec { font: 500 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--stone); margin: 14px 4px -4px; }
+.settings .row-stack { display: grid; gap: 10px; justify-content: stretch; }
+.settings .row-stack .seg { width: 100%; }
+.settings .row-link { width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.settings .row-end { display: inline-flex; gap: 6px; flex: none; }
+.settings .row > span:first-child { min-width: 0; }
+.settings .btn.dz { color: var(--red); }
+.settings .look-embedded { padding: 12px 0; gap: 8px; }
+.settings .look-embedded .label { margin-top: 2px; }
+.sync-line { display: flex; align-items: center; gap: 6px; font: 11px var(--mono); color: var(--stone); margin-top: 3px; }
+.sync-line i { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+.sync-line.is-off i { background: var(--stone); }
+.set-logout { margin-top: 8px; }
