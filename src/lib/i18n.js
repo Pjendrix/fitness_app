@@ -237,7 +237,8 @@ const D = {
     'set.resetShort': 'History stays.', 'set.resetLib': 'Library', 'set.resetTplShort': 'Templates', 'del.short': 'Delete…', 'view.deskShort': 'Desk',
     'hist.summary': 'Workout summary', 'sum.same': '= same', 'sum.reps': { one: 'rep', other: 'reps' },
     // Forge Heat – gamifikace (Heat, Weekly focus, Milestones, Monthly chapter, Within reach)
-    'heat.title': 'Heat', 'heat.how': 'How Heat works', 'heat.grid': 'Training days, last 4 weeks',
+    'heat.title': 'Heat', 'heat.how': 'How Heat works', 
+    'heat.bars': 'Heat for each of the last 28 days, now {h}. {n} workout days.', 'heat.weeks': '4 weeks', 'heat.lgWorkout': 'Workout', 'heat.lgCooling': 'Cooling', 'heat.today': 'today',
     'heat.cold': 'Cold', 'heat.warm': 'Warm', 'heat.glow': 'Glowing', 'heat.hot': 'White-hot',
     'heat.subEmpty': 'Your first workout lights the forge.', 'heat.subCold': 'The forge has cooled down. One workout brings the warmth back.',
     'heat.subCool': { one: 'Rest is fine – without training it drops to {s} in {n} day.', other: 'Rest is fine – without training it drops to {s} in {n} days.' },

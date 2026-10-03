@@ -50,16 +50,19 @@ export function coolDays(heat) {
   return Math.max(1, Math.ceil((Math.log(heat / st.min) * HEAT_TAU) / DAY));
 }
 
-// Heat + posledních `days` dní (trénoval / síla příspěvku pro mřížku)
+// Heat po dnech za posledních `days` dní (Ember bars): hodnota na konci dne (dnes = teď) + jestli se ten den trénovalo
 export function heatInfo(workouts, goal, now = Date.now(), days = 28) {
   const heat = heatAt(workouts, goal, now);
   const today = dayStart(now);
   const trained = new Set(workouts.map((w) => dayStart(w.startedAt)));
-  const grid = Array.from({ length: days }, (_, i) => {
-    const d = today - (days - 1 - i) * DAY;
-    return { date: d, on: trained.has(d), glow: Math.exp(-(today - d) / HEAT_TAU) };
+  const bars = Array.from({ length: days }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - (days - 1 - i));
+    const date = d.getTime();
+    const at = i === days - 1 ? now : date + DAY - 1;
+    return { date, h: heatAt(workouts, goal, at), on: trained.has(date) };
   });
-  return { heat, state: heatState(heat).id, cool: coolDays(heat), grid };
+  return { heat, state: heatState(heat).id, cool: coolDays(heat), bars };
 }
 
 // ——— Týdny a série ———

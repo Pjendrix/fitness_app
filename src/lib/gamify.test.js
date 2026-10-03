@@ -33,11 +33,12 @@ describe('heat', () => {
     expect(coolDays(0)).toBeNull();
     expect(coolDays(72)).toBe(Math.ceil(Math.log(72 / 50) * 7));
   });
-  it('heatInfo grid has 28 days, today last', () => {
+  it('heatInfo bars: 28 days, today last with the current value', () => {
     const info = heatInfo([W(0), W(3)], 3, NOW);
-    expect(info.grid).toHaveLength(28);
-    expect(info.grid[27].on).toBe(true);
-    expect(info.grid[24].on).toBe(true);
+    expect(info.bars).toHaveLength(28);
+    expect(info.bars[27]).toMatchObject({ on: true, h: info.heat });
+    expect(info.bars[24].on).toBe(true);
+    expect(info.bars[24].h).toBeGreaterThan(info.bars[23].h); // trénink = skok nahoru
   });
 });
 

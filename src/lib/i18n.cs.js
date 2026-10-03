@@ -197,7 +197,8 @@ export default {
     'set.resetShort': 'Historie zůstane.', 'set.resetLib': 'Cviky', 'set.resetTplShort': 'Šablony', 'del.short': 'Smazat…', 'view.deskShort': 'PC',
     'hist.summary': 'Souhrn tréninku', 'sum.same': '= stejně', 'sum.reps': { one: 'opak.', few: 'opak.', other: 'opak.' },
     // Forge Heat – gamifikace
-    'heat.title': 'Heat', 'heat.how': 'Jak Heat funguje', 'heat.grid': 'Tréninkové dny za poslední 4 týdny',
+    'heat.title': 'Heat', 'heat.how': 'Jak Heat funguje', 
+    'heat.bars': 'Heat pro každý z posledních 28 dní, teď {h}. Dnů s tréninkem: {n}.', 'heat.weeks': '4 týdny', 'heat.lgWorkout': 'Trénink', 'heat.lgCooling': 'Chladne', 'heat.today': 'dnes',
     'heat.cold': 'Cold', 'heat.warm': 'Warm', 'heat.glow': 'Glowing', 'heat.hot': 'White-hot',
     'heat.subEmpty': 'První trénink výheň rozpálí.', 'heat.subCold': 'Výheň vychladla. Jeden trénink ji znovu rozpálí.',
     'heat.subCool': { one: 'Pauza nevadí – bez tréninku klesne na {s} za {n} den.', few: 'Pauza nevadí – bez tréninku klesne na {s} za {n} dny.', many: 'Pauza nevadí – bez tréninku klesne na {s} za {n} dne.', other: 'Pauza nevadí – bez tréninku klesne na {s} za {n} dní.' },

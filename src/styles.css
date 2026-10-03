@@ -924,19 +924,23 @@ html[data-theme='dark'] { --ember: #f97316; --ember-ink: #fdba74; --ember-soft: 
 .heat-value strong { font-size: 30px; font-weight: 450; letter-spacing: -0.05em; line-height: 1; }
 .heat-num { font-size: 15px; color: var(--stone); }
 .heat:not(.is-cold) .heat-num { color: var(--ember); }
-.heat-bar { position: relative; height: 6px; border-radius: 9999px; background: var(--hairline); margin: 2px 0; }
-.heat-fill { position: absolute; inset: 0 auto 0 0; border-radius: 9999px; background: linear-gradient(90deg, var(--ash), var(--ember)); transition: width 0.6s ease-out; }
-.heat.is-cold .heat-fill { background: var(--ash); }
-.heat-knob { position: absolute; top: -4px; width: 14px; height: 14px; margin-left: -7px; border-radius: 9999px; background: var(--white); box-shadow: 0 0 0 1px var(--ash), 0 0 0 4px color-mix(in srgb, var(--ember) 16%, transparent); transition: left 0.6s ease-out; }
-.heat.is-cold .heat-knob { box-shadow: 0 0 0 1px var(--ash); }
-.heat-scale { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); font-size: 10px; }
-.heat-scale span:last-child { text-align: right; }
-.heat-grid { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 4px; }
-.heat-grid i { display: block; aspect-ratio: 1; border-radius: 3px; background: var(--paper); box-shadow: inset 0 0 0 1px var(--hairline); }
-.heat-grid i.is-on { box-shadow: none; background: color-mix(in srgb, var(--ember) var(--g, 60%), var(--hairline)); }
-.heat.is-cold .heat-grid i.is-on { background: var(--ash); }
+.heat-head-end { display: inline-flex; align-items: center; gap: 2px; }
+.heat-chart { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+/* Ember bars: barva podle stavu daného dne, trénink plně, den volna vybledle */
+.heat-bars { display: grid; grid-template-columns: repeat(28, minmax(0, 1fr)); gap: 3px; align-items: end; height: 72px; margin-top: 2px; }
+.heat-bars i, .heat-legend i { --c: var(--ash); display: block; border-radius: 2px; background: color-mix(in srgb, var(--c) 28%, var(--white)); }
+.heat-bars i.is-on, .heat-legend i.is-on { background: var(--c); }
+.heat-bars .s-warm, .heat-legend .s-warm { --c: color-mix(in srgb, var(--ember) 60%, var(--white)); }
+.heat-bars .s-glow, .heat-legend .s-glow { --c: var(--ember); }
+.heat-bars .s-hot { --c: var(--ember-ink); }
+html[data-theme='dark'] .heat-bars .s-hot { --c: #ea580c; }
+.heat-bars i.is-today { box-shadow: 0 0 0 1.5px var(--white), 0 0 0 3px var(--ink); }
+.heat-ticks { display: flex; justify-content: space-between; font-size: 10px; }
+.heat-ticks .is-today { color: var(--ink); }
+.heat-legend { display: flex; gap: 14px; color: var(--stone); }
+.heat-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.heat-legend i { width: 8px; height: 8px; }
 .heat-explain { color: var(--charcoal); padding-top: 10px; border-top: 1px solid var(--hairline); }
-@media (prefers-reduced-motion: reduce) { .heat-fill, .heat-knob { transition: none; } }
 
 /* Weekly focus */
 .focus { padding-top: 4px; padding-bottom: 4px; }
