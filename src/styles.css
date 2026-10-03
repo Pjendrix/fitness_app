@@ -909,3 +909,111 @@ html.desktop .app-version { bottom: 16px; }
 .sync-line i { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
 .sync-line.is-off i { background: var(--stone); }
 .set-logout { margin-top: 8px; }
+
+/* ——— Forge Heat: gamifikace ———
+   Jediná barva navíc je „ember“ (žár). Znamená jen dvě věci: Heat a rekord. Jinak zůstává monochrom. */
+:root { --ember: #c2410c; --ember-ink: #9a3412; --ember-soft: #fff7ed; --ember-line: #fed7aa; }
+html[data-theme='dark'] { --ember: #f97316; --ember-ink: #fdba74; --ember-soft: #2a1608; --ember-line: #7c2d12; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Heat */
+.heat { display: flex; flex-direction: column; gap: 12px; }
+.heat-head { display: flex; align-items: center; justify-content: space-between; margin: -6px -8px -6px 0; }
+.heat-help { width: 36px; height: 36px; }
+.heat-value { display: flex; align-items: baseline; gap: 10px; }
+.heat-value strong { font-size: 30px; font-weight: 450; letter-spacing: -0.05em; line-height: 1; }
+.heat-num { font-size: 15px; color: var(--stone); }
+.heat:not(.is-cold) .heat-num { color: var(--ember); }
+.heat-bar { position: relative; height: 6px; border-radius: 9999px; background: var(--hairline); margin: 2px 0; }
+.heat-fill { position: absolute; inset: 0 auto 0 0; border-radius: 9999px; background: linear-gradient(90deg, var(--ash), var(--ember)); transition: width 0.6s ease-out; }
+.heat.is-cold .heat-fill { background: var(--ash); }
+.heat-knob { position: absolute; top: -4px; width: 14px; height: 14px; margin-left: -7px; border-radius: 9999px; background: var(--white); box-shadow: 0 0 0 1px var(--ash), 0 0 0 4px color-mix(in srgb, var(--ember) 16%, transparent); transition: left 0.6s ease-out; }
+.heat.is-cold .heat-knob { box-shadow: 0 0 0 1px var(--ash); }
+.heat-scale { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); font-size: 10px; }
+.heat-scale span:last-child { text-align: right; }
+.heat-grid { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 4px; }
+.heat-grid i { display: block; aspect-ratio: 1; border-radius: 3px; background: var(--paper); box-shadow: inset 0 0 0 1px var(--hairline); }
+.heat-grid i.is-on { box-shadow: none; background: color-mix(in srgb, var(--ember) var(--g, 60%), var(--hairline)); }
+.heat.is-cold .heat-grid i.is-on { background: var(--ash); }
+.heat-explain { color: var(--charcoal); padding-top: 10px; border-top: 1px solid var(--hairline); }
+@media (prefers-reduced-motion: reduce) { .heat-fill, .heat-knob { transition: none; } }
+
+/* Weekly focus */
+.focus { padding-top: 4px; padding-bottom: 4px; }
+.focus-head { margin: 10px 0 2px; }
+.focus-row { justify-content: flex-start; gap: 12px; padding: 11px 0; }
+.focus-row.row-link { width: 100%; border: 0; border-top: 1px solid var(--hairline); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.focus-row:first-of-type.row-link { border-top: 0; }
+.focus-dot { width: 18px; height: 18px; flex: none; border-radius: 9999px; box-shadow: inset 0 0 0 1px var(--ash); display: grid; place-items: center; }
+.focus-dot.is-done { background: var(--ink); color: var(--white); box-shadow: none; }
+.focus-text { flex: 1; min-width: 0; font-size: 14px; }
+.focus-row.is-done .focus-text { color: var(--smoke); text-decoration: line-through; text-decoration-color: var(--ash); }
+.focus-meta { font-size: 10px; white-space: nowrap; }
+
+/* Měsíční kapitola – upoutávka na Home */
+.recap-teaser { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.recap-teaser h2 { margin-top: 2px; }
+.recap-teaser-actions { display: flex; align-items: center; gap: 4px; }
+
+/* Historie: Tréninky | Milestones */
+.hist-section { margin-bottom: 4px; }
+
+/* Milestones */
+.mile-count { text-align: right; margin: -4px 2px 0; }
+.mile-closest { gap: 10px; }
+.mile-eyebrow { color: #fdba74 !important; }
+.big-ish { font-size: 17px; font-weight: 500; letter-spacing: -0.02em; }
+.mile-closest-sub { color: var(--smoke); }
+.mile-closest .mile-bar { background: color-mix(in srgb, var(--white) 18%, var(--ink)); }
+.mile-closest .mile-bar > i { background: #f97316; }
+html[data-theme='dark'] .mile-closest .mile-bar { background: var(--hairline); }
+.mile-group { display: flex; flex-direction: column; }
+.mile-group-title { padding: 10px 2px 8px; }
+.mile-list { padding: 0; }
+.mile-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.mile-row + .mile-row { border-top: 1px solid var(--hairline); }
+.mile-disc { width: 40px; height: 40px; flex: none; border-radius: 9999px; display: grid; place-items: center; font-size: 12px; font-weight: 500; color: var(--ash); box-shadow: inset 0 0 0 1px var(--ash); }
+.mile-row.is-earned .mile-disc { color: var(--ink); box-shadow: 0 0 0 1.5px var(--ink), inset 0 0 0 3px var(--white), inset 0 0 0 4px var(--ink); }
+.mile-row.is-max .mile-disc { color: var(--ember-ink); background: var(--ember-soft); box-shadow: 0 0 0 1.5px var(--ember); }
+.mile-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.mile-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mile-name { font-size: 14px; font-weight: 500; }
+.mile-row:not(.is-earned) .mile-name { color: var(--stone); }
+.mile-pips { display: flex; gap: 3px; }
+.mile-pips i { width: 6px; height: 6px; border-radius: 9999px; background: var(--hairline); }
+.mile-pips i.is-on { background: var(--ink); }
+.mile-row.is-max .mile-pips i.is-on { background: var(--ember); }
+.mile-bar { display: block; height: 3px; border-radius: 9999px; background: var(--hairline); overflow: hidden; }
+.mile-bar > i { display: block; height: 100%; background: var(--ink); border-radius: 9999px; }
+.mile-bar.is-near > i { background: var(--ember); }
+.mile-next { font-size: 11px; color: var(--stone); }
+.mile-note { padding: 8px 2px 0; }
+.recap-link { width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.recap-link .muted { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Měsíční kapitola – panel */
+.sheet-recap { height: min(92dvh, 860px); }
+.recap-scroll { flex: 1; overflow-y: auto; margin: 0 -16px; padding: 2px 16px 8px; display: flex; flex-direction: column; gap: 12px; }
+.recap-hero { padding: 22px 20px; gap: 16px; }
+html[data-theme='dark'] .recap-hero { background: #171717; }
+.recap-title { font-size: 32px; font-weight: 450; letter-spacing: -0.05em; line-height: 1.05; white-space: pre-line; }
+.recap-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.recap-stats div { display: flex; flex-direction: column; gap: 2px; }
+.recap-stats strong { font-size: 26px; font-weight: 500; letter-spacing: -0.04em; }
+.recap-stats span { font-size: 12px; color: var(--smoke); }
+.recap-bars { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; align-items: end; height: 56px; }
+.recap-bars i { display: block; border-radius: 1px; }
+.recap-h { font-size: 15px; font-weight: 500; padding: 12px 0 2px; }
+.recap-v { text-align: right; }
+.recap-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+
+/* Aktivní trénink: Within reach + rekordní série */
+.reach { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0 0; font-size: 13px; color: var(--charcoal); }
+.reach-dot { width: 6px; height: 6px; border-radius: 9999px; background: var(--ember); flex: none; }
+.reach .label { font-size: 10px; }
+.reach-text { font-family: var(--mono); font-size: 12px; }
+.set.is-record input { box-shadow: 0 0 0 1px var(--ember), 0 0 0 4px color-mix(in srgb, var(--ember) 12%, transparent); }
+.set.is-record .check { background: var(--ember); color: #fff; animation: ember-pop 0.5s ease-out; }
+.new-pb { color: var(--ember-ink); background: var(--ember-soft); box-shadow: 0 0 0 1px var(--ember-line); }
+@keyframes ember-pop { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ember) 45%, transparent); } 100% { box-shadow: 0 0 0 12px transparent; } }
+@media (prefers-reduced-motion: reduce) { .set.is-record .check { animation: none; } }

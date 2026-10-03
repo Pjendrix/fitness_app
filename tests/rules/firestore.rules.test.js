@@ -79,6 +79,8 @@ describe('validace', () => {
     await assertFails(setDoc(doc(d, 'users/friend/meta/main'), { own: { groups: ['x'], templates: [] } }));
     await assertSucceeds(setDoc(doc(d, 'users/friend/meta/settings'), { weeklyGoal: 4, appearance: { tint: '#aabbcc', strength: 40, accent: null } }));
     await assertFails(setDoc(doc(d, 'users/friend/meta/settings'), { weeklyGoal: 9 }));
+    await assertSucceeds(setDoc(doc(d, 'users/friend/meta/settings'), { strengthScale: 'lighter' }));
+    await assertFails(setDoc(doc(d, 'users/friend/meta/settings'), { strengthScale: 'heavy' }));
     await assertFails(setDoc(doc(d, 'users/friend/meta/other'), { a: 1 }));
   });
 });

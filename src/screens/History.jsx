@@ -13,6 +13,9 @@ import WorkoutEditor from '../components/WorkoutEditor.jsx';
 import { previousSame } from '../lib/metrics.js';
 import { metricsOf, recordsOf } from '../lib/derived.js';
 import { fmtRest, setNotes, withRpe } from '../lib/body.js';
+import Milestones from '../components/Milestones.jsx';
+
+let lastSection = 'workouts'; // Workouts | Milestones – zůstane při návratu na záložku
 
 const dayKey = (ms) => new Date(ms).toDateString();
 const monday = (ms) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); };
@@ -176,6 +179,8 @@ export default function History({ go }) {
   const openSummary = (id) => { listY.current = window.scrollY; setSumId(id); window.scrollTo(0, 0); };
   const closeSummary = () => { setSumId(null); requestAnimationFrame(() => window.scrollTo(0, listY.current)); };
   const [view, setView] = useState('list');
+  const [section, setSectionState] = useState(lastSection);
+  const setSection = (v) => { lastSection = v; setSectionState(v); };
   const [filter, setFilter] = useState('all');
   const [day, setDay] = useState(dayKey(Date.now()));
 
@@ -233,6 +238,13 @@ export default function History({ go }) {
       <header className="screen-head row-between"><h1>{t('hist.title')}</h1><button className="btn btn-ghost btn-sm" onClick={() => go('stats')}>{t('hist.analytics')}</button></header>
 
       {workouts.length > 0 && (
+        <div className="seg hist-section" role="tablist" aria-label={t('hist.title')}>
+          {['workouts', 'milestones'].map((v) => <button key={v} role="tab" aria-selected={section === v} className={section === v ? 'is-on' : ''} onClick={() => setSection(v)}>{t('hist.sec.' + v)}</button>)}
+        </div>
+      )}
+
+      {section === 'milestones' && workouts.length > 0 ? <Milestones go={go} /> : <>
+      {workouts.length > 0 && (
         <div className="hist-tools">
           <div className="seg seg-sm seg-inline" role="tablist">
             {['list', 'calendar'].map((v) => <button key={v} role="tab" aria-selected={view === v} className={view === v ? 'is-on' : ''} onClick={() => setView(v)}>{t('hist.' + v)}</button>)}
@@ -266,6 +278,7 @@ export default function History({ go }) {
       {hidden > 0 && (
         <button className="btn btn-ghost btn-block" onClick={() => setWeeks((n) => n + WEEKS_PAGE)}>{t('hist.more', { n: hidden })}</button>
       )}
+      </>}
             {exKeyOpen && <ExerciseSheet exKey={exKeyOpen} onClose={() => setExKeyOpen(null)} />}
       {editing && <WorkoutEditor key={editing.id} workout={editing} onClose={() => setEditing(null)} />}
     </div>

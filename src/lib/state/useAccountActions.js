@@ -15,7 +15,7 @@ const cleanMainTpl = (x) => { const { builtin: _b, ...rest } = x; return rest; }
 export function useAccountActions({ api, fail, notify, remember, user, acc, workouts }) {
   const {
     custom, setCustom, library, setLibrary, mainCfg, setMainCfg, setStarter, appearance, setAppearanceState,
-    setWeeklyGoalState, pinnedLifts, setPinnedLifts,
+    setWeeklyGoalState, pinnedLifts, setPinnedLifts, setStrengthScaleState,
   } = acc;
 
   // ——— Hlavní šablony (vlastní konfigurace účtu) ———
@@ -94,6 +94,13 @@ export function useAccountActions({ api, fail, notify, remember, user, acc, work
     return true;
   }, [pinnedLifts, api, user?.uid, notify, setPinnedLifts]);
 
+  // Milestones: škála síly vůči tělesné váze ('standard' | 'lighter')
+  const setStrengthScale = useCallback((v) => {
+    const next = v === 'lighter' ? 'lighter' : 'standard';
+    setStrengthScaleState(next);
+    api?.saveSettings({ strengthScale: next }).catch((e) => console.warn('settings', e));
+  }, [api, setStrengthScaleState]);
+
   // ——— Knihovna: vyhledávání ———
   const libMap = useMemo(() => new Map(library.map((e) => [exKey(e.name), e])), [library]);
   const typeOf = useCallback((name) => libMap.get(exKey(name))?.type || defaultTypeOf(name), [libMap]);
@@ -163,9 +170,9 @@ export function useAccountActions({ api, fail, notify, remember, user, acc, work
   // Stabilní objekt: jinak by se kontext s daty přepočítal při každém úhozu v tréninku
   return useMemo(() => ({
     main, templates, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, chooseStarter,
-    saveTemplate, deleteTemplate, setAppearance, setWeeklyGoal, togglePin,
+    saveTemplate, deleteTemplate, setAppearance, setWeeklyGoal, togglePin, setStrengthScale,
     typeOf, catOf, stepOf, stepIsManual, infoOf, saveLibrary, addToLibrary, resetLibrary, setStep, bwOf, setBw,
   }), [main, templates, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, chooseStarter,
-    saveTemplate, deleteTemplate, setAppearance, setWeeklyGoal, togglePin,
+    saveTemplate, deleteTemplate, setAppearance, setWeeklyGoal, togglePin, setStrengthScale,
     typeOf, catOf, stepOf, stepIsManual, infoOf, saveLibrary, addToLibrary, resetLibrary, setStep, bwOf, setBw]);
 }

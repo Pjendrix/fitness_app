@@ -3,7 +3,7 @@ import { starterConfig, starterId } from '../../data/defaultTemplates.js';
 import { EXERCISES } from '../../data/exercises.js';
 import { LEGACY_PINK, loadLibrary, MAX_PINS, migratePrs, migrateTemplate } from './model.js';
 
-// Stav účtu ze Firestore: vlastní šablony, rekordy, knihovna, hlavní šablony, vzhled, týdenní cíl, připnuté cviky.
+// Stav účtu ze Firestore: vlastní šablony, rekordy, knihovna, hlavní šablony, vzhled, týdenní cíl, připnuté cviky, škála síly.
 // Odebírá se živě (D1) – cache hned, server a změny z jiných zařízení průběžně.
 // B4: když server zápis odmítne, Firestore vrátí svou cache a snapshot sem pošle skutečný stav →
 // optimisticky upravené šablony / knihovna / nastavení se samy vrátí (chybu ukáže fail()).
@@ -18,6 +18,7 @@ export function useAccountData(api, user, fail) {
   const [appearance, setAppearanceState] = useState(null); // {tint, strength, accent}
   const [weeklyGoal, setWeeklyGoalState] = useState(3);
   const [pinnedLifts, setPinnedLifts] = useState([]);
+  const [strengthScale, setStrengthScaleState] = useState('standard'); // Milestones: síla vůči tělesné váze
 
   useEffect(() => {
     if (!api) return undefined;
@@ -56,6 +57,7 @@ export function useAccountData(api, user, fail) {
       setWeeklyGoalState(d.settings?.weeklyGoal || cached || 3);
       let pins = d.settings?.pinnedLifts;
       if (!Array.isArray(pins)) { try { pins = JSON.parse(localStorage.getItem(`forge:pins:${user.uid}`)); } catch { pins = null; } }
+      setStrengthScaleState(d.settings?.strengthScale === 'lighter' ? 'lighter' : 'standard');
       setPinnedLifts(Array.isArray(pins) ? pins.filter((k) => typeof k === 'string').slice(0, MAX_PINS) : []);
       if (first) { first = false; setMetaReady(true); setMetaLoading(false); }
     }, (e) => { if (cancelled) return; fail('err.load')(e); setMetaLoading(false); });
@@ -63,11 +65,11 @@ export function useAccountData(api, user, fail) {
   }, [api, fail]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const resetAccount = useCallback(() => {
-    setCustom([]); setPrs({}); setLibrary(EXERCISES); setStarter(null); setMainCfg(null); setAppearanceState(null); setPinnedLifts([]);
+    setCustom([]); setPrs({}); setLibrary(EXERCISES); setStarter(null); setMainCfg(null); setAppearanceState(null); setPinnedLifts([]); setStrengthScaleState('standard');
   }, []);
 
   return {
     metaLoading, metaReady, custom, setCustom, prs, setPrs, library, setLibrary, starter, setStarter, mainCfg, setMainCfg,
-    appearance, setAppearanceState, weeklyGoal, setWeeklyGoalState, pinnedLifts, setPinnedLifts, resetAccount,
+    appearance, setAppearanceState, weeklyGoal, setWeeklyGoalState, pinnedLifts, setPinnedLifts, strengthScale, setStrengthScaleState, resetAccount,
   };
 }

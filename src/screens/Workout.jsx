@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useSession, useStore } from '../lib/store.jsx';
-import { better, countUnchecked, uid, DECIMAL_INPUT, fmtClock, fmtDuration, fmtNum, fmtSet, INT_INPUT, isDone, num } from '../lib/util.js';
+import { countUnchecked, uid, DECIMAL_INPUT, fmtClock, fmtDuration, fmtNum, fmtSet, INT_INPUT, isDone, num } from '../lib/util.js';
 import NumField, { oneStep, weightStep } from '../components/NumField.jsx';
 import { primeAudio } from '../lib/rest.js';
 import { StepIcon, ArrowDownIcon, ArrowUpIcon, CheckIcon, FlagIcon, FlameIcon, LinkIcon, MoreIcon, PlateIcon, PlusIcon, SwapIcon, TrashIcon } from '../components/Icons.jsx';
@@ -18,6 +18,12 @@ import { InfoButton } from '../components/ExerciseInfo.jsx';
 import { useDialog } from '../components/Dialog.jsx';
 import { locale, t } from '../lib/i18n.js';
 import { fmtRest, lastSetAt, STALE_FINISH_MS } from '../lib/body.js';
+import { reachHint, setRecord } from '../lib/gamify.js';
+import { liftStatsOf } from '../lib/derived.js';
+
+// Druh rekordu → štítek u odškrtnuté série
+const REC_LABEL = { pb: 'wo.newPb', e1: 'reach.newE1', reps: 'reach.newReps' };
+const reachText = (h) => (h.plus ? t('reach.plus', { s: fmtNum(h.plus) }) : t('reach.set', { w: fmtNum(h.weight), r: h.reps })) + ' → ' + t('reach.kind.' + h.kind);
 
 // Časovač tréninku jako samostatná komponenta – tik každou sekundu nepřekresluje série.
 function Elapsed({ since }) {
@@ -78,15 +84,16 @@ function SetSheet({ set, n, onPatch, onClose }) {
 // Pořadí sloupců: opakování (nebo minuty) vlevo, váha vpravo.
 // Pod sérií: „minule“ a cíl progrese (W1/W2), nebo RPE a poznámka série (5.5).
 // Klepnutí na číslo série = panel série (RPE, poznámka, rozcvička); swipe doprava = rychlý panel (volba v Nastavení).
-const SetRow = memo(function SetRow({ exId, set, n, timed, pb, prev, target, onPatch, onToggle, onRemove, onDetail, onQuick, quickOpen, swipe }) {
+const SetRow = memo(function SetRow({ exId, set, n, timed, pb, stat, prev, target, onPatch, onToggle, onRemove, onDetail, onQuick, quickOpen, swipe }) {
   const warm = Boolean(set.warm);
-  const newPb = !warm && set.done && pb && better({ weight: num(set.weight), reps: timed ? 0 : num(set.reps), time: timed ? num(set.time) : 0 }, pb);
+  // Rekord série vůči historii: PB (nejtěžší série), odhad 1RM, nebo nejvíc opakování s touto váhou
+  const rec = !warm && set.done ? setRecord(set, pb, stat, timed) : null;
   const hit = target && set.done && num(set.weight) >= target.weight && num(set.reps) >= target.reps;
   // C3: „minule“ jen když se hodnoty v polích liší (předvyplnění z minula by se jinak jen opakovalo)
   const showPrev = prev && (num(set.weight) !== prev.weight || (timed ? num(set.time) !== prev.time : num(set.reps) !== prev.reps));
   return (
     <SwipeRow onDelete={() => onRemove(exId, set.id)} deleteLabel={t('wo.delSet', { n })} onRight={swipe ? () => onQuick(exId, set.id) : undefined} rightLabel={t('sr.quickLabel')}
-      className={'set' + (set.done ? ' is-done' : '') + (warm ? ' is-warm' : '')}>
+      className={'set' + (set.done ? ' is-done' : '') + (warm ? ' is-warm' : '') + (rec ? ' is-record' : '')}>
       <button type="button" className={'set-n' + (set.rpe || set.note ? ' has-info' : '')} aria-label={t('sr.detail', { n })} title={t('sr.detail', { n })} onClick={() => onDetail(exId, set.id)}>{warm ? 'W' : n}</button>
       {timed
         ? <NumField label={t('wo.time', { n })} placeholder="0" mode="decimal" pattern={DECIMAL_INPUT} value={set.time || ''} step={oneStep} onChange={(v) => onPatch(exId, set.id, { time: v })} />
@@ -95,7 +102,7 @@ const SetRow = memo(function SetRow({ exId, set, n, timed, pb, prev, target, onP
       <button className="check" aria-label={set.done ? t('wo.uncheck') : t('wo.check')} aria-pressed={set.done} onClick={() => onToggle(exId, set, timed)}>
         <CheckIcon width={20} height={20} />
       </button>
-      {newPb && <span className="new-pb">{t('wo.newPb')}</span>}
+      {rec && <span className={'new-pb is-' + rec}>{t(REC_LABEL[rec])}</span>}
       {quickOpen && <QuickPanel set={set} onPatch={(patch) => onPatch(exId, set.id, patch)} onClose={() => onQuick(exId, null)} />}
       {!quickOpen && !warm && (set.rpe || set.note) && (
         <button type="button" className="set-sub set-info" onClick={() => onDetail(exId, set.id)}>
@@ -113,12 +120,13 @@ const SetRow = memo(function SetRow({ exId, set, n, timed, pb, prev, target, onP
   );
 });
 
-const ExerciseCard = memo(function ExerciseCard({ ex, pb, ssLabel, ssEnd, step, handlers, quick, swipe }) {
+const ExerciseCard = memo(function ExerciseCard({ ex, pb, stat, ssLabel, ssEnd, step, handlers, quick, swipe }) {
   const timed = ex.type === 'time';
   // Cíle pro celý cvik: váha až když všechny série dosáhly horní hranice rozsahu
   const working = ex.prev || [];
   const targets = !timed && working.length ? exerciseTargets(working, { specs: ex.specs, spec: ex.spec, to: ex.specTo, step }) : [];
   let j = -1; // pořadí pracovní série (rozcvičky se nečíslují)
+  const hint = reachHint(ex, pb, stat, step); // Within reach: nejmenší krok k novému rekordu
   return (
     <section id={'ex-' + ex.id} className={'card ex' + (ex.ss ? ' in-ss' : '') + (ex.ss && !ssEnd ? ' ss-open' : '')}>
       {ssLabel && <span className="ss-tag">{t('ss.label', { l: ssLabel })}</span>}
@@ -134,9 +142,10 @@ const ExerciseCard = memo(function ExerciseCard({ ex, pb, ssLabel, ssEnd, step, 
         if (!s.warm) j++;
         const prev = !s.warm && ex.prev ? ex.prev[j] || null : null;
         const target = prev ? targets[j] || null : null;
-        return <SetRow key={s.id} exId={ex.id} set={s} n={j + 1} timed={timed} pb={pb} prev={prev} target={target} onPatch={handlers.patchSet} onToggle={handlers.toggle} onRemove={handlers.removeSet}
+        return <SetRow key={s.id} exId={ex.id} set={s} n={j + 1} timed={timed} pb={pb} stat={stat} prev={prev} target={target} onPatch={handlers.patchSet} onToggle={handlers.toggle} onRemove={handlers.removeSet}
           onDetail={handlers.setDetail} onQuick={handlers.setQuick} quickOpen={quick === s.id} swipe={swipe} />;
       })}
+      {hint && <p className="reach"><span className="reach-dot" aria-hidden="true" /><span className="label">{t('reach.title')}</span><span className="reach-text">{reachText(hint)}</span></p>}
       <div className="ex-actions">
         <button className="btn btn-ghost btn-sm" onClick={() => handlers.addSet(ex.id)}><PlusIcon width={16} height={16} /> {t('wo.addSet')}</button>
         <button className="btn btn-ghost btn-sm replace-btn" onClick={() => handlers.replace(ex.id)}><SwapIcon width={16} height={16} /> {t('rep.btn')}</button>
@@ -187,7 +196,10 @@ function ExerciseMenu({ ex, index, count, next, view, onClose, act }) {
 
 export default function Workout({ go }) {
   const { active, patchActive, prs, finishWorkout, discardWorkout, notify, addExerciseToActive, replaceExerciseInActive, startRest, stopRest } = useSession();
-  const { templates, syncTemplate, stepOf, stepIsManual, setStep } = useStore();
+  const { templates, syncTemplate, stepOf, stepIsManual, setStep, workouts } = useStore();
+  const stats = liftStatsOf(workouts);
+  const recRef = useRef({ prs, stats });
+  recRef.current = { prs, stats };
   const dialog = useDialog();
   const [picking, setPicking] = useState(() => Boolean(active && !active.exercises.length));
   const [menu, setMenu] = useState(null); // { id, view }
@@ -219,7 +231,10 @@ export default function Workout({ go }) {
 
   const toggle = useCallback((exId, set, timed) => {
     if (!set.done && !(timed ? num(set.time) > 0 : num(set.reps) > 0)) return notify(t('wo.needReps'));
-    navigator.vibrate?.(12);
+    // Rekord = výraznější dvojitá haptika (Android; iOS Safari vibraci nepodporuje)
+    const exNow = activeRef.current?.exercises.find((e) => e.id === exId);
+    const isRec = !set.done && exNow && setRecord(set, recRef.current.prs[exNow.key], recRef.current.stats.get(exNow.key), timed);
+    navigator.vibrate?.(isRec ? [14, 70, 32] : 12);
     primeAudio();
     patchSet(exId, set.id, { done: !set.done, at: set.done ? undefined : Date.now() }); // E1: čas odškrtnutí
     if (set.done) return stopRest();
@@ -416,7 +431,7 @@ export default function Workout({ go }) {
       {active.exercises.map((e, ei) => {
         const prevEx = active.exercises[ei - 1], nextEx = active.exercises[ei + 1];
         const first = e.ss && prevEx?.ss !== e.ss;
-        return <ExerciseCard key={e.id} ex={e} step={stepOf(e.name)} pb={prs[e.key]} ssLabel={first ? ssLetter(active, e.ss) : ''} ssEnd={!e.ss || nextEx?.ss !== e.ss} handlers={handlers}
+        return <ExerciseCard key={e.id} ex={e} step={stepOf(e.name)} pb={prs[e.key]} stat={stats.get(e.key)} ssLabel={first ? ssLetter(active, e.ss) : ''} ssEnd={!e.ss || nextEx?.ss !== e.ss} handlers={handlers}
           quick={quick?.exId === e.id ? quick.setId : null} swipe={swipe} />;
       })}
 

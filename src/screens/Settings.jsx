@@ -14,7 +14,7 @@ import { useRef, useState } from 'react';
 import { setPref, usePref } from '../lib/prefs.js';
 
 export default function Settings({ go }) {
-  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, deleteAccount, notify, starter, chooseStarter, resetDemo, importData, importBody, body, online, sync } = useStore();
+  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, deleteAccount, notify, starter, chooseStarter, resetDemo, importData, importBody, body, online, sync, strengthScale, setStrengthScale } = useStore();
   const demo = mode === 'demo';
   const { lang, setLang } = useLang();
   const { theme, setTheme } = useTheme();
@@ -105,6 +105,13 @@ export default function Settings({ go }) {
         </div>
         <div className="row"><span>{t('set.swipe')}<span className="muted small row-sub">{t('set.swipeShort')}</span></span>
           <button type="button" className="switch" role="switch" aria-checked={swipeSet} aria-label={t('set.swipe')} onClick={() => setPref('swipeSet', !swipeSet)} />
+        </div>
+        <div className="row row-stack">
+          <span>{t('scale.title')}</span>
+          <div className="seg seg-sm" role="radiogroup" aria-label={t('scale.title')}>
+            {['standard', 'lighter'].map((id) => <button key={id} role="radio" aria-checked={strengthScale === id} className={strengthScale === id ? 'is-on' : ''} onClick={() => setStrengthScale(id)}>{t('scale.' + id)}</button>)}
+          </div>
+          <span className="muted small">{t('scale.sub.' + strengthScale)}</span>
         </div>
       </section>
 
