@@ -84,7 +84,7 @@ function SetSheet({ set, n, onPatch, onClose }) {
 // Pořadí sloupců: opakování (nebo minuty) vlevo, váha vpravo.
 // Pod sérií: „minule“ a cíl progrese (W1/W2), nebo RPE a poznámka série (5.5).
 // Klepnutí na číslo série = panel série (RPE, poznámka, rozcvička); swipe doprava = rychlý panel (volba v Nastavení).
-const SetRow = memo(function SetRow({ exId, set, n, timed, pb, stat, prev, target, onPatch, onToggle, onRemove, onDetail, onQuick, quickOpen, swipe }) {
+const SetRow = memo(function SetRow({ exId, set, n, timed, pb, stat, reach, prev, target, onPatch, onToggle, onRemove, onDetail, onQuick, quickOpen, swipe }) {
   const warm = Boolean(set.warm);
   // Rekord série vůči historii: PB (nejtěžší série), odhad 1RM, nebo nejvíc opakování s touto váhou
   const rec = !warm && set.done ? setRecord(set, pb, stat, timed) : null;
@@ -109,10 +109,13 @@ const SetRow = memo(function SetRow({ exId, set, n, timed, pb, stat, prev, targe
           {set.rpe ? <b>@{set.rpe}</b> : null}{set.rpe && set.note ? ' · ' : ''}{set.note}
         </button>
       )}
-      {!quickOpen && !warm && !(set.rpe || set.note) && (showPrev || target) && (
+      {!quickOpen && !warm && !(set.rpe || set.note) && (showPrev || target || reach) && (
         <span className="set-sub">
           {showPrev ? <span>{t('wo.last')} {fmtSet(prev.weight, prev.reps, prev.time)}{prev.rpe ? ` @${prev.rpe}` : ''}</span> : <span />}
-          {target && <span className={hit ? 'is-hit' : ''}>{hit ? '✓ ' : ''}{target.hold ? t('wo.hold') : t('wo.goal')} {fmtSet(target.weight, target.reps)}</span>}
+          {/* Within reach nahrazuje u „své“ série cíl – jedna informace na správném místě */}
+          {reach
+            ? <span className="set-reach"><i aria-hidden="true" />{reachText(reach)}</span>
+            : target && <span className={hit ? 'is-hit' : ''}>{hit ? '✓ ' : ''}{target.hold ? t('wo.hold') : t('wo.goal')} {fmtSet(target.weight, target.reps)}</span>}
         </span>
       )}
       {warm && <span className="set-sub"><span>{t('wo.warmNote')}</span></span>}
@@ -142,10 +145,9 @@ const ExerciseCard = memo(function ExerciseCard({ ex, pb, stat, reach, ssLabel, 
         if (!s.warm) j++;
         const prev = !s.warm && ex.prev ? ex.prev[j] || null : null;
         const target = prev ? targets[j] || null : null;
-        return <SetRow key={s.id} exId={ex.id} set={s} n={j + 1} timed={timed} pb={pb} stat={stat} prev={prev} target={target} onPatch={handlers.patchSet} onToggle={handlers.toggle} onRemove={handlers.removeSet}
+        return <SetRow key={s.id} exId={ex.id} set={s} n={j + 1} timed={timed} pb={pb} stat={stat} reach={hint && hint.setId === s.id ? hint : null} prev={prev} target={target} onPatch={handlers.patchSet} onToggle={handlers.toggle} onRemove={handlers.removeSet}
           onDetail={handlers.setDetail} onQuick={handlers.setQuick} quickOpen={quick === s.id} swipe={swipe} />;
       })}
-      {hint && <p className="reach"><span className="reach-dot" aria-hidden="true" /><span className="label">{t('reach.title')}</span><span className="reach-text">{reachText(hint)}</span></p>}
       <div className="ex-actions">
         <button className="btn btn-ghost btn-sm" onClick={() => handlers.addSet(ex.id)}><PlusIcon width={16} height={16} /> {t('wo.addSet')}</button>
         <button className="btn btn-ghost btn-sm replace-btn" onClick={() => handlers.replace(ex.id)}><SwapIcon width={16} height={16} /> {t('rep.btn')}</button>
@@ -426,7 +428,7 @@ export default function Workout({ go }) {
         <button className="btn btn-finish" onClick={finish}>{t('wo.finish')}</button>
       </header>
       <div className="progress" aria-hidden="true"><i style={{ width: `${total ? (doneCount / total) * 100 : 0}%` }} /></div>
-      {active.exercises.length > 0 && <p className="muted small swipe-hint">{t(swipe ? 'wo.swipeHint2' : 'wo.swipeHint')}</p>}
+      {active.exercises.length > 0 && workouts.length < 5 && <p className="muted small swipe-hint">{t(swipe ? 'wo.swipeHint2' : 'wo.swipeHint')}</p>}
 
       {active.exercises.map((e, ei) => {
         const prevEx = active.exercises[ei - 1], nextEx = active.exercises[ei + 1];

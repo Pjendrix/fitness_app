@@ -10,7 +10,7 @@
 //   access/{email}                povolené účty navíc k FOUNDERS (spravuje admin)
 //   users/{uid}/meta/exercises    knihovna cviků: {list: [{name, cat}], v: 2}
 import { deleteUser, getRedirectResult, onAuthStateChanged, reauthenticateWithPopup, signInWithPopup, signInWithRedirect, signOut as fbSignOut } from 'firebase/auth';
-import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, setDoc, writeBatch } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, deleteField, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, setDoc, writeBatch } from 'firebase/firestore';
 import { isFirebaseConfigured, auth, db, provider } from './firebase.js';
 import { isFounder, normEmail } from './access.js';
 import { clean } from './util.js';
@@ -80,6 +80,12 @@ const firebaseBackend = {
       return { authDeleted: false };
     }
   },
+  // Log chyb (errors/{auto}) – zapisuje přihlášený povolený účet, čte a maže admin
+  errors: {
+    add: (e) => (auth.currentUser ? addDoc(collection(db, 'errors'), { ...e, uid: auth.currentUser.uid }) : Promise.resolve()),
+    async list(n = 30) { const snap = await getDocs(query(collection(db, 'errors'), orderBy('at', 'desc'), limit(n))); return snap.docs.map((d) => ({ id: d.id, ...d.data() })); },
+    async clear() { const snap = await getDocs(collection(db, 'errors')); await Promise.all(snap.docs.map((d) => deleteDoc(d.ref))); },
+  },
   // Správa přístupů (jen admin – vynucují rules)
   access: {
     async list() { const snap = await getDocs(collection(db, 'access')); return snap.docs.map((d) => d.data()).sort((a, b) => a.email.localeCompare(b.email)); },
@@ -96,6 +102,8 @@ const firebaseBackend = {
     const commitOps = (ops) => {
       const chunks = [];
       for (let i = 0; i < ops.length; i += BATCH_OPS) chunks.push(ops.slice(i, i + BATCH_OPS));
+      // Záměrně paralelně: všechny dávky se hned zapíšou do offline fronty Firestore. Postupné odesílání by při
+      // „online, ale bez signálu“ (posilovna) drželo další dávky jen v paměti a zavřením appky by se ztratily.
       return Promise.all(chunks.map((part) => {
         const batch = writeBatch(db);
         for (const o of part) { if (o.del) batch.delete(o.ref); else batch.set(o.ref, o.data); }
@@ -185,12 +193,15 @@ const firebaseBackend = {
   },
 };
 
-// ——— DEMO (localStorage, bez přihlášení) ———
-const LS = 'forge:demo';
+// ——— DEMO / TRIAL (localStorage, bez přihlášení) ———
+// Stejné úložiště pro dva režimy: demo (ukázková data) a trial (prázdný vlastní účet na zkoušku). Liší se jen klíčem.
+export const DEMO_KEY = 'forge:demo', TRIAL_KEY = 'forge:trial';
+let LS = DEMO_KEY;
 const empty = () => ({ templates: [], workouts: [], prs: {}, exercises: [], body: [] });
 const readLS = () => { try { return JSON.parse(localStorage.getItem(LS)) || empty(); } catch { return empty(); } };
 const writeLS = (d) => localStorage.setItem(LS, JSON.stringify(d));
 const DEMO_USER = { uid: 'demo', name: 'Demo', email: '', photo: '' };
+const TRIAL_USER = { uid: 'trial', name: '', email: '', photo: '' };
 const listeners = new Set();
 const emit = () => { const w = [...readLS().workouts].sort((a, b) => b.startedAt - a.startedAt); listeners.forEach((f) => f(w, { pending: false, fromCache: false })); };
 const bodyListeners = new Set();
@@ -245,38 +256,56 @@ const demoBackend = {
   },
 };
 
-// ——— Veřejné demo (tlačítko „Demo“ na přihlášení) ———
-// Na Firebase vůbec nesahá: data jsou jen v tomto prohlížeči (localStorage) a zůstávají tam.
+// ——— Veřejné demo a trial (tlačítka na přihlášení) ———
+// Na Firebase vůbec nesahají: data jsou jen v tomto prohlížeči (localStorage) a zůstávají tam.
+// forge:sandbox = '1' (demo, starší hodnota) | 'trial'
 const SANDBOX = 'forge:sandbox';
 const real = isFirebaseConfigured ? firebaseBackend : demoBackend;
-let sandbox = isFirebaseConfigured && (() => { try { return localStorage.getItem(SANDBOX) === '1'; } catch { return false; } })();
+let sandbox = null; // null | 'demo' | 'trial'
+if (isFirebaseConfigured) {
+  try { const v = localStorage.getItem(SANDBOX); sandbox = v === 'trial' ? 'trial' : v === '1' ? 'demo' : null; } catch { /* ignore */ }
+}
+const pickStore = (kind) => { LS = kind === 'trial' ? TRIAL_KEY : DEMO_KEY; };
+pickStore(sandbox);
 let authCb = null;
-const seedIfEmpty = () => { if (!localStorage.getItem(LS)) writeLS(generateDemo()); };
+const seedIfEmpty = () => { if (!localStorage.getItem(DEMO_KEY)) localStorage.setItem(DEMO_KEY, JSON.stringify(generateDemo())); };
+const sandboxUser = () => (sandbox === 'trial' ? TRIAL_USER : DEMO_USER);
+const enter = (kind) => {
+  if (kind === 'demo') seedIfEmpty();
+  localStorage.setItem(SANDBOX, kind === 'trial' ? 'trial' : '1');
+  sandbox = kind;
+  pickStore(kind);
+  authCb?.(sandboxUser());
+};
+
+// Data trialu na tomto zařízení (pro nabídku přenosu po prvním přihlášení Googlem)
+export const trialData = () => { try { return JSON.parse(localStorage.getItem(TRIAL_KEY)) || null; } catch { return null; } };
+export const clearTrial = () => { try { localStorage.removeItem(TRIAL_KEY); } catch { /* ignore */ } };
 
 export const backend = {
-  get mode() { return sandbox ? 'demo' : real.mode; },
-  get sandbox() { return sandbox; },
+  get mode() { return sandbox || real.mode; },
+  get sandbox() { return Boolean(sandbox); },
   onAuth(cb, onDenied) {
     authCb = cb;
     const unsub = real.onAuth((u) => { if (!sandbox) cb(u); }, onDenied);
-    if (sandbox) { seedIfEmpty(); cb(DEMO_USER); }
+    if (sandbox) { if (sandbox === 'demo') seedIfEmpty(); cb(sandboxUser()); }
     return unsub;
   },
   signIn: () => real.signIn(),
   async signOut() {
-    if (sandbox) { sandbox = false; localStorage.removeItem(SANDBOX); authCb?.(null); return; }
+    if (sandbox) { sandbox = null; pickStore(null); localStorage.removeItem(SANDBOX); authCb?.(null); return; }
     return real.signOut();
   },
-  async startDemo() {
-    seedIfEmpty();
-    localStorage.setItem(SANDBOX, '1');
-    sandbox = true;
-    authCb?.(DEMO_USER);
-  },
+  async startDemo() { enter('demo'); },
+  // Trial: prázdný účet jen v tomto prohlížeči; pokračuje tam, kde člověk skončil
+  async startTrial() { enter('trial'); },
   // Nová ukázková data (přepíše změny v demu)
-  resetDemo() { writeLS(generateDemo()); },
+  resetDemo() { localStorage.setItem(DEMO_KEY, JSON.stringify(generateDemo())); },
+  // Konec trialu se smazáním dat z tohoto zařízení
+  async endTrial() { clearTrial(); await backend.signOut(); },
   data(uid) { return sandbox ? demoBackend.data(uid) : real.data(uid); },
-  // Demo nemá co mazat na serveru – tlačítko se v demu neukazuje
+  // Demo / trial nemá co mazat na serveru – tlačítko se tam neukazuje
   deleteAccount: () => (sandbox || real.mode !== 'firebase' ? Promise.reject(new Error('demo')) : firebaseBackend.deleteAccount()),
   get access() { return !sandbox && real.access ? real.access : null; },
+  get errors() { return !sandbox && real.errors ? real.errors : null; },
 };

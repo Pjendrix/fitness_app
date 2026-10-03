@@ -5,12 +5,11 @@ import { ArrowIcon, MonitorIcon, SearchIcon, StarIcon } from '../components/Icon
 import { CATEGORIES } from '../data/exercises.js';
 import { fmtDate, fmtDuration, fmtNum, fmtSet, groupTags, startOfWeek, workoutVolume } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
-import { goBack } from '../lib/nav.js';
 import { BodyChart } from '../components/BodyWeight.jsx';
 import Sheet from '../components/Sheet.jsx';
 import { markGuide } from '../lib/guide.js';
 import { norm } from '../components/ExercisePicker.jsx';
-import { BackLink, ExerciseDetail, sessionsOf, signed, trendClass, unitOf, valueOf } from '../components/ExerciseDetail.jsx';
+import { ExerciseDetail, sessionsOf, signed, trendClass, unitOf, valueOf } from '../components/ExerciseDetail.jsx';
 
 const DAY = 864e5, WEEK = 7 * DAY;
 const RANGES = [4, 12, 26, 52];
@@ -141,7 +140,6 @@ function Overview({ go, open, tabs }) {
 
   const head = (
     <header className="screen-head ms-head">
-      <BackLink label={t('nav.back')} onClick={() => goBack(go)} />
       <div className="ms-title">
         <h1>{t('ms.title')}</h1>
         <div className="seg seg-sm seg-inline" role="radiogroup" aria-label={t('an.period')}>

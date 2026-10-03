@@ -17,6 +17,7 @@ import { syncThemeColor } from './lib/theme.js';
 import { useViewMode } from './lib/viewMode.js';
 import { applyAppearance } from './lib/appearance.js';
 import Tour from './components/Tour.jsx';
+import TrialImport from './components/TrialImport.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { initialTab, onTabPop, pushTab, replaceTab } from './lib/nav.js';
 
@@ -33,7 +34,7 @@ const Progress = lazy(() => import('./screens/Progress.jsx'));
 function Stats({ go }) {
   const { desktop } = useViewMode();
   const { gamify } = useStore();
-  const [tab, setTab] = useState(() => statsTab('numbers'));
+  const [tab, setTab] = useState(() => statsTab('progress')); // Stats je teď záložka – motivační přehled jako první
   const pick = (v) => { setStatsTab(v); setTab(v); window.scrollTo({ top: 0 }); };
   const cur = gamify ? tab : 'numbers';
   const tabs = gamify ? (
@@ -116,6 +117,7 @@ function Shell() {
       <Undo lang={lang} />
       <RestBar />
       <Tour go={go} />
+      <TrialImport />
       <Toast />
       <UpdatePrompt />
       {/* lang: memo komponenty se jinak po přepnutí jazyka nepřekreslí */}

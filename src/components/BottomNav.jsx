@@ -3,17 +3,17 @@ import ProfileBadge from './ProfileBadge.jsx';
 import { ChartIcon, DumbbellIcon, HistoryIcon, HomeIcon, ListIcon, SettingsIcon, TemplatesIcon } from './Icons.jsx';
 import { t } from '../lib/i18n.js';
 
-// Mobile: bottom bar with 5 tabs. Desktop: sidebar incl. Analytics and Exercises.
+// Mobile: bottom bar with 5 tabs (Stats místo Templates – šablony jsou v Nastavení a na Home). Desktop: sidebar se vším.
 const TABS = [
   { id: 'home', Icon: HomeIcon },
   { id: 'workout', Icon: DumbbellIcon },
   { id: 'history', Icon: HistoryIcon },
-  { id: 'stats', Icon: ChartIcon, desktop: true },
-  { id: 'templates', Icon: TemplatesIcon },
+  { id: 'stats', Icon: ChartIcon },
+  { id: 'templates', Icon: TemplatesIcon, desktop: true },
   { id: 'exercises', Icon: ListIcon, desktop: true },
   { id: 'settings', Icon: SettingsIcon },
 ];
-const PARENT = { stats: 'history', statsFull: 'history', exercises: 'settings' };
+const PARENT = { statsFull: 'stats', templates: 'settings', exercises: 'settings' };
 
 export default function BottomNav({ tab, go, live }) {
   const current = (id) => tab === id || PARENT[tab] === id;

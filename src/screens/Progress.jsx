@@ -3,12 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { t } from '../lib/i18n.js';
-import { goBack } from '../lib/nav.js';
 import { useViewMode } from '../lib/viewMode.js';
 import HeatCard from '../components/HeatCard.jsx';
 import Milestones from '../components/Milestones.jsx';
 import MonthlyRecap, { useRecapTeaser } from '../components/MonthlyRecap.jsx';
-import { BackLink } from '../components/ExerciseDetail.jsx';
 import { XIcon } from '../components/Icons.jsx';
 import { markGuide } from '../lib/guide.js';
 
@@ -39,7 +37,6 @@ export default function Progress({ go, tabs }) {
         ? <header className="screen-head"><h1>{t('ms.title')}</h1></header>
         : (
           <header className="screen-head ms-head">
-            <BackLink label={t('nav.back')} onClick={() => goBack(go)} />
             <div className="ms-title"><h1>{t('ms.title')}</h1></div>
           </header>
         )}
@@ -53,7 +50,6 @@ export default function Progress({ go, tabs }) {
         <>
           {teaser}
           {heat}
-          <h2 className="prog-sec">{t('hist.sec.milestones')}</h2>
           <Milestones go={go} />
         </>
       )}

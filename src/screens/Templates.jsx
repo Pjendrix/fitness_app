@@ -5,7 +5,8 @@ import { useStore } from '../lib/store.jsx';
 import { colorHex, TEMPLATE_COLORS } from '../data/defaultTemplates.js';
 import { DECIMAL_INPUT, defaultTop, exKey, LIMITS, planLabel, sanitizeName, uid } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
-import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CopyIcon, LinkIcon, PencilIcon, PlusIcon, TrashIcon, XIcon } from '../components/Icons.jsx';
+import { goBack } from '../lib/nav.js';
+import { ArrowIcon, ArrowDownIcon, ArrowUpIcon, ChevronIcon, CopyIcon, LinkIcon, PencilIcon, PlusIcon, TrashIcon, XIcon } from '../components/Icons.jsx';
 import Sheet from '../components/Sheet.jsx';
 import ExercisePicker from '../components/ExercisePicker.jsx';
 import { InfoButton } from '../components/ExerciseInfo.jsx';
@@ -261,6 +262,8 @@ export default function Templates({ go }) {
 
   return (
     <div className="screen">
+      {/* Na mobilu už to není záložka (otevírá se z Nastavení / Home) → zpět */}
+      <button className="back-link mobile-only" onClick={() => goBack(go)}><ArrowIcon width={14} height={14} /> {t('nav.back')}</button>
       <header className="screen-head"><h1>{t('tpl.title')}</h1></header>
 
       <h2 className="tpl-section">{t('tpl.main')}</h2>

@@ -85,7 +85,7 @@ export default function Milestones({ go, part = 'all' }) {
 
   const summary = (
     <>
-      <p className="label mile-count">{t('mile.count', { n: earned, max: milestoneMax(list) })}</p>
+      <div className="mile-head"><h2>{t('hist.sec.milestones')}</h2><span className="label">{t('mile.count', { n: earned, max: milestoneMax(list) })}</span></div>
       {closest && (
         <section className="card card-hero mile-closest">
           <span className="label mile-eyebrow">{t('mile.closest')}</span>

@@ -80,11 +80,11 @@ export default function WorkoutSummary({ done, onClose, actions = null }) {
           );
         })}
       </section>
-      {mode === 'demo' && !actions && (
+      {(mode === 'demo' || mode === 'trial') && !actions && (
         <section className="card sum-cta">
-          <h2>{t('sum.ctaTitle')}</h2>
-          <p className="muted small">{t('sum.ctaText')}</p>
-          <button className="btn btn-primary btn-block" onClick={() => setContact(true)}>{t('demo.want')}</button>
+          <h2>{t(mode === 'trial' ? 'trial.ctaTitle' : 'sum.ctaTitle')}</h2>
+          <p className="muted small">{t(mode === 'trial' ? 'trial.ctaText' : 'sum.ctaText')}</p>
+          <button className="btn btn-primary btn-block" onClick={() => setContact(true)}>{t(mode === 'trial' ? 'trial.request' : 'demo.want')}</button>
         </section>
       )}
       {actions ? (
@@ -97,7 +97,7 @@ export default function WorkoutSummary({ done, onClose, actions = null }) {
           <button className="btn btn-ghost btn-block" onClick={onClose}>{t('pick.close')}</button>
         </>
       ) : <button className="btn btn-finish btn-lg btn-block" onClick={onClose}>{t('sum.done')}</button>}
-      {contact && <ContactSheet onClose={() => setContact(false)} />}
+      {contact && <ContactSheet kind={mode === 'trial' ? 'access' : 'offer'} onClose={() => setContact(false)} />}
     </div>
   );
 }

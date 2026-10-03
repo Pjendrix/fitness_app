@@ -8,7 +8,7 @@ import { t } from '../lib/i18n.js';
 
 // Přihlášení: černá stránka, logo, nadpis, tlačítka (Google / demo) a pod nimi (desktop: vedle) náhled appky.
 export default function Login() {
-  const { signIn, mode, denied, startDemo } = useStore();
+  const { signIn, mode, denied, startDemo, startTrial } = useStore();
 
   // Černý stavový řádek jen na přihlášení
   useEffect(() => {
@@ -36,8 +36,10 @@ export default function Login() {
           <button className="lx-btn" onClick={signIn}>
             {mode === 'firebase' ? (<><GoogleIcon /> {t('login.google')}</>) : t('login.demo')}
           </button>
-          {mode === 'firebase' && <button className="lx-btn lx-btn-2" onClick={() => { queueTour(); startDemo(); }}>{t('login.demoBtn')}</button>}
-          {mode === 'firebase' && <p className="lx-note">{t('login.footer')} · <a href="./privacy.html" target="_blank" rel="noopener">{t('legal.privacy')}</a></p>}
+          {/* Invite-only: Google pro pozvané; bez účtu si to lze vyzkoušet na vlastních datech (trial, jen v tomto prohlížeči) nebo prohlédnout demo */}
+          {mode === 'firebase' && <button className="lx-btn lx-btn-2" onClick={startTrial}>{t('login.trialBtn')}</button>}
+          {mode === 'firebase' && <button className="lx-demo" onClick={() => { queueTour(); startDemo(); }}>{t('login.demoLink')}</button>}
+          {mode === 'firebase' && <p className="lx-note">{t('login.trialNote')}<br />{t('login.footer')} · <a href="./privacy.html" target="_blank" rel="noopener">{t('legal.privacy')}</a></p>}
         </div>
         {denied && <p className="lx-error" role="alert">{t('login.denied', { email: denied })}</p>}
         {mode === 'demo' && <p className="lx-note">{t('login.demoNote')}</p>}

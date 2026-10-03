@@ -26,6 +26,18 @@ beforeEach(async () => {
   await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'access', FRIEND.email), { email: FRIEND.email, name: '', addedAt: 1 }));
 });
 
+describe('log chyb', () => {
+  const entry = (uid, over = {}) => ({ uid, msg: 'TypeError: x is undefined', where: 'boundary', ver: '5.10', at: Date.now(), ...over });
+  it('povolený účet zapíše jen svou chybu, číst smí jen admin', async () => {
+    await assertSucceeds(setDoc(doc(db(FRIEND), 'errors/e1'), entry('friend')));
+    await assertFails(setDoc(doc(db(FRIEND), 'errors/e2'), entry('admin')));
+    await assertFails(setDoc(doc(db(STRANGER), 'errors/e3'), entry('stranger')));
+    await assertFails(setDoc(doc(db(FRIEND), 'errors/e4'), entry('friend', { msg: 'x'.repeat(501) })));
+    await assertFails(getDoc(doc(db(FRIEND), 'errors/e1')));
+    await assertSucceeds(getDoc(doc(db(ADMIN), 'errors/e1')));
+  });
+});
+
 describe('přístup', () => {
   it('admin i přidaný účet smí do svých dat, cizí účet ne', async () => {
     await assertSucceeds(setDoc(doc(db(ADMIN), 'users/admin/workouts/w1'), workout()));

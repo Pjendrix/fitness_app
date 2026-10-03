@@ -999,11 +999,9 @@ html[data-theme='dark'] .recap-hero { background: #171717; }
 .recap-v { text-align: right; }
 .recap-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 
-/* Aktivní trénink: Within reach + rekordní série */
-.reach { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0 0; font-size: 13px; color: var(--charcoal); }
-.reach-dot { width: 6px; height: 6px; border-radius: 9999px; background: var(--ember); flex: none; }
-.reach .label { font-size: 10px; }
-.reach-text { font-family: var(--mono); font-size: 12px; }
+/* Aktivní trénink: Within reach (u konkrétní série místo cíle) + rekordní série */
+.set-sub .set-reach { display: inline-flex; align-items: center; gap: 6px; color: var(--ember-ink); }
+.set-reach i { width: 6px; height: 6px; border-radius: 9999px; background: var(--ember); flex: none; }
 .set.is-record input { box-shadow: 0 0 0 1px var(--ember), 0 0 0 4px color-mix(in srgb, var(--ember) 12%, transparent); }
 .set.is-record .check { background: var(--ember); color: #fff; animation: ember-pop 0.5s ease-out; }
 .new-pb { color: var(--ember-ink); background: var(--ember-soft); box-shadow: 0 0 0 1px var(--ember-line); }
@@ -1061,3 +1059,23 @@ html[data-theme='dark'] .recap-hero { background: #171717; }
   .lx-foot { position: absolute; margin: 0; }
 }
 @media (min-width: 960px) { .lx .pv { text-align: center; } }
+
+html.desktop .mobile-only { display: none; }
+
+/* Čitelnost v gymu: nic důležitého pod 11 px (design review) */
+.set-sub { font-size: 11.5px; }
+.new-pb, .chart .axis, .lib-main .label, .info-src, .add-chip, .wg-bar span, .demo-tag, .ms-dow, .ms-lift-name .label, .ss-tag,
+.heat-ticks, .week-day, .week-new { font-size: 11px; }
+/* Milestones: nadpis a počet úrovní na jednom řádku */
+.mile-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 12px 2px 0; }
+.mile-head h2 { font-size: 15px; font-weight: 500; }
+.prog-col .mile-head { margin-top: 4px; }
+/* Trial: pruh nahoře ve stejném stylu jako demo, jen štítek v žáru (vlastní data) */
+.demo-bar.is-trial .demo-tag { background: var(--ember); color: #fff; box-shadow: none; }
+/* Admin: log chyb */
+.errlog-head { margin: 12px 0 4px; }
+.errlog-row { display: block; }
+.errlog-row summary { display: flex; flex-direction: column; gap: 2px; cursor: pointer; list-style: none; }
+.errlog-row summary .mono { word-break: break-word; }
+.errlog-stack { margin: 8px 0 0; padding: 8px; max-height: 200px; overflow: auto; font-family: var(--mono); font-size: 11px; background: var(--paper); border-radius: var(--r); white-space: pre-wrap; }
+.errlog-empty { padding: 4px 0 14px; }

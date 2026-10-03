@@ -4,6 +4,8 @@ import { download } from '../lib/csv.js';
 import { STARTER_IDS } from '../data/defaultTemplates.js';
 import AppearanceCard from '../components/AppearanceCard.jsx';
 import AccessCard from '../components/AccessCard.jsx';
+import ErrorLogCard from '../components/ErrorLogCard.jsx';
+import { ContactSheet } from '../components/DemoBar.jsx';
 import { isAdmin } from '../lib/access.js';
 import { backend } from '../lib/backend.js';
 import { t, useLang } from '../lib/i18n.js';
@@ -14,14 +16,17 @@ import { useRef, useState } from 'react';
 import { setPref, usePref } from '../lib/prefs.js';
 
 export default function Settings({ go }) {
-  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, deleteAccount, notify, starter, chooseStarter, resetDemo, importData, importBody, body, online, sync, strengthScale, setStrengthScale, gamify, setGamify } = useStore();
-  const demo = mode === 'demo';
+  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, deleteAccount, notify, starter, chooseStarter, resetDemo, endTrial, importData, importBody, body, online, sync, strengthScale, setStrengthScale, gamify, setGamify } = useStore();
+  const trial = mode === 'trial';
+  const demo = mode === 'demo' || trial; // lokální režimy: bez serveru, bez mazání účtu
+  const [requesting, setRequesting] = useState(false);
   const { lang, setLang } = useLang();
   const { theme, setTheme } = useTheme();
   const dialog = useDialog();
   const [restSec, setRestSec] = useState(getRestDefault);
   const swipeSet = usePref('swipeSet');
   const [showAccess, setShowAccess] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
 
   const exportData = () => {
     download('forge-export.json', JSON.stringify({ exportedAt: new Date().toISOString(), workouts, prs, templates: templates.filter((x) => !x.builtin), library, body }, null, 2), 'application/json');
@@ -89,7 +94,7 @@ export default function Settings({ go }) {
         {user.photo ? <img src={user.photo} alt="" referrerPolicy="no-referrer" className="avatar" /> : <div className="avatar avatar-fallback">{(user.name || '?')[0]}</div>}
         <div>
           <div>{user.name || t('set.user')}</div>
-          <div className="muted small">{demo ? t('demo.local') : user.email}</div>
+          <div className="muted small">{demo ? t(trial ? 'trial.local' : 'demo.local') : user.email}</div>
           {!demo && <div className={'sync-line' + (online ? '' : ' is-off')}><i aria-hidden="true" />{!online ? t('set.offline') : sync.pending ? t('set.syncing') : t('set.synced')}</div>}
         </div>
       </section>
@@ -138,6 +143,7 @@ export default function Settings({ go }) {
 
       <h2 className="set-sec">{t('set.secData')}</h2>
       <section className="card list">
+        <button className="row row-link" onClick={() => go('templates')}><span>{t('nav.templates')}</span><span className="muted">{templates.filter((x) => !x.builtin).length} ›</span></button>
         <button className="row row-link" onClick={() => go('exercises')}><span>{t('set.library')}</span><span className="muted">{library.length} ›</span></button>
         <div className="row"><span>{t('set.backup')}<span className="muted small row-sub">{t('set.backupShort')}</span></span>
           <span className="row-end">
@@ -153,13 +159,26 @@ export default function Settings({ go }) {
         {!demo && isAdmin(user.email) && backend.access && (
           <button className="row row-link" aria-expanded={showAccess} onClick={() => setShowAccess(!showAccess)}><span>{t('acc.title')}</span><span className="muted">admin {showAccess ? '⌃' : '›'}</span></button>
         )}
+        {!demo && isAdmin(user.email) && backend.errors && (
+          <button className="row row-link" aria-expanded={showErrors} onClick={() => setShowErrors(!showErrors)}><span>{t('err.logTitle')}</span><span className="muted">admin {showErrors ? '⌃' : '›'}</span></button>
+        )}
         <div className="row"><span>{t('set.danger')}<span className="muted small row-sub">{t('set.resetShort')}</span></span>
           <span className="row-end">
             <button className="btn btn-ghost btn-sm" onClick={reset}>{t('set.resetLib')}</button>
             <button className="btn btn-ghost btn-sm" onClick={resetTemplates}>{t('set.resetTplShort')}</button>
           </span>
         </div>
-        {demo && (
+        {trial && (
+          <>
+            <div className="row"><span>{t('trial.requestRow')}<span className="muted small row-sub">{t('trial.requestSub')}</span></span>
+              <button className="btn btn-primary btn-sm" onClick={() => setRequesting(true)}>{t('trial.request')}</button>
+            </div>
+            <div className="row"><span>{t('trial.end')}<span className="muted small row-sub">{t('trial.endSub')}</span></span>
+              <button className="btn btn-ghost btn-sm dz" onClick={async () => { if (await dialog.confirm(t('trial.endConfirm'), { danger: true, ok: t('trial.endOk') })) endTrial(); }}>{t('trial.endBtn')}</button>
+            </div>
+          </>
+        )}
+        {demo && !trial && (
           <div className="row"><span>{t('demo.reset')}</span>
             <button className="btn btn-ghost btn-sm dz" onClick={async () => { if (await dialog.confirm(t('demo.resetConfirm'), { danger: true, ok: t('demo.reset') })) resetDemo(); }}>{t('demo.resetBtn')}</button>
           </div>
@@ -171,8 +190,10 @@ export default function Settings({ go }) {
         )}
       </section>
       {showAccess && <AccessCard />}
+      {showErrors && <ErrorLogCard />}
+      {requesting && <ContactSheet kind="access" onClose={() => setRequesting(false)} />}
 
-      <button className="btn btn-danger btn-block set-logout" onClick={signOut}>{demo ? t('demo.exit') : t('set.logout')}</button>
+      <button className="btn btn-danger btn-block set-logout" onClick={signOut}>{demo ? t(trial ? 'trial.exit' : 'demo.exit') : t('set.logout')}</button>
       <p className="muted small legal-links"><a href="./privacy.html" target="_blank" rel="noopener">{t('legal.privacy')}</a></p>
     </div>
   );

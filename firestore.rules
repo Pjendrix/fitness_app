@@ -60,6 +60,20 @@ service cloud.firestore {
       allow delete: if signedIn() && (isAdmin() || email() == addr); // smazání vlastního účtu (F2)
     }
 
+    // ——— Log chyb z appky (zapisuje každý povolený účet jen za sebe, čte a maže jen admin) ———
+    match /errors/{id} {
+      allow create: if signedIn() && allowed()
+        && request.resource.data.keys().hasOnly(['uid', 'msg', 'stack', 'where', 'ver', 'ua', 'at'])
+        && request.resource.data.uid == request.auth.uid
+        && str(request.resource.data.msg, 500)
+        && optStr(request.resource.data, 'stack', 4000)
+        && optStr(request.resource.data, 'where', 80)
+        && optStr(request.resource.data, 'ver', 20)
+        && optStr(request.resource.data, 'ua', 300)
+        && request.resource.data.at is int;
+      allow read, delete: if isAdmin();
+    }
+
     // ——— Odcvičené tréninky ———
     match /users/{uid}/workouts/{id} {
       allow read, delete: if owner(uid);
@@ -150,10 +164,12 @@ service cloud.firestore {
           && firstIsMap(d.own.templates, ['id', 'exercises'])));
     }
     function validSettings(d) {
-      return d.keys().hasOnly(['weeklyGoal', 'pinnedLifts', 'appearance'])
+      return d.keys().hasOnly(['weeklyGoal', 'pinnedLifts', 'appearance', 'strengthScale', 'gamify'])
         && (!('appearance' in d) || validLook(d.appearance))
         && (!('weeklyGoal' in d) || (d.weeklyGoal is int && d.weeklyGoal >= 1 && d.weeklyGoal <= 7))
-        && (!('pinnedLifts' in d) || (d.pinnedLifts is list && d.pinnedLifts.size() <= 5));
+        && (!('pinnedLifts' in d) || (d.pinnedLifts is list && d.pinnedLifts.size() <= 5))
+        && (!('strengthScale' in d) || d.strengthScale in ['standard', 'lighter'])
+        && (!('gamify' in d) || d.gamify is bool);
     }
   }
 }

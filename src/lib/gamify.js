@@ -352,24 +352,25 @@ export function reachHint(ex, pb, stat, step = 2.5) {
   if (!ex || ex.type === 'time') return null;
   const open = ex.sets.filter((s) => !s.warm && !s.done && num(s.weight) > 0 && num(s.reps) > 0);
   if (!open.length) return null;
-  const top = open.map((s) => ({ weight: num(s.weight), reps: num(s.reps) })).sort((a, b) => b.weight - a.weight || b.reps - a.reps)[0];
+  const top = open.map((s) => ({ id: s.id, weight: num(s.weight), reps: num(s.reps) })).sort((a, b) => b.weight - a.weight || b.reps - a.reps)[0];
+  const hit = (h) => ({ ...h, setId: top.id }); // série, u které se tip ukáže
   // 1) PB (nejtěžší série): stejná váha, o 1–2 opakování víc
   if (pb && !(pb.time > 0) && num(pb.weight) > 0) {
     const pw = num(pb.weight), pr = num(pb.reps);
-    if (top.weight > pw) return { kind: 'pb', weight: top.weight, reps: 1 };
-    if (top.weight === pw && pr + 1 - top.reps <= 2) return { kind: 'pb', weight: pw, reps: pr + 1 };
+    if (top.weight > pw) return hit({ kind: 'pb', weight: top.weight, reps: 1 });
+    if (top.weight === pw && pr + 1 - top.reps <= 2) return hit({ kind: 'pb', weight: pw, reps: pr + 1 });
   }
   if (!stat) return null;
   // 2) e1RM: o jedno opakování víc, nebo o jeden krok váhy
   if (stat.e1 > 0) {
     for (let r = top.reps; r <= Math.min(top.reps + 1, 12); r++) {
-      if (e1rm(top.weight, r) > stat.e1 + 0.05) return { kind: 'e1', weight: top.weight, reps: r };
+      if (e1rm(top.weight, r) > stat.e1 + 0.05) return hit({ kind: 'e1', weight: top.weight, reps: r });
     }
-    if (e1rm(top.weight + step, top.reps) > stat.e1 + 0.05) return { kind: 'e1', weight: top.weight + step, reps: top.reps, plus: step };
+    if (e1rm(top.weight + step, top.reps) > stat.e1 + 0.05) return hit({ kind: 'e1', weight: top.weight + step, reps: top.reps, plus: step });
   }
   // 3) Nejvíc opakování s touto váhou
   const m = stat.repsAt.get(top.weight);
-  if (m != null && top.reps >= m) return { kind: 'reps', weight: top.weight, reps: m + 1 };
+  if (m != null && top.reps >= m) return hit({ kind: 'reps', weight: top.weight, reps: m + 1 });
   return null;
 }
 

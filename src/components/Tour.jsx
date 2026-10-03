@@ -17,7 +17,7 @@ const STEPS = [
   { id: 'tick', sel: '.set:not(.is-done) .check', until: () => document.querySelector('.rest-bar') },
   { id: 'goal', sel: '.set:not(.is-done) .set-sub' },
   // Forge Heat: tip „Na dosah“ – když není (gamifikace vypnutá / žádný rekord blízko), krok se přeskočí
-  { id: 'reach', sel: '.reach', until: () => !document.querySelector('.reach') },
+  { id: 'reach', sel: '.set-reach', until: () => !document.querySelector('.set-reach') },
   { id: 'name', sel: '.set:not(.is-done)', pick: (el) => el.closest('.card.ex')?.querySelector('.ex-name') },
   { id: 'replace', sel: '.set:not(.is-done)', pick: (el) => el.closest('.card.ex')?.querySelector('.replace-btn') },
   { id: 'more', sel: '.set:not(.is-done)', pick: (el) => el.closest('.card.ex')?.querySelector('.ex-more') },

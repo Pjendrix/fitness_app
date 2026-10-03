@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import { t } from '../lib/i18n.js';
+import { logError } from '../lib/errorLog.js';
 
 // Chyba při vykreslení (poškozený dokument, nenačtený chunk po nasazení…) nesmí skončit bílou obrazovkou.
 // Draft rozdělaného tréninku je v localStorage, takže reload nic neztratí.
@@ -12,6 +13,7 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     console.error('Forge crash:', error, info?.componentStack);
+    logError(error, 'boundary');
   }
 
   render() {

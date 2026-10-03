@@ -9,6 +9,9 @@ import './styles.css';
 import './lib/viewMode.js';
 import './lib/theme.js';
 import { loadLang } from './lib/i18n.js';
+import { installErrorLog } from './lib/errorLog.js';
+
+installErrorLog();
 
 // Čeština se dotáhne před prvním vykreslením (z cache service workeru okamžitě); při chybě angličtina
 const root = createRoot(document.getElementById('root'));
