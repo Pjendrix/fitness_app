@@ -95,7 +95,7 @@ export default function Analytics({ go, tabs = null }) {
     return (
       <div className="screen screen-wide">
         {back}
-        <header className="screen-head"><h1>{t('an.title')}</h1></header>
+        <header className="screen-head"><h1>{tabs ? t('ms.title') : t('an.title')}</h1></header>
         {tabs}
         <p className="empty">{t('an.empty')}</p>
       </div>
@@ -109,7 +109,7 @@ export default function Analytics({ go, tabs = null }) {
     <div className="screen screen-wide">
       {back}
       <header className="screen-head row-between">
-        <h1>{t('an.title')}</h1>
+        <h1>{tabs ? t('ms.title') : t('an.title')}</h1>
         <div className="seg seg-sm seg-inline" role="radiogroup" aria-label={t('an.period')}>
           {RANGES.map((r) => <button key={r} role="radio" aria-checked={range === r} className={range === r ? 'is-on' : ''} onClick={() => setRange(r)}>{t('an.r' + r)}</button>)}
         </div>

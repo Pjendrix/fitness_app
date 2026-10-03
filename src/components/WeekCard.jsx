@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useStore } from '../lib/store.jsx';
-import { heatAt, heatState, monday, weeklyFocus } from '../lib/gamify.js';
+import { heatAt, heatState, monday } from '../lib/gamify.js';
 import { locale, t } from '../lib/i18n.js';
 import { ArrowIcon } from './Icons.jsx';
 import { useRecapTeaser } from './MonthlyRecap.jsx';
@@ -9,9 +9,9 @@ const DAY = 864e5;
 const dayStart = (ms) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); };
 
 // Home: jedna karta místo dlaždic. Týden Po–Ne (kdy jsi trénoval), plnění cíle, poslední trénink
-// a – když je Forge Heat zapnutý – jeden řádek s Heatem a fokusem týdne. Klepnutí → Stats (Progress / Numbers).
+// a – když je Forge Heat zapnutý – jeden řádek s Heatem. Klepnutí → Stats (Progress / Numbers).
 export default function WeekCard({ onOpen }) {
-  const { workouts, weeklyGoal, gamify, main, body } = useStore();
+  const { workouts, weeklyGoal, gamify } = useStore();
   const recap = useRecapTeaser();
   const data = useMemo(() => {
     const now = Date.now();
@@ -28,7 +28,6 @@ export default function WeekCard({ onOpen }) {
     return { days, count, last, ago };
   }, [workouts]);
   const heat = useMemo(() => (gamify ? heatAt(workouts, weeklyGoal) : 0), [gamify, workouts, weeklyGoal]);
-  const focus = useMemo(() => (gamify ? weeklyFocus(workouts, { goal: weeklyGoal, groups: main.groups.map((g) => g.id), body }) : []), [gamify, workouts, weeklyGoal, main, body]);
   const state = heatState(heat).id;
   const met = data.count >= weeklyGoal;
   const left = Math.max(0, weeklyGoal - data.count);
@@ -56,7 +55,6 @@ export default function WeekCard({ onOpen }) {
         <span className="week-heat">
           <i className={'week-ember s-' + state} aria-hidden="true" />
           <span>{t('heat.' + state)} <span className="mono">{heat}°</span></span>
-          {focus.length > 0 && <span className="muted"> · {t('week.focus', { d: focus.filter((f) => f.done).length, n: focus.length })}</span>}
           {recap.show && <span className="week-new">{t('week.chapter', { m: recap.name })}</span>}
           <span className="spacer" />
           <ArrowIcon className="week-chev" width={14} height={14} style={{ transform: 'rotate(180deg)' }} aria-hidden="true" />

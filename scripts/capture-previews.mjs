@@ -12,7 +12,7 @@ import { resolve } from 'node:path';
 const root = resolve(import.meta.dirname, '..');
 const OUT = resolve(root, 'public/preview');
 const TMP = resolve(root, 'node_modules/.forge-preview');
-const SLIDES = ['workout', 'summary', 'stats', 'exercise', 'looks'];
+const SLIDES = ['workout', 'summary', 'progress', 'exercise', 'looks'];
 const HIDE = '.demo-bar, .undo-btn, .sync-badge, .update-prompt, .toast { display: none !important; }';
 
 // 1) Ukázková data z generátoru dema
@@ -28,7 +28,7 @@ const server = await preview({ root, logLevel: 'error', build: { outDir: TMP }, 
 const URL = 'http://localhost:4317/';
 
 mkdirSync(OUT, { recursive: true });
-const browser = await chromium.launch();
+const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
 const shots = {};
 
 async function page(lang, data) {
@@ -76,10 +76,10 @@ for (const lang of ['en', 'cs']) {
   for (let i = 0; i < 8; i++) { await checks.nth(i).click(); await p.waitForTimeout(40); }
   await p.locator('.card.ex').nth(2).evaluate((el) => window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 16 }));
   await shot(p, lang, 0);
-  // 2 – souhrn s rekordem (první série bench +2,5 kg)
+  // 2 – souhrn s rekordem (první série prvního cviku +10 kg)
   const w = p.locator('.card.ex').first().locator('.numfield input').nth(1);
   const cur = Number((await w.inputValue()) || 0);
-  await w.fill(String(cur + 2.5));
+  await w.fill(String(cur + 10)); // dost na nový rekord i u pokročilé progrese dema
   const rest = await p.locator('.set:not(.is-done) .check').count();
   for (let i = 0; i < rest; i++) { await p.locator('.set:not(.is-done) .check').first().click(); await p.waitForTimeout(30); }
   await p.locator('.finish-bottom').click();
@@ -90,12 +90,14 @@ for (const lang of ['en', 'cs']) {
   await shot(p, lang, 1);
   await p.locator('.summary .btn-finish').click();
   await p.waitForTimeout(600);
-  // 3 – statistiky
+  // 3 – Progress (Heat + milníky): Home → karta Tento týden
   await nav(p, 0);
-  await p.locator('.stats').click();
+  await p.locator('.week-card').click();
   await p.waitForTimeout(900);
   await shot(p, lang, 2);
-  // 4 – detail cviku
+  // 4 – detail cviku (záložka Numbers)
+  await p.locator('.stats-tabs button').nth(1).click();
+  await p.waitForTimeout(900);
   await p.locator('.ms-lift').first().click();
   await p.waitForTimeout(900);
   await shot(p, lang, 3);

@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { getLang, t } from '../lib/i18n.js';
 
 // Náhled appky na přihlašovací obrazovce: screenshoty z dema (public/preview, generuje scripts/capture-previews.mjs)
-export const SLIDES = ['workout', 'summary', 'stats', 'exercise', 'looks'];
+export const SLIDES = ['workout', 'summary', 'progress', 'exercise', 'looks'];
 
 export default function PreviewCarousel() {
   const ref = useRef(null);

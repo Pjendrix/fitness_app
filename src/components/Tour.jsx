@@ -16,11 +16,13 @@ const takePending = () => { try { const v = localStorage.getItem(PENDING); local
 const STEPS = [
   { id: 'tick', sel: '.set:not(.is-done) .check', until: () => document.querySelector('.rest-bar') },
   { id: 'goal', sel: '.set:not(.is-done) .set-sub' },
+  // Forge Heat: tip „Na dosah“ – když není (gamifikace vypnutá / žádný rekord blízko), krok se přeskočí
+  { id: 'reach', sel: '.reach', until: () => !document.querySelector('.reach') },
   { id: 'name', sel: '.set:not(.is-done)', pick: (el) => el.closest('.card.ex')?.querySelector('.ex-name') },
   { id: 'replace', sel: '.set:not(.is-done)', pick: (el) => el.closest('.card.ex')?.querySelector('.replace-btn') },
   { id: 'more', sel: '.set:not(.is-done)', pick: (el) => el.closest('.card.ex')?.querySelector('.ex-more') },
   { id: 'finish', sel: '.finish-bottom', until: () => document.querySelector('.summary') },
-  { id: 'summary', sel: '.summary .kpis' },
+  { id: 'summary', sel: '.summary .sum-stats' },
   { id: 'cta', sel: '.sum-cta', last: true },
 ];
 

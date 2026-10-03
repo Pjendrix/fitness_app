@@ -36,9 +36,6 @@ export function nextText(m) {
     case 'pullups': return t('mile.n.pullups', { r, next: m.next, v: m.value });
     case 'prs': return t('mile.n.prs', { r, next: m.next, v: m.value });
     case 'hot': return t('mile.n.hot', { r, next: m.next, v: m.value });
-    case 'early': return t('mile.n.early', { r, next: m.next, v: m.value });
-    case 'plank': return t('mile.n.plank', { r, next: fmtNum(m.next), v: r1(m.value) });
-    case 'stair': return t('mile.n.stair', { r, next: m.next, v: r1(m.value) });
     default: return '';
   }
 }
@@ -63,7 +60,8 @@ function Row({ m }) {
 }
 
 // Milestones: karty s úrovněmi I–V, nahoře nejbližší další úroveň, dole měsíční kapitoly
-export default function Milestones({ go }) {
+// part: 'all' (mobil) | 'side' (souhrn + kapitoly) | 'list' (skupiny karet) – desktop je skládá do dvou sloupců
+export default function Milestones({ go, part = 'all' }) {
   const { workouts, weeklyGoal, main, body, strengthScale } = useStore();
   const groups = useMemo(() => main.groups.map((g) => g.id), [main]);
   const list = useMemo(() => milestones(workouts, { goal: weeklyGoal, groups, body, scale: strengthScale }), [workouts, weeklyGoal, groups, body, strengthScale]);
@@ -83,9 +81,9 @@ export default function Milestones({ go }) {
     return out;
   }, [workouts]);
 
-  if (!workouts.length) return <p className="empty">{t('mile.empty')}</p>;
+  if (!workouts.length) return part === 'list' ? null : <p className="empty">{t('mile.empty')}</p>;
 
-  return (
+  const summary = (
     <>
       <p className="label mile-count">{t('mile.count', { n: earned, max: milestoneMax(list) })}</p>
       {closest && (
@@ -96,39 +94,47 @@ export default function Milestones({ go }) {
           <span className="small mile-closest-sub">{nextText(closest)}</span>
         </section>
       )}
-      {MILESTONE_GROUPS.map(([g, ids]) => {
-        const rows = list.filter((m) => ids.includes(m.id) && (!m.secret || m.tier));
-        if (g === 'secret') return (
-          <section key={g} className="mile-group">
-            <h3 className="label mile-group-title">{t('mile.g.secret')}</h3>
-            {rows.length > 0 && <div className="card mile-list">{rows.map((m) => <Row key={m.id} m={m} />)}</div>}
-            {hidden > 0 && <p className="muted small mile-note mile-hidden">{t('mile.hidden', { n: hidden })}</p>}
-          </section>
-        );
-        if (!rows.length) return null;
-        return (
-          <section key={g} className="mile-group">
-            <h3 className="label mile-group-title">{t('mile.g.' + g)}</h3>
-            <div className="card mile-list">{rows.map((m) => <Row key={m.id} m={m} />)}</div>
-            {g === 'strength' && (
-              <p className="muted small mile-note">{t('mile.scaleNote', { s: t('scale.' + strengthScale) })} <button className="link" onClick={() => go('settings')}>{t('mile.scaleChange')}</button></p>
-            )}
-          </section>
-        );
-      })}
-      {months.length > 0 && (
-        <section className="mile-group">
-          <h3 className="label mile-group-title">{t('recap.chapters')}</h3>
-          <div className="card list">
-            {months.map(({ m, n }) => (
-              <button key={m} className="row row-link recap-link" onClick={() => setRecap(m)}>
-                <span>{new Date(m).toLocaleDateString(locale(), { month: 'long', year: 'numeric' })}</span>
-                <span className="muted small">{t('count.workouts', { n })} <ArrowIcon width={12} height={12} style={{ transform: 'rotate(180deg)' }} /></span>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
+    </>
+  );
+  const groupsView = MILESTONE_GROUPS.map(([g, ids]) => {
+    const rows = list.filter((m) => ids.includes(m.id) && (!m.secret || m.tier));
+    if (g === 'secret') return (
+      <section key={g} className="mile-group">
+        <h3 className="label mile-group-title">{t('mile.g.secret')}</h3>
+        {rows.length > 0 && <div className="card mile-list">{rows.map((m) => <Row key={m.id} m={m} />)}</div>}
+        {hidden > 0 && <p className="muted small mile-note mile-hidden">{t('mile.hidden', { n: hidden })}</p>}
+      </section>
+    );
+    if (!rows.length) return null;
+    return (
+      <section key={g} className="mile-group">
+        <h3 className="label mile-group-title">{t('mile.g.' + g)}</h3>
+        <div className="card mile-list">{rows.map((m) => <Row key={m.id} m={m} />)}</div>
+        {g === 'strength' && (
+          <p className="muted small mile-note">{t('mile.scaleNote', { s: t('scale.' + strengthScale) })} <button className="link" onClick={() => go('settings')}>{t('mile.scaleChange')}</button></p>
+        )}
+      </section>
+    );
+  });
+  const chapters = months.length > 0 && (
+    <section className="mile-group">
+      <h3 className="label mile-group-title">{t('recap.chapters')}</h3>
+      <div className="card list">
+        {months.map(({ m, n }) => (
+          <button key={m} className="row row-link recap-link" onClick={() => setRecap(m)}>
+            <span>{new Date(m).toLocaleDateString(locale(), { month: 'long', year: 'numeric' })}</span>
+            <span className="muted small">{t('count.workouts', { n })} <ArrowIcon width={12} height={12} style={{ transform: 'rotate(180deg)' }} /></span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+
+  return (
+    <>
+      {part !== 'list' && summary}
+      {part !== 'side' && groupsView}
+      {part !== 'list' && chapters}
       {recap && <MonthlyRecap month={recap} onClose={() => setRecap(null)} />}
     </>
   );

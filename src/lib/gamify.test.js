@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   bestStreak, closestMilestone, coolDays, heatAt, heatInfo, heatState, liftStats, milestones, monday, monthRecap,
-  perfectMonths, reachHint, setRecord, weeklyFocus,
+  perfectMonths, reachHint, setRecord,
 } from './gamify.js';
 import { generateDemo } from './demoData.js';
 
@@ -78,7 +78,7 @@ describe('milestones', () => {
     expect(list.find((m) => m.id === 'bench').nobody).toBe(true);
     expect(closestMilestone(list)?.id).not.toBe('bench');
   });
-  it('workouts, records, level ups, explorer, early bird', () => {
+  it('workouts, records, level ups, explorer', () => {
     const ws = [
       W(40, [['a', [[50, 5]]], ['b', [[20, 8]]], ['c', [[10, 10]]]], { startedAt: new Date(2026, 7, 20, 6, 30).getTime() }),
       W(2, [['a', [[55, 5]]], ['b', [[22, 8]]], ['c', [[12, 10]]]]),
@@ -89,8 +89,6 @@ describe('milestones', () => {
     expect(by.hot.value).toBe(3);
     expect(by.levelup.value).toBe(3);
     expect(by.explorer.value).toBe(3);
-    expect(by.early.value).toBe(1);
-    expect(by.plank).toBeUndefined(); // jen když se cvik logoval
   });
   it('big three total vs bodyweight, flagged when a lift is missing', () => {
     const ws = [W(2, [['bench-press-barbell', [[80, 1]]], ['squat', [[100, 1]]], ['deadlift', [[140, 1]]]])];
@@ -129,31 +127,6 @@ describe('milestones', () => {
     const list = milestones(d.workouts, { body: d.body, groups: ['PUSH', 'PULL', 'LEGS'], goal: 3, now: NOW });
     expect(list.find((m) => m.id === 'workouts').tier).toBeGreaterThanOrEqual(1);
     expect(list.every((m) => m.pct >= 0 && m.pct <= 1)).toBe(true);
-  });
-});
-
-describe('weekly focus', () => {
-  it('lagging group, then filled with the goal', () => {
-    const mon = monday(NOW);
-    const ws = [{ ...W(0), group: 'LEGS', startedAt: mon - 9 * DAY }, { ...W(0), group: 'PUSH', startedAt: mon - DAY }];
-    const items = weeklyFocus(ws, { groups: ['PUSH', 'LEGS'], now: NOW, goal: 3 });
-    expect(items[0]).toMatchObject({ kind: 'lag', group: 'LEGS', done: false });
-    expect(items.at(-1).kind).toBe('goal');
-  });
-  it('lag is done once the group is trained this week', () => {
-    const mon = monday(NOW);
-    const ws = [{ ...W(0), group: 'LEGS', startedAt: mon - 9 * DAY }, { ...W(0), group: 'LEGS', startedAt: mon + 3600e3 }];
-    expect(weeklyFocus(ws, { groups: ['LEGS'], now: NOW })[0].done).toBe(true);
-  });
-  it('record target picks a frequent lift', () => {
-    const mon = monday(NOW);
-    const at = (d, w) => ({ ...W(0), startedAt: mon - d * DAY, exercises: [{ key: 'bench', name: 'Bench', sets: [{ weight: w, reps: 5 }] }] });
-    const items = weeklyFocus([at(20, 80), at(10, 82.5), at(3, 82.5)], { now: NOW });
-    expect(items.find((i) => i.kind === 'record')).toMatchObject({ key: 'bench', done: false });
-  });
-  it('body item only when the account logs body weight', () => {
-    expect(weeklyFocus([], { now: NOW }).some((i) => i.kind === 'body')).toBe(false);
-    expect(weeklyFocus([], { now: NOW, body: [{ date: NOW - 30 * DAY, weight: 80 }] }).some((i) => i.kind === 'body')).toBe(true);
   });
 });
 

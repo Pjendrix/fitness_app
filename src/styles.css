@@ -942,18 +942,6 @@ html[data-theme='dark'] .heat-bars .s-hot { --c: #ea580c; }
 .heat-legend i { width: 8px; height: 8px; }
 .heat-explain { color: var(--charcoal); padding-top: 10px; border-top: 1px solid var(--hairline); }
 
-/* Weekly focus */
-.focus { padding-top: 4px; padding-bottom: 4px; }
-.focus-head { margin: 10px 0 2px; }
-.focus-row { justify-content: flex-start; gap: 12px; padding: 11px 0; }
-.focus-row.row-link { width: 100%; border: 0; border-top: 1px solid var(--hairline); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
-.focus-row:first-of-type.row-link { border-top: 0; }
-.focus-dot { width: 18px; height: 18px; flex: none; border-radius: 9999px; box-shadow: inset 0 0 0 1px var(--ash); display: grid; place-items: center; }
-.focus-dot.is-done { background: var(--ink); color: var(--white); box-shadow: none; }
-.focus-text { flex: 1; min-width: 0; font-size: 14px; }
-.focus-row.is-done .focus-text { color: var(--smoke); text-decoration: line-through; text-decoration-color: var(--ash); }
-.focus-meta { font-size: 10px; white-space: nowrap; }
-
 /* Měsíční kapitola – upoutávka na Home */
 .recap-teaser { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .recap-teaser h2 { margin-top: 2px; }
@@ -1051,3 +1039,25 @@ html[data-theme='dark'] .recap-hero { background: #171717; }
 /* Stats: Progress | Numbers */
 .stats-tabs { margin-bottom: 4px; }
 .prog-sec { font-size: 15px; font-weight: 500; margin: 12px 2px 0; }
+/* Progress na desktopu: dva sloupce jako záložka Numbers */
+.prog-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; align-items: start; }
+.prog-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.prog-col .mile-group-title:first-child { padding-top: 0; }
+.prog-col .mile-count { text-align: left; margin: 4px 2px 0; }
+@media (max-width: 900px) { .prog-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* Přihlášení: tlačítka nad náhledem (bez scrollování), desktop ve dvou sloupcích */
+.lx-main { display: flex; flex-direction: column; align-items: center; gap: 24px; width: 100%; }
+.lx .pv { margin-top: 12px; }
+.app-version.is-login { position: static; padding: 0 0 calc(env(safe-area-inset-bottom) + 12px); background: #000; }
+@media (min-width: 960px) {
+  .lx { justify-content: center; }
+  .lx-center { max-width: 1040px; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 96px; align-items: center; text-align: left; padding: 48px 32px; }
+  .lx-main { align-items: flex-start; }
+  .lx-copy { align-items: flex-start; }
+  .lx h1 span { display: inline; }
+  .lx-actions { max-width: 380px; }
+  .lx .pv { margin-top: 0; }
+  .lx-foot { position: absolute; margin: 0; }
+}
+@media (min-width: 960px) { .lx .pv { text-align: center; } }

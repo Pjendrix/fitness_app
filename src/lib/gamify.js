@@ -1,8 +1,7 @@
 // Forge Heat – tichá gamifikace. Vše se počítá z uložené historie, nic dalšího se neukládá
 // (kromě volby síly „strengthScale“ v nastavení účtu).
 //   heatInfo        žhnutí: každý trénink přitápí, každý den bez tréninku pomalu chladne
-//   milestones      karty s úrovněmi I–V (objem, konzistence, síla vůči tělesné váze, rekordy, hravé)
-//   weeklyFocus     max. 3 tichá doporučení na týden (generují se k pondělí, plní se během týdne)
+//   milestones      karty s úrovněmi I–V (objem, konzistence, Heat, síla vůči tělesné váze, progres, tajné)
 //   monthRecap      měsíční kapitola (počty, rekordy, průběh Heatu, highlights)
 //   liftStats / reachHint / setRecord   „Within reach“ v aktivním tréninku
 import { e1rm } from './metrics.js';
@@ -125,8 +124,6 @@ export const LIFTS = {
   deadlift: ['deadlift', 'deadlift-barbell', 'conventional-deadlift'],
   ohp: ['military-press', 'overhead-press', 'overhead-press-barbell', 'ohp'],
   pullups: ['pull-up', 'chin-up', 'pullup', 'pull-ups', 'chin-ups', 'weighted-pull-up'],
-  plank: ['plank'],
-  stair: ['stairmaster', 'stair-climber'],
 };
 export const SCALES = {
   standard: { bench: [0.5, 0.75, 1, 1.25, 1.5], squat: [0.75, 1, 1.5, 1.75, 2], deadlift: [1, 1.5, 2, 2.25, 2.5], ohp: [0.4, 0.5, 0.6, 0.75, 0.9], pullups: [1, 5, 10, 15, 20], total: [2, 2.5, 3, 4, 5] },
@@ -147,9 +144,6 @@ export const TIERS = {
   hot: [3, 4, 5, 6, 8], // rekordů v jednom tréninku
   levelup: [10, 25, 50, 100, 200], // nová nejvyšší pracovní váha cviku
   growth: [10, 20, 30, 50, 100], // % e1RM oproti prvnímu zápisu
-  early: [5, 10, 25, 50, 100],
-  plank: [1, 1.5, 2, 3, 5], // min
-  stair: [10, 20, 30, 45, 60], // min v jednom tréninku
   fullweek: [1], yearround: [1], newyear: [1], triple: [1], // tajné
 };
 export const MILESTONE_GROUPS = [
@@ -157,7 +151,6 @@ export const MILESTONE_GROUPS = [
   ['heat', ['steady', 'forged', 'rekindled']],
   ['strength', ['bench', 'squat', 'deadlift', 'ohp', 'total', 'pullups']],
   ['progress', ['levelup', 'growth', 'prs', 'hot']],
-  ['fun', ['early', 'plank', 'stair']],
   ['secret', ['fullweek', 'yearround', 'newyear', 'triple']],
 ];
 export const SECRET = new Set(['fullweek', 'yearround', 'newyear', 'triple']);
@@ -306,18 +299,6 @@ export function milestones(workouts, { goal = 3, groups = [], body = [], scale =
   push('prs', prs, TIERS.prs);
   push('hot', hot, TIERS.hot);
 
-  // Pro radost
-  push('early', ws.filter((w) => new Date(w.startedAt).getHours() < 7).length, TIERS.early);
-  const plank = liftBests(ws, LIFTS.plank, body);
-  if (plank.seen) push('plank', plank.time, TIERS.plank);
-  let stair = 0, stairSeen = false;
-  for (const w of ws) {
-    let m = 0;
-    for (const e of w.exercises) if (LIFTS.stair.includes(e.key)) { stairSeen = true; m += e.sets.filter(working).reduce((s, x) => s + num(x.time), 0); }
-    stair = Math.max(stair, m);
-  }
-  if (stairSeen) push('stair', stair, TIERS.stair);
-
   // Tajné (zobrazí se až po získání)
   const dows = new Set(ws.map((w) => new Date(w.startedAt).getDay()));
   push('fullweek', dows.size === 7 ? 1 : 0, TIERS.fullweek);
@@ -345,60 +326,6 @@ export function closestMilestone(list) {
 }
 export const milestoneTiers = (list) => list.filter((m) => !m.secret || m.tier).reduce((s, m) => s + m.tier, 0);
 export const milestoneMax = (list) => list.filter((m) => !m.secret || m.tier).reduce((s, m) => s + m.max, 0);
-
-// ——— Weekly focus ———
-// Položky se volí podle stavu k pondělí (během týdne se nemění), splnění se počítá z tohoto týdne.
-// → [{ id, kind: 'lag'|'record'|'body'|'goal', done, ...params }]
-export function weeklyFocus(workouts, { goal = 3, groups = [], body = [], now = Date.now() } = {}) {
-  const mon = monday(now);
-  const before = workouts.filter((w) => w.startedAt < mon);
-  const week = workouts.filter((w) => w.startedAt >= mon && w.startedAt <= now);
-  const items = [];
-
-  // 1) Zaostávající skupina (≥ 6 dní bez tréninku k pondělí)
-  let lag = null;
-  for (const g of groups) {
-    const last = Math.max(0, ...before.filter((w) => w.group === g).map((w) => w.startedAt));
-    if (!last) continue;
-    const days = Math.floor((mon - last) / DAY);
-    if (days >= 6 && (!lag || days > lag.days)) lag = { group: g, days, last };
-  }
-  if (lag) {
-    const done = week.some((w) => w.group === lag.group);
-    items.push({ id: 'lag', kind: 'lag', group: lag.group, days: Math.floor((now - lag.last) / DAY), done });
-  }
-
-  // 2) Rekord na nejdosažitelnějším cviku (≥ 2× za poslední 4 týdny, poslední e1RM nejblíž rekordu)
-  const recent = before.filter((w) => w.startedAt >= mon - 28 * DAY);
-  const freq = new Map();
-  for (const w of recent) for (const e of w.exercises) if (e.type !== 'time' && e.sets.some((s) => num(s.weight) > 0)) freq.set(e.key, (freq.get(e.key) || 0) + 1);
-  const stats = liftStats(before);
-  let pick = null;
-  for (const [key, n] of freq) {
-    if (n < 2) continue;
-    const st = stats.get(key);
-    if (!st?.e1) continue;
-    const lastW = recent.filter((w) => w.exercises.some((e) => e.key === key)).sort((a, b) => b.startedAt - a.startedAt)[0];
-    const ex = lastW.exercises.find((e) => e.key === key);
-    const lastE1 = Math.max(0, ...ex.sets.filter(working).map((s) => (num(s.weight) > 0 ? e1rm(num(s.weight), num(s.reps)) : 0)));
-    const ratio = lastE1 / st.e1;
-    if (!pick || ratio > pick.ratio || (ratio === pick.ratio && n > pick.n)) pick = { key, name: ex.name, e1: Math.round(st.e1 * 10) / 10, ratio, n };
-  }
-  if (pick) {
-    const recs = recordsTimeline(workouts.filter((w) => w.startedAt <= now));
-    const done = week.some((w) => (recs.get(w.id) || []).some((r) => r.key === pick.key));
-    items.push({ id: 'record', kind: 'record', key: pick.key, name: pick.name, e1: pick.e1, done });
-  }
-
-  // 3) Tělesná váha, pokud ji účet loguje a poslední týden chybí
-  const logs = body.length > 0;
-  const loggedBefore = body.some((b) => b.date >= mon - 7 * DAY && b.date < mon);
-  if (logs && !loggedBefore) items.push({ id: 'body', kind: 'body', done: body.some((b) => b.date >= mon && b.date <= now + DAY) });
-
-  // Doplnit týdenním cílem
-  if (items.length < 3) items.push({ id: 'goal', kind: 'goal', goal, count: week.length, done: week.length >= goal });
-  return items.slice(0, 3);
-}
 
 // ——— Within reach (aktivní trénink) ———
 // Map(key → { e1, repsAt: Map(váha → max opakování) }) z dokončených tréninků
