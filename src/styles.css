@@ -1079,3 +1079,38 @@ html.desktop .mobile-only { display: none; }
 .errlog-row summary .mono { word-break: break-word; }
 .errlog-stack { margin: 8px 0 0; padding: 8px; max-height: 200px; overflow: auto; font-family: var(--mono); font-size: 11px; background: var(--paper); border-radius: var(--r); white-space: pre-wrap; }
 .errlog-empty { padding: 4px 0 14px; }
+
+/* Milestones: klepací řádky + detail */
+.mile-row { width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.mile-row:hover { background: var(--paper); }
+.mile-chev { color: var(--ash); font-size: 18px; flex: none; }
+.mile-help { width: 100%; border: 0; display: flex; align-items: center; gap: 12px; padding: 12px 14px; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.mile-help .grow { display: flex; flex-direction: column; gap: 2px; }
+.mile-help b { font-weight: 500; font-size: 14px; }
+.mile-help-q { width: 28px; height: 28px; flex: none; border-radius: 9999px; display: grid; place-items: center; box-shadow: inset 0 0 0 1.5px var(--ink); font-size: 13px; font-weight: 500; }
+.sheet-mile { height: auto; max-height: 92dvh; gap: 14px; }
+.mile-sheet-head { display: flex; align-items: center; gap: 14px; }
+.mile-sheet-head .grow { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.mile-sheet-head h2 { font-size: 22px; font-weight: 500; letter-spacing: -0.03em; }
+.mile-sheet-head .mile-disc { width: 52px; height: 52px; font-size: 14px; }
+.mile-disc.is-earned { color: var(--ink); box-shadow: 0 0 0 1.5px var(--ink), inset 0 0 0 3px var(--white), inset 0 0 0 4px var(--ink); }
+.mile-sheet-body { overflow-y: auto; margin: 0 -16px; padding: 0 16px 8px; display: flex; flex-direction: column; gap: 16px; }
+.mile-sec { display: flex; flex-direction: column; gap: 6px; }
+.mile-sec p { font-size: 14px; line-height: 1.5; color: var(--charcoal); }
+.mile-boxes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.mile-box { padding: 12px; border-radius: var(--r); background: var(--paper); box-shadow: 0 0 0 1px var(--hairline); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mile-box strong { font-size: 20px; font-weight: 500; letter-spacing: -0.03em; }
+.mile-box.is-next { background: var(--ember-soft); box-shadow: 0 0 0 1px var(--ember-line); color: var(--ember-ink); }
+.mile-box.is-next .label { color: var(--ember-ink); }
+.mile-box.is-next strong { color: var(--ink); }
+.mile-ladder { list-style: none; margin: 0; padding: 0; }
+.mile-ladder li { display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--hairline); font-size: 14px; color: var(--stone); }
+.mile-ladder-disc { width: 30px; height: 30px; border-radius: 9999px; display: grid; place-items: center; font-size: 11px; font-weight: 500; box-shadow: inset 0 0 0 1px var(--ash); color: var(--smoke); }
+.mile-ladder li.is-done { color: var(--ink); }
+.mile-ladder li.is-done .mile-ladder-disc { background: var(--ink); color: var(--white); box-shadow: none; }
+.mile-ladder li.is-done .mile-ladder-meta { color: var(--green); }
+.mile-ladder li.is-next { color: var(--ink); }
+.mile-ladder li.is-next .mile-ladder-disc { background: var(--ember-soft); color: var(--ember-ink); box-shadow: 0 0 0 1.5px var(--ember); }
+.mile-ladder li.is-next .mile-ladder-meta { color: var(--ember-ink); }
+.mile-single { font-size: 15px; padding: 12px; border-radius: var(--r); background: var(--paper); box-shadow: 0 0 0 1px var(--hairline); }
+.mile-single.is-earned { color: var(--green); }

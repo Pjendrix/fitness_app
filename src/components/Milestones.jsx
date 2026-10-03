@@ -4,6 +4,7 @@ import { addMonths, closestMilestone, milestoneMax, milestones, milestoneTiers, 
 import { locale, t } from '../lib/i18n.js';
 import { fmtDate, fmtNum } from '../lib/util.js';
 import MonthlyRecap from './MonthlyRecap.jsx';
+import MilestoneSheet, { MilestonesHelp } from './MilestoneSheet.jsx';
 import { ArrowIcon } from './Icons.jsx';
 
 const r1 = (v) => fmtNum(Math.round(v * 10) / 10);
@@ -40,10 +41,10 @@ export function nextText(m) {
   }
 }
 
-function Row({ m }) {
+function Row({ m, onOpen }) {
   const cls = 'mile-row' + (m.tier ? ' is-earned' : '') + (m.next == null && m.max > 1 ? ' is-max' : '');
   return (
-    <div className={cls}>
+    <button className={cls} onClick={() => onOpen(m)} aria-label={t('mile.d.open', { name: t('mile.' + m.id) })}>
       <span className="mile-disc mono" aria-hidden="true">{ROMAN[m.tier]}</span>
       <div className="mile-body">
         <div className="mile-top">
@@ -55,7 +56,8 @@ function Row({ m }) {
         <i className={'mile-bar' + (m.pct >= 0.85 && m.next != null ? ' is-near' : '')}><i style={{ width: `${Math.round(m.pct * 100)}%` }} /></i>
         <span className="mono mile-next">{nextText(m)}</span>
       </div>
-    </div>
+      <span className="mile-chev" aria-hidden="true">›</span>
+    </button>
   );
 }
 
@@ -69,6 +71,8 @@ export default function Milestones({ go, part = 'all' }) {
   const earned = milestoneTiers(list);
   const hidden = list.filter((m) => m.secret && !m.tier).length; // tajné: vidět až po získání
   const [recap, setRecap] = useState(null);
+  const [open, setOpen] = useState(null); // detail milníku
+  const [help, setHelp] = useState(false);
   // Měsíční kapitoly: posledních 6 dokončených měsíců s aspoň jedním tréninkem
   const months = useMemo(() => {
     const out = [];
@@ -86,6 +90,11 @@ export default function Milestones({ go, part = 'all' }) {
   const summary = (
     <>
       <div className="mile-head"><h2>{t('hist.sec.milestones')}</h2><span className="label">{t('mile.count', { n: earned, max: milestoneMax(list) })}</span></div>
+      <button className="card mile-help" onClick={() => setHelp(true)}>
+        <span className="mile-help-q mono" aria-hidden="true">?</span>
+        <span className="grow"><b>{t('mile.h.title')}</b><span className="small muted">{t('mile.h.sub')}</span></span>
+        <span className="mile-chev" aria-hidden="true">›</span>
+      </button>
       {closest && (
         <section className="card card-hero mile-closest">
           <span className="label mile-eyebrow">{t('mile.closest')}</span>
@@ -101,7 +110,7 @@ export default function Milestones({ go, part = 'all' }) {
     if (g === 'secret') return (
       <section key={g} className="mile-group">
         <h3 className="label mile-group-title">{t('mile.g.secret')}</h3>
-        {rows.length > 0 && <div className="card mile-list">{rows.map((m) => <Row key={m.id} m={m} />)}</div>}
+        {rows.length > 0 && <div className="card mile-list">{rows.map((m) => <Row key={m.id} m={m} onOpen={setOpen} />)}</div>}
         {hidden > 0 && <p className="muted small mile-note mile-hidden">{t('mile.hidden', { n: hidden })}</p>}
       </section>
     );
@@ -109,7 +118,7 @@ export default function Milestones({ go, part = 'all' }) {
     return (
       <section key={g} className="mile-group">
         <h3 className="label mile-group-title">{t('mile.g.' + g)}</h3>
-        <div className="card mile-list">{rows.map((m) => <Row key={m.id} m={m} />)}</div>
+        <div className="card mile-list">{rows.map((m) => <Row key={m.id} m={m} onOpen={setOpen} />)}</div>
         {g === 'strength' && (
           <p className="muted small mile-note">{t('mile.scaleNote', { s: t('scale.' + strengthScale) })} <button className="link" onClick={() => go('settings')}>{t('mile.scaleChange')}</button></p>
         )}
@@ -136,6 +145,8 @@ export default function Milestones({ go, part = 'all' }) {
       {part !== 'side' && groupsView}
       {part !== 'list' && chapters}
       {recap && <MonthlyRecap month={recap} onClose={() => setRecap(null)} />}
+      {open && <MilestoneSheet m={list.find((x) => x.id === open.id) || open} onClose={() => setOpen(null)} onScale={() => { setOpen(null); go('settings'); }} />}
+      {help && <MilestonesHelp onClose={() => setHelp(false)} />}
     </>
   );
 }

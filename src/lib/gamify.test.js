@@ -163,3 +163,20 @@ describe('month recap', () => {
     expect(r.heat).toHaveLength(30);
   });
 });
+
+describe('milestone detail', () => {
+  it('tierDates: day each tier was first reached', async () => {
+    const { tierDates } = await import('./gamify.js');
+    const NOW2 = new Date(2026, 9, 3, 18).getTime();
+    const ws = Array.from({ length: 12 }, (_, i) => ({ id: 'x' + i, name: 'W', startedAt: NOW2 - (60 - i * 5) * 864e5, finishedAt: NOW2 - (60 - i * 5) * 864e5 + 1, exercises: [] }));
+    const d = tierDates(ws, 'workouts', { now: NOW2 });
+    expect(d).toHaveLength(1); // 12 tréninků → úroveň I (10)
+    const tenth = new Date(ws[9].startedAt); tenth.setHours(0, 0, 0, 0);
+    expect(d[0]).toBe(tenth.getTime());
+  });
+  it('only: computes a single milestone', () => {
+    const list = milestones([W(1, [['bench-press-barbell', [[80, 3]]]])], { now: NOW, only: 'bench', body: [{ date: NOW - 5 * DAY, weight: 80 }] });
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({ id: 'bench', best: { kg: 80, reps: 3, bw: 80 } });
+  });
+});
