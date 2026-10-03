@@ -81,6 +81,8 @@ describe('validace', () => {
     await assertFails(setDoc(doc(d, 'users/friend/meta/settings'), { weeklyGoal: 9 }));
     await assertSucceeds(setDoc(doc(d, 'users/friend/meta/settings'), { strengthScale: 'lighter' }));
     await assertFails(setDoc(doc(d, 'users/friend/meta/settings'), { strengthScale: 'heavy' }));
+    await assertSucceeds(setDoc(doc(d, 'users/friend/meta/settings'), { gamify: false }));
+    await assertFails(setDoc(doc(d, 'users/friend/meta/settings'), { gamify: 'no' }));
     await assertFails(setDoc(doc(d, 'users/friend/meta/other'), { a: 1 }));
   });
 });

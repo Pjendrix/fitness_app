@@ -11,7 +11,8 @@ import DemoBar from './components/DemoBar.jsx';
 import Login from './screens/Login.jsx';
 import Home from './screens/Home.jsx';
 import Workout from './screens/Workout.jsx';
-import { useLang } from './lib/i18n.js';
+import { t, useLang } from './lib/i18n.js';
+import { setStatsTab, statsTab } from './lib/statsTab.js';
 import { syncThemeColor } from './lib/theme.js';
 import { useViewMode } from './lib/viewMode.js';
 import { applyAppearance } from './lib/appearance.js';
@@ -26,10 +27,22 @@ const Settings = lazy(() => import('./screens/Settings.jsx'));
 const Analytics = lazy(() => import('./screens/Analytics.jsx'));
 const Exercises = lazy(() => import('./screens/Exercises.jsx'));
 const MobileStats = lazy(() => import('./screens/MobileStats.jsx'));
+const Progress = lazy(() => import('./screens/Progress.jsx'));
 // Statistiky: desktop = plná analytika, mobil = zjednodušený přehled (plná verze přes „statsFull“)
+// Forge Heat: záložky Progress | Numbers (jen když je gamifikace zapnutá; jinak rovnou čísla)
 function Stats({ go }) {
   const { desktop } = useViewMode();
-  return desktop ? <Analytics go={go} /> : <MobileStats go={go} />;
+  const { gamify } = useStore();
+  const [tab, setTab] = useState(() => statsTab('numbers'));
+  const pick = (v) => { setStatsTab(v); setTab(v); window.scrollTo({ top: 0 }); };
+  const cur = gamify ? tab : 'numbers';
+  const tabs = gamify ? (
+    <div className="seg stats-tabs" role="tablist" aria-label={t('stats.tabs')}>
+      {['progress', 'numbers'].map((v) => <button key={v} role="tab" aria-selected={cur === v} className={cur === v ? 'is-on' : ''} onClick={() => pick(v)}>{t('stats.' + v)}</button>)}
+    </div>
+  ) : null;
+  if (cur === 'progress') return <Progress go={go} tabs={tabs} />;
+  return desktop ? <Analytics go={go} tabs={tabs} /> : <MobileStats go={go} tabs={tabs} />;
 }
 const SCREENS = { home: Home, workout: Workout, history: History, templates: Templates, settings: Settings, stats: Stats, statsFull: Analytics, exercises: Exercises };
 

@@ -129,8 +129,8 @@ export const LIFTS = {
   stair: ['stairmaster', 'stair-climber'],
 };
 export const SCALES = {
-  standard: { bench: [0.5, 0.75, 1, 1.25, 1.5], squat: [0.75, 1, 1.5, 1.75, 2], deadlift: [1, 1.5, 2, 2.25, 2.5], ohp: [0.4, 0.5, 0.6, 0.75, 0.9], pullups: [1, 5, 10, 15, 20] },
-  lighter: { bench: [0.3, 0.45, 0.6, 0.8, 1], squat: [0.5, 0.75, 1, 1.25, 1.5], deadlift: [0.75, 1, 1.25, 1.5, 2], ohp: [0.25, 0.35, 0.45, 0.55, 0.65], pullups: [1, 3, 5, 8, 12] },
+  standard: { bench: [0.5, 0.75, 1, 1.25, 1.5], squat: [0.75, 1, 1.5, 1.75, 2], deadlift: [1, 1.5, 2, 2.25, 2.5], ohp: [0.4, 0.5, 0.6, 0.75, 0.9], pullups: [1, 5, 10, 15, 20], total: [2, 2.5, 3, 4, 5] },
+  lighter: { bench: [0.3, 0.45, 0.6, 0.8, 1], squat: [0.5, 0.75, 1, 1.25, 1.5], deadlift: [0.75, 1, 1.25, 1.5, 2], ohp: [0.25, 0.35, 0.45, 0.55, 0.65], pullups: [1, 3, 5, 8, 12], total: [1.25, 1.5, 2, 2.5, 3] },
 };
 export const TIERS = {
   workouts: [10, 50, 100, 250, 500],
@@ -138,26 +138,33 @@ export const TIERS = {
   streak: [2, 4, 12, 26, 52], // týdnů v řadě
   perfect: [1, 3, 6, 9, 12],
   balanced: [1, 3, 6, 9, 12],
-  comeback: [1],
   anniversary: [1, 2, 3, 4, 5],
+  explorer: [10, 25, 50, 75, 100], // různých cviků
+  steady: [30, 60, 90, 180, 365], // dní v kuse aspoň Warm
+  forged: [7, 30, 90, 180, 365], // dní celkem White-hot
+  rekindled: [1],
   prs: [1, 10, 25, 50, 100],
   hot: [3, 4, 5, 6, 8], // rekordů v jednom tréninku
-  sweep: [1, 3, 5, 10, 20],
+  levelup: [10, 25, 50, 100, 200], // nová nejvyšší pracovní váha cviku
+  growth: [10, 20, 30, 50, 100], // % e1RM oproti prvnímu zápisu
   early: [5, 10, 25, 50, 100],
-  night: [5, 10, 25, 50, 100],
   plank: [1, 1.5, 2, 3, 5], // min
   stair: [10, 20, 30, 45, 60], // min v jednom tréninku
+  fullweek: [1], yearround: [1], newyear: [1], triple: [1], // tajné
 };
 export const MILESTONE_GROUPS = [
-  ['volume', ['workouts', 'tonnage', 'streak', 'perfect', 'balanced', 'comeback', 'anniversary']],
-  ['strength', ['bench', 'squat', 'deadlift', 'ohp', 'pullups']],
-  ['records', ['prs', 'hot', 'sweep']],
-  ['fun', ['early', 'night', 'plank', 'stair']],
+  ['volume', ['workouts', 'tonnage', 'streak', 'perfect', 'balanced', 'explorer', 'anniversary']],
+  ['heat', ['steady', 'forged', 'rekindled']],
+  ['strength', ['bench', 'squat', 'deadlift', 'ohp', 'total', 'pullups']],
+  ['progress', ['levelup', 'growth', 'prs', 'hot']],
+  ['fun', ['early', 'plank', 'stair']],
+  ['secret', ['fullweek', 'yearround', 'newyear', 'triple']],
 ];
+export const SECRET = new Set(['fullweek', 'yearround', 'newyear', 'triple']);
 
 const tierOf = (v, tiers) => tiers.filter((x) => v >= x - 1e-9).length;
 
-// Nejlepší výkon cviku: { load: max váha (pracovní série s opakováním), reps: max opakování, time: max min, date }
+// Nejlepší výkon cviku: { ratio vůči tělesné váze, kg, reps, time }
 function liftBests(workouts, keys, body) {
   let ratio = 0, kg = 0, reps = 0, time = 0, bwAt = null, seen = false;
   for (const w of workouts) for (const e of w.exercises) {
@@ -177,60 +184,132 @@ function liftBests(workouts, keys, body) {
   return { seen, ratio, kg, reps, time, bw: bwAt };
 }
 
-// → [{ id, group, tier, max, value, next, pct, ...extra }]; tier 0 = zatím nic, next null = maxed
+// Heat na konci každého dne od prvního tréninku (inkrementálně: včerejšek × e^(−1/7) + dnešní tréninky)
+export function dailyHeat(workouts, goal, now = Date.now()) {
+  const ws = chrono(workouts.filter((w) => w.startedAt <= now));
+  if (!ws.length) return [];
+  const out = [];
+  const decay = Math.exp(-DAY / HEAT_TAU);
+  let s = 0, i = 0;
+  for (let d = dayStart(ws[0].startedAt); d <= now; ) {
+    const next = new Date(d); next.setDate(next.getDate() + 1);
+    const end = Math.min(next.getTime(), now);
+    s *= decay;
+    for (; i < ws.length && ws[i].startedAt < next.getTime(); i++) s += Math.exp(-(end - ws[i].startedAt) / HEAT_TAU);
+    out.push({ date: d, h: Math.min(100, Math.round((70 * s) / Math.max(1, goal))) });
+    d = next.getTime();
+  }
+  return out;
+}
+
+// Pracovní váha cviku v tréninku (nejtěžší pracovní série s opakováním) → kolikrát nové maximum (bez prvního zápisu)
+function levelUps(ws) {
+  const best = new Map();
+  let n = 0;
+  for (const w of ws) for (const e of w.exercises) {
+    if (e.type === 'time') continue;
+    const top = Math.max(0, ...e.sets.filter((s) => working(s) && num(s.reps) >= 1).map((s) => num(s.weight)));
+    if (!(top > 0)) continue;
+    const prev = best.get(e.key);
+    if (prev != null && top > prev) n++;
+    if (prev == null || top > prev) best.set(e.key, top);
+  }
+  return n;
+}
+// Největší růst e1RM v % oproti prvnímu tréninku cviku (cvik aspoň 3×, první e1RM aspoň 20 kg)
+function growthOf(ws) {
+  const first = new Map(), best = new Map(), count = new Map(), names = new Map();
+  for (const w of ws) for (const e of w.exercises) {
+    if (e.type === 'time') continue;
+    const v = Math.max(0, ...e.sets.filter((s) => working(s) && num(s.weight) > 0 && num(s.reps) > 0).map((s) => e1rm(num(s.weight), num(s.reps))));
+    if (!(v > 0)) continue;
+    if (!first.has(e.key)) first.set(e.key, v);
+    best.set(e.key, Math.max(best.get(e.key) || 0, v));
+    count.set(e.key, (count.get(e.key) || 0) + 1);
+    names.set(e.key, e.name);
+  }
+  let top = { pct: 0, name: null };
+  for (const [k, f] of first) {
+    if (count.get(k) < 3 || f < 20) continue; // lehké doplňky (2 kg → 8 kg = +300 %) by výsledek zkreslily
+    const pct = (best.get(k) / f - 1) * 100;
+    if (pct > top.pct) top = { pct, name: names.get(k) };
+  }
+  return top;
+}
+
+// → [{ id, group, tier, max, value, next, pct, secret?, ...extra }]; tier 0 = zatím nic, next null = maxed
 export function milestones(workouts, { goal = 3, groups = [], body = [], scale = 'standard', now = Date.now() } = {}) {
   const ws = chrono(workouts.filter((w) => w.startedAt <= now));
   const sc = SCALES[scale] || SCALES.standard;
   const recs = recordsTimeline(ws);
-  const val = {};
-  val.workouts = ws.length;
-  val.tonnage = ws.reduce((s, w) => s + workoutVolume(w), 0) / 1000;
-  val.streak = bestStreak(ws, goal, now);
-  val.perfect = perfectMonths(ws, goal, now);
-  val.balanced = balancedMonths(ws, groups, now);
-  let gaps = 0;
-  for (let i = 1; i < ws.length; i++) if (ws[i].startedAt - ws[i - 1].startedAt >= 14 * DAY) gaps++;
-  val.comeback = gaps;
-  const first = ws[0]?.startedAt;
-  val.anniversary = first ? Math.floor((now - first) / (365.25 * DAY)) : 0;
-  let prs = 0, hot = 0, sweep = 0;
-  for (const w of ws) {
-    const list = recs.get(w.id) || [];
-    prs += list.length;
-    hot = Math.max(hot, list.length);
-    const exs = w.exercises.filter((e) => e.sets.length);
-    if (exs.length >= 3 && exs.every((e) => list.some((r) => r.key === e.key))) sweep++;
-  }
-  Object.assign(val, { prs, hot, sweep });
-  val.early = ws.filter((w) => new Date(w.startedAt).getHours() < 7).length;
-  val.night = ws.filter((w) => new Date(w.startedAt).getHours() >= 21).length;
-
   const out = [];
   const push = (id, value, tiers, extra = {}) => {
     const tier = tierOf(value, tiers);
     const next = tier < tiers.length ? tiers[tier] : null;
     const prev = tier ? tiers[tier - 1] : 0;
     const pct = next == null ? 1 : Math.max(0, Math.min(1, (value - prev) / (next - prev)));
-    out.push({ id, value, tier, max: tiers.length, next, pct, ...extra });
+    out.push({ id, value, tier, max: tiers.length, next, pct, ...(SECRET.has(id) ? { secret: true } : {}), ...extra });
   };
-  for (const id of ['workouts', 'tonnage', 'streak', 'perfect']) push(id, val[id], TIERS[id]);
-  if (groups.length > 1 || groups.some((g) => ws.some((w) => w.group === g))) push('balanced', val.balanced, TIERS.balanced);
-  push('comeback', val.comeback, TIERS.comeback);
-  push('anniversary', val.anniversary, TIERS.anniversary, { first, nextDate: first ? new Date(first).setFullYear(new Date(first).getFullYear() + val.anniversary + 1) : null });
+
+  // Objem a konzistence
+  push('workouts', ws.length, TIERS.workouts);
+  push('tonnage', ws.reduce((s, w) => s + workoutVolume(w), 0) / 1000, TIERS.tonnage);
+  push('streak', bestStreak(ws, goal, now), TIERS.streak);
+  push('perfect', perfectMonths(ws, goal, now), TIERS.perfect);
+  if (groups.some((g) => ws.some((w) => w.group === g))) push('balanced', balancedMonths(ws, groups, now), TIERS.balanced);
+  push('explorer', new Set(ws.flatMap((w) => w.exercises.filter((e) => e.sets.length).map((e) => e.key))).size, TIERS.explorer);
+  const first = ws[0]?.startedAt;
+  const years = first ? Math.floor((now - first) / (365.25 * DAY)) : 0;
+  push('anniversary', years, TIERS.anniversary, { nextDate: first ? new Date(first).setFullYear(new Date(first).getFullYear() + years + 1) : null });
+
+  // Heat
+  const days = dailyHeat(ws, goal, now);
+  let run = 0, steady = 0, forged = 0, rekindled = 0, coldAt = null, warmedOnce = false;
+  for (let i = 0; i < days.length; i++) {
+    const h = days[i].h;
+    if (h >= 25) { run++; steady = Math.max(steady, run); warmedOnce = true; } else run = 0;
+    if (h >= 80) forged++;
+    if (h < 25 && warmedOnce) coldAt = i;
+    if (coldAt != null && h >= 50) { if (i - coldAt <= 7) rekindled++; coldAt = null; }
+  }
+  push('steady', steady, TIERS.steady);
+  push('forged', forged, TIERS.forged);
+  push('rekindled', rekindled, TIERS.rekindled);
+
+  // Síla vůči tělesné váze
+  const latestBw = body.length ? [...body].sort((a, b) => b.date - a.date)[0].weight : null;
+  const kgs = {};
   for (const id of ['bench', 'squat', 'deadlift', 'ohp']) {
     const b = liftBests(ws, LIFTS[id], body);
-    const bw = b.bw || body[0]?.weight || null;
+    kgs[id] = b.kg;
+    const bw = b.bw || latestBw;
     const tiers = sc[id];
     const tier = tierOf(b.ratio, tiers);
     const next = tier < tiers.length ? tiers[tier] : null;
-    push(id, b.ratio, tiers, { kg: b.kg, bw, needKg: next != null && bw ? Math.max(0, Math.ceil((next * bw - b.kg) / 2.5) * 2.5) : null, nobody: !body.length });
+    push(id, b.ratio, tiers, { kg: b.kg, needKg: next != null && bw ? Math.max(0, Math.ceil((next * bw - b.kg) / 2.5) * 2.5) : null, nobody: !body.length });
   }
-  const pu = liftBests(ws, LIFTS.pullups, body);
-  push('pullups', pu.reps, sc.pullups);
-  for (const id of ['prs', 'hot', 'sweep', 'early', 'night']) push(id, val[id], TIERS[id]);
+  // Big three: součet nejlepších vah benche, dřepu a mrtvého tahu vůči aktuální tělesné váze
+  const total = kgs.bench + kgs.squat + kgs.deadlift;
+  const all3 = kgs.bench > 0 && kgs.squat > 0 && kgs.deadlift > 0;
+  const tRatio = all3 && latestBw ? total / latestBw : 0;
+  const tTier = tierOf(tRatio, sc.total);
+  const tNext = tTier < sc.total.length ? sc.total[tTier] : null;
+  push('total', tRatio, sc.total, { kg: total, missing: !all3, nobody: !body.length, needKg: tNext != null && latestBw && all3 ? Math.max(0, Math.ceil((tNext * latestBw - total) / 2.5) * 2.5) : null });
+  push('pullups', liftBests(ws, LIFTS.pullups, body).reps, sc.pullups);
+
+  // Progres a rekordy
+  push('levelup', levelUps(ws), TIERS.levelup);
+  const g = growthOf(ws);
+  push('growth', g.pct, TIERS.growth, { lift: g.name });
+  let prs = 0, hot = 0;
+  for (const w of ws) { const n = (recs.get(w.id) || []).length; prs += n; hot = Math.max(hot, n); }
+  push('prs', prs, TIERS.prs);
+  push('hot', hot, TIERS.hot);
+
+  // Pro radost
+  push('early', ws.filter((w) => new Date(w.startedAt).getHours() < 7).length, TIERS.early);
   const plank = liftBests(ws, LIFTS.plank, body);
   if (plank.seen) push('plank', plank.time, TIERS.plank);
-  // Stairmaster: nejdelší čas v jednom tréninku (součet sérií)
   let stair = 0, stairSeen = false;
   for (const w of ws) {
     let m = 0;
@@ -238,18 +317,34 @@ export function milestones(workouts, { goal = 3, groups = [], body = [], scale =
     stair = Math.max(stair, m);
   }
   if (stairSeen) push('stair', stair, TIERS.stair);
-  const groupOf = Object.fromEntries(MILESTONE_GROUPS.flatMap(([g, ids]) => ids.map((id) => [id, g])));
+
+  // Tajné (zobrazí se až po získání)
+  const dows = new Set(ws.map((w) => new Date(w.startedAt).getDay()));
+  push('fullweek', dows.size === 7 ? 1 : 0, TIERS.fullweek);
+  const monthsByYear = new Map();
+  for (const w of ws) { const d = new Date(w.startedAt); const y = d.getFullYear(); if (!monthsByYear.has(y)) monthsByYear.set(y, new Set()); monthsByYear.get(y).add(d.getMonth()); }
+  push('yearround', [...monthsByYear.values()].some((s) => s.size === 12) ? 1 : 0, TIERS.yearround);
+  push('newyear', ws.some((w) => { const d = new Date(w.startedAt); return d.getMonth() === 0 && d.getDate() === 1; }) ? 1 : 0, TIERS.newyear);
+  const trainedDays = [...new Set(ws.map((w) => dayStart(w.startedAt)))].sort((a, b) => a - b);
+  let triple = 0;
+  for (let i = 2; i < trainedDays.length; i++) {
+    const a = new Date(trainedDays[i - 2]); a.setDate(a.getDate() + 2);
+    if (a.getTime() === trainedDays[i]) { triple = 1; break; }
+  }
+  push('triple', triple, TIERS.triple);
+
+  const groupOf = Object.fromEntries(MILESTONE_GROUPS.flatMap(([gr, ids]) => ids.map((id) => [id, gr])));
   return out.map((m) => ({ ...m, group: groupOf[m.id] }));
 }
 
-// Nejbližší další úroveň (nejvyšší rozpracovanost, ne maxed; síla bez tělesné váhy se přeskočí)
+// Nejbližší další úroveň (nejvyšší rozpracovanost, ne maxed; bez tělesné váhy / tajné / jednorázové se přeskočí)
 export function closestMilestone(list) {
   return list
-    .filter((m) => m.next != null && m.pct > 0 && m.pct < 1 && !m.nobody && m.id !== 'anniversary' && m.id !== 'comeback')
+    .filter((m) => m.next != null && m.pct > 0 && m.pct < 1 && !m.nobody && !m.missing && !m.secret && m.max > 1 && m.id !== 'anniversary')
     .sort((a, b) => b.pct - a.pct)[0] || null;
 }
-export const milestoneTiers = (list) => list.reduce((s, m) => s + m.tier, 0);
-export const milestoneMax = (list) => list.reduce((s, m) => s + m.max, 0);
+export const milestoneTiers = (list) => list.filter((m) => !m.secret || m.tier).reduce((s, m) => s + m.tier, 0);
+export const milestoneMax = (list) => list.filter((m) => !m.secret || m.tier).reduce((s, m) => s + m.max, 0);
 
 // ——— Weekly focus ———
 // Položky se volí podle stavu k pondělí (během týdne se nemění), splnění se počítá z tohoto týdne.

@@ -5,7 +5,7 @@ import { fmtNum } from '../lib/util.js';
 import { CheckIcon } from './Icons.jsx';
 
 // Weekly focus: max. 3 tichá doporučení z dat. Nesplnění nic nestojí, splnění se jen odškrtne.
-export default function WeeklyFocus({ workouts, goal, groups, body, groupLabel, onExercise }) {
+export default function WeeklyFocus({ workouts, goal, groups, body, groupLabel, onExercise, onBody }) {
   const items = useMemo(() => weeklyFocus(workouts, { goal, groups, body }), [workouts, goal, groups, body]);
   if (!workouts.length || !items.length) return null;
   const done = items.filter((i) => i.done).length;
@@ -35,8 +35,9 @@ export default function WeeklyFocus({ workouts, goal, groups, body, groupLabel, 
         );
         const cls = 'row focus-row' + (i.done ? ' is-done' : '');
         const sr = <span className="sr-only">{i.done ? t('focus.srDone') : t('focus.srOpen')}</span>;
-        return i.kind === 'record' && onExercise
-          ? <button key={i.id} className={cls + ' row-link'} onClick={() => onExercise(i.key)}>{sr}{body}</button>
+        const act = i.kind === 'record' && onExercise ? () => onExercise(i.key) : i.kind === 'body' && onBody && !i.done ? onBody : null;
+        return act
+          ? <button key={i.id} className={cls + ' row-link'} onClick={act}>{sr}{body}</button>
           : <div key={i.id} className={cls}>{sr}{body}</div>;
       })}
     </section>

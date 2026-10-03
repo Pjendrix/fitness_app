@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
-import { addMonths, closestMilestone, milestoneMax, milestones, MILESTONE_GROUPS, monthStart, ROMAN } from '../lib/gamify.js';
+import { addMonths, closestMilestone, milestoneMax, milestones, milestoneTiers, MILESTONE_GROUPS, monthStart, ROMAN } from '../lib/gamify.js';
 import { locale, t } from '../lib/i18n.js';
 import { fmtDate, fmtNum } from '../lib/util.js';
 import MonthlyRecap from './MonthlyRecap.jsx';
@@ -11,25 +11,32 @@ const r2 = (v) => (Math.round(v * 100) / 100).toLocaleString(locale()); // 1,25�
 
 // Text pod kartou: další úroveň a kolik zbývá
 export function nextText(m) {
-  if (m.next == null) return m.id === 'comeback' ? t('mile.earned') : t('mile.maxed');
+  if (m.next == null) return m.max === 1 ? t('mile.d.' + m.id) : t('mile.maxed');
   const r = ROMAN[m.tier + 1];
   switch (m.id) {
     case 'workouts': return t('mile.n.workouts', { r, next: m.next, v: m.value });
     case 'tonnage': return t('mile.n.tonnage', { r, next: fmtNum(m.next), v: r1(m.value) });
     case 'streak': return t('mile.n.streak', { r, next: m.next, v: m.value, n: m.next });
     case 'perfect': case 'balanced': return t('mile.n.months', { r, next: m.next, v: m.value, n: m.next });
-    case 'comeback': return t('mile.n.comeback');
+    case 'explorer': return t('mile.n.explorer', { r, next: m.next, v: m.value });
+    case 'steady': return t('mile.n.steady', { r, next: m.next, v: m.value });
+    case 'forged': return t('mile.n.forged', { r, next: m.next, v: m.value });
+    case 'rekindled': return t('mile.n.rekindled');
     case 'anniversary': return m.nextDate ? t('mile.n.anniversary', { r, d: fmtDate(m.nextDate) }) : t('mile.n.anniversaryNone');
     case 'bench': case 'squat': case 'deadlift': case 'ohp':
       if (m.nobody) return t('mile.n.nobody');
       if (!m.kg) return t('mile.n.bwNone', { r, next: r2(m.next) });
       return t('mile.n.bw', { r, next: r2(m.next), kg: r1(m.needKg ?? 0) });
+    case 'total':
+      if (m.nobody) return t('mile.n.nobody');
+      if (m.missing) return t('mile.n.totalMissing', { r, next: r2(m.next) });
+      return t('mile.n.total', { r, next: r2(m.next), v: r1(m.kg), kg: r1(m.needKg ?? 0) });
+    case 'levelup': return t('mile.n.levelup', { r, next: m.next, v: m.value });
+    case 'growth': return m.lift ? t('mile.n.growth', { r, next: m.next, v: Math.round(m.value), ex: m.lift }) : t('mile.n.growthNone', { r, next: m.next });
     case 'pullups': return t('mile.n.pullups', { r, next: m.next, v: m.value });
     case 'prs': return t('mile.n.prs', { r, next: m.next, v: m.value });
     case 'hot': return t('mile.n.hot', { r, next: m.next, v: m.value });
-    case 'sweep': return t('mile.n.sweep', { r, next: m.next, v: m.value });
     case 'early': return t('mile.n.early', { r, next: m.next, v: m.value });
-    case 'night': return t('mile.n.night', { r, next: m.next, v: m.value });
     case 'plank': return t('mile.n.plank', { r, next: fmtNum(m.next), v: r1(m.value) });
     case 'stair': return t('mile.n.stair', { r, next: m.next, v: r1(m.value) });
     default: return '';
@@ -61,7 +68,8 @@ export default function Milestones({ go }) {
   const groups = useMemo(() => main.groups.map((g) => g.id), [main]);
   const list = useMemo(() => milestones(workouts, { goal: weeklyGoal, groups, body, scale: strengthScale }), [workouts, weeklyGoal, groups, body, strengthScale]);
   const closest = closestMilestone(list);
-  const earned = list.reduce((s, m) => s + m.tier, 0);
+  const earned = milestoneTiers(list);
+  const hidden = list.filter((m) => m.secret && !m.tier).length; // tajné: vidět až po získání
   const [recap, setRecap] = useState(null);
   // Měsíční kapitoly: posledních 6 dokončených měsíců s aspoň jedním tréninkem
   const months = useMemo(() => {
@@ -89,7 +97,14 @@ export default function Milestones({ go }) {
         </section>
       )}
       {MILESTONE_GROUPS.map(([g, ids]) => {
-        const rows = list.filter((m) => ids.includes(m.id));
+        const rows = list.filter((m) => ids.includes(m.id) && (!m.secret || m.tier));
+        if (g === 'secret') return (
+          <section key={g} className="mile-group">
+            <h3 className="label mile-group-title">{t('mile.g.secret')}</h3>
+            {rows.length > 0 && <div className="card mile-list">{rows.map((m) => <Row key={m.id} m={m} />)}</div>}
+            {hidden > 0 && <p className="muted small mile-note mile-hidden">{t('mile.hidden', { n: hidden })}</p>}
+          </section>
+        );
         if (!rows.length) return null;
         return (
           <section key={g} className="mile-group">

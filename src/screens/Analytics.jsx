@@ -19,7 +19,7 @@ const GROUP_FALLBACK = { PUSH: 'chest', PULL: 'back', LEGS: 'legs', UPPER: 'back
 
 const monday = (t) => { const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); };
 
-export default function Analytics({ go }) {
+export default function Analytics({ go, tabs = null }) {
   const { desktop } = useViewMode();
   useEffect(() => { markGuide('stats'); }, []);
   // Na mobilu se sem jde z mobilních statistik → odkaz zpět
@@ -96,6 +96,7 @@ export default function Analytics({ go }) {
       <div className="screen screen-wide">
         {back}
         <header className="screen-head"><h1>{t('an.title')}</h1></header>
+        {tabs}
         <p className="empty">{t('an.empty')}</p>
       </div>
     );
@@ -113,6 +114,7 @@ export default function Analytics({ go }) {
           {RANGES.map((r) => <button key={r} role="radio" aria-checked={range === r} className={range === r ? 'is-on' : ''} onClick={() => setRange(r)}>{t('an.r' + r)}</button>)}
         </div>
       </header>
+      {tabs}
 
       <section className="kpis">
         <div className="card kpi"><span className="label">{t('an.workouts')}</span><span className="num">{kpi.count}</span><span className="muted small">{t('an.perWeek', { n: fmtNum(Math.round(kpi.perWeek * 10) / 10) })}</span></div>

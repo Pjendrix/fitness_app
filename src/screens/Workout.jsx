@@ -120,13 +120,13 @@ const SetRow = memo(function SetRow({ exId, set, n, timed, pb, stat, prev, targe
   );
 });
 
-const ExerciseCard = memo(function ExerciseCard({ ex, pb, stat, ssLabel, ssEnd, step, handlers, quick, swipe }) {
+const ExerciseCard = memo(function ExerciseCard({ ex, pb, stat, reach, ssLabel, ssEnd, step, handlers, quick, swipe }) {
   const timed = ex.type === 'time';
   // Cíle pro celý cvik: váha až když všechny série dosáhly horní hranice rozsahu
   const working = ex.prev || [];
   const targets = !timed && working.length ? exerciseTargets(working, { specs: ex.specs, spec: ex.spec, to: ex.specTo, step }) : [];
   let j = -1; // pořadí pracovní série (rozcvičky se nečíslují)
-  const hint = reachHint(ex, pb, stat, step); // Within reach: nejmenší krok k novému rekordu
+  const hint = reach ? reachHint(ex, pb, stat, step) : null; // Within reach: nejmenší krok k novému rekordu (jen s Forge Heat)
   return (
     <section id={'ex-' + ex.id} className={'card ex' + (ex.ss ? ' in-ss' : '') + (ex.ss && !ssEnd ? ' ss-open' : '')}>
       {ssLabel && <span className="ss-tag">{t('ss.label', { l: ssLabel })}</span>}
@@ -196,7 +196,7 @@ function ExerciseMenu({ ex, index, count, next, view, onClose, act }) {
 
 export default function Workout({ go }) {
   const { active, patchActive, prs, finishWorkout, discardWorkout, notify, addExerciseToActive, replaceExerciseInActive, startRest, stopRest } = useSession();
-  const { templates, syncTemplate, stepOf, stepIsManual, setStep, workouts } = useStore();
+  const { templates, syncTemplate, stepOf, stepIsManual, setStep, workouts, gamify } = useStore();
   const stats = liftStatsOf(workouts);
   const recRef = useRef({ prs, stats });
   recRef.current = { prs, stats };
@@ -431,7 +431,7 @@ export default function Workout({ go }) {
       {active.exercises.map((e, ei) => {
         const prevEx = active.exercises[ei - 1], nextEx = active.exercises[ei + 1];
         const first = e.ss && prevEx?.ss !== e.ss;
-        return <ExerciseCard key={e.id} ex={e} step={stepOf(e.name)} pb={prs[e.key]} stat={stats.get(e.key)} ssLabel={first ? ssLetter(active, e.ss) : ''} ssEnd={!e.ss || nextEx?.ss !== e.ss} handlers={handlers}
+        return <ExerciseCard key={e.id} ex={e} step={stepOf(e.name)} pb={prs[e.key]} stat={stats.get(e.key)} reach={gamify} ssLabel={first ? ssLetter(active, e.ss) : ''} ssEnd={!e.ss || nextEx?.ss !== e.ss} handlers={handlers}
           quick={quick?.exId === e.id ? quick.setId : null} swipe={swipe} />;
       })}
 

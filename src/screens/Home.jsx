@@ -1,22 +1,17 @@
 import { useMemo, useState } from 'react';
 import Sheet from '../components/Sheet.jsx';
 import { useSession, useStore } from '../lib/store.jsx';
-import { ArrowIcon, XIcon } from '../components/Icons.jsx';
+import { XIcon } from '../components/Icons.jsx';
 import { guideState, hideGuide } from '../lib/guide.js';
 import { useStartTour } from '../components/Tour.jsx';
 import ProfileBadge from '../components/ProfileBadge.jsx';
-import BodyCard from '../components/BodyWeight.jsx';
-import HeatCard from '../components/HeatCard.jsx';
-import WeeklyFocus from '../components/WeeklyFocus.jsx';
-import MonthlyRecap from '../components/MonthlyRecap.jsx';
-import ExerciseSheet from '../components/ExerciseSheet.jsx';
-import { addMonths, monthStart } from '../lib/gamify.js';
+import WeekCard from '../components/WeekCard.jsx';
+import { setStatsTab } from '../lib/statsTab.js';
 import { colorHex, STARTER_IDS } from '../data/defaultTemplates.js';
-import { fmtDate, fmtNum, fmtSet, startOfWeek, workoutVolume } from '../lib/util.js';
-import { locale, t } from '../lib/i18n.js';
+import { t } from '../lib/i18n.js';
 
 export default function Home({ go }) {
-  const { user, workouts, prs, templates, startWorkout, startEmptyWorkout, needsSetup, chooseStarter, main, groupLabel, groupSub, mode, weeklyGoal, body } = useStore();
+  const { user, workouts, templates, startWorkout, startEmptyWorkout, needsSetup, chooseStarter, main, groupLabel, groupSub, mode } = useStore();
   const [guide, setGuide] = useState(guideState);
   const startTour = useStartTour(go);
   const { active } = useSession();
@@ -37,24 +32,8 @@ export default function Home({ go }) {
   const variants = inGroup.map((x) => x.id);
   const variant = variants.includes(pickedVariant) ? pickedVariant : variants[0];
 
-  const week = useMemo(() => {
-    const from = startOfWeek();
-    const ws = workouts.filter((w) => w.startedAt >= from);
-    return { count: ws.length, volume: ws.reduce((s, w) => s + workoutVolume(w), 0) };
-  }, [workouts]);
-
-  const recentPrs = useMemo(() => Object.values(prs).sort((a, b) => b.date - a.date).slice(0, 3), [prs]);
-
-  // Forge Heat: Weekly focus (skupiny splitu) + měsíční kapitola prvních 7 dní v měsíci
-  const groupIds = useMemo(() => main.groups.map((g) => g.id), [main]);
-  const [exOpen, setExOpen] = useState(null);
-  const lastMonth = addMonths(monthStart(Date.now()), -1);
-  const seenKey = `forge:recapSeen:${user?.uid}:${lastMonth}`;
-  const [recapSeen, setRecapSeen] = useState(() => { try { return localStorage.getItem(seenKey) === '1'; } catch { return false; } });
-  const [recapOpen, setRecapOpen] = useState(false);
-  const recapReady = useMemo(() => new Date().getDate() <= 7 && workouts.some((w) => w.startedAt >= lastMonth && w.startedAt < addMonths(lastMonth, 1)), [workouts, lastMonth]);
-  const markRecap = () => { try { localStorage.setItem(seenKey, '1'); } catch { /* ignore */ } setRecapSeen(true); };
-  const lastMonthName = new Date(lastMonth).toLocaleDateString(locale(), { month: 'long' });
+  // Home = jen start tréninku + jedna karta týdne; vše ostatní (Heat, Milestones, čísla) je ve Stats
+  const openStats = (tab) => { setStatsTab(tab); go('stats'); };
 
   const tpl = inGroup.find((x) => x.id === variant);
   const first = (user?.name || '').split(' ')[0];
@@ -118,41 +97,16 @@ export default function Home({ go }) {
         </section>
       )}
 
-      {!needsSetup && workouts.length > 0 && <HeatCard workouts={workouts} goal={weeklyGoal} />}
-
-      {recapReady && !recapSeen && (
-        <section className="card recap-teaser">
-          <div>
-            <p className="label">{t('recap.teaserEyebrow')}</p>
-            <h2>{t('recap.teaser', { m: lastMonthName.charAt(0).toUpperCase() + lastMonthName.slice(1) })}</h2>
-          </div>
-          <div className="recap-teaser-actions">
-            <button className="btn btn-primary btn-sm" onClick={() => { setRecapOpen(true); markRecap(); }}>{t('recap.open')}</button>
-            <button className="icon-btn" aria-label={t('guide.hide')} onClick={markRecap}><XIcon width={16} height={16} /></button>
-          </div>
-        </section>
-      )}
-
-      {!needsSetup && <WeeklyFocus workouts={workouts} goal={weeklyGoal} groups={groupIds} body={body} groupLabel={groupLabel} onExercise={setExOpen} />}
-
-      <section className="stats" onClick={() => go('stats')} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), go('stats'))} role="button" tabIndex={0} aria-label={t('home.openStats')}>
-        <div className="card stat"><span className="num">{week.count}<small> / {weeklyGoal}</small></span><span className="muted small">{t('home.weekGoal')}</span></div>
-        <div className="card stat"><span className="num">{week.volume ? fmtNum(Math.round(week.volume / 100) / 10) : 0}<small> t</small></span><span className="muted small">{t('home.weekVolume')}</span></div>
-        <div className="card stat"><span className="num">{workouts.length}</span><span className="muted small">{t('home.total')}</span></div>
-        <span className="stats-more label">{t('home.allStats')} <ArrowIcon width={12} height={12} style={{ transform: 'rotate(180deg)' }} /></span>
-      </section>
-
-      <BodyCard />
+      {!needsSetup && <WeekCard onOpen={openStats} />}
 
       {!active && (
         <>
-          <button className="btn btn-ghost btn-block btn-lg" onClick={() => { startEmptyWorkout(); go('workout'); }}>{t('home.empty')}</button>
-          <button className="btn btn-ghost btn-block btn-lg" onClick={() => (mine.length ? setPickMine(true) : go('templates'))}>{t('home.mine')}</button>
+        <div className="home-alt">
+          <button className="btn btn-ghost" onClick={() => { startEmptyWorkout(); go('workout'); }}>{t('home.empty')}</button>
+          <button className="btn btn-ghost" onClick={() => (mine.length ? setPickMine(true) : go('templates'))}>{t('home.mine')}</button>
+        </div>
         </>
       )}
-
-      {recapOpen && <MonthlyRecap month={lastMonth} onClose={() => setRecapOpen(false)} />}
-      {exOpen && <ExerciseSheet exKey={exOpen} onClose={() => setExOpen(null)} />}
 
       {pickMine && (
         <Sheet label={t('home.mine')} onClose={() => setPickMine(false)} className="sheet-short">
@@ -174,21 +128,6 @@ export default function Home({ go }) {
         </Sheet>
       )}
 
-      <section>
-        <h3 className="section-title">{t('home.recentPrs')}</h3>
-        {recentPrs.length ? (
-          <div className="card list">
-            {recentPrs.map((p) => (
-              <div className="row" key={p.name}>
-                <div><div>{p.name}</div><div className="muted small">{fmtDate(p.date)}</div></div>
-                <span className="pb">{fmtSet(p.weight, p.reps, p.time)}</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="empty">{t('home.noPrs')}</p>
-        )}
-      </section>
     </div>
   );
 }

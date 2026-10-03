@@ -1,12 +1,23 @@
 import { useMemo, useState } from 'react';
 import Sheet from './Sheet.jsx';
 import { useStore } from '../lib/store.jsx';
-import { monthRecap, ROMAN } from '../lib/gamify.js';
+import { addMonths, monthRecap, monthStart, ROMAN } from '../lib/gamify.js';
 import { locale, t } from '../lib/i18n.js';
 import { fmtNum, fmtSet } from '../lib/util.js';
 
 const monthName = (ms, opts = { month: 'long' }) => new Date(ms).toLocaleDateString(locale(), opts);
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+// Upoutávka na kapitolu minulého měsíce: prvních 7 dní v měsíci, pokud se minulý měsíc trénovalo; „viděno“ per účet a měsíc
+export function useRecapTeaser() {
+  const { user, workouts } = useStore();
+  const month = addMonths(monthStart(Date.now()), -1);
+  const key = `forge:recapSeen:${user?.uid}:${month}`;
+  const [seen, setSeen] = useState(() => { try { return localStorage.getItem(key) === '1'; } catch { return false; } });
+  const ready = useMemo(() => new Date().getDate() <= 7 && workouts.some((w) => w.startedAt >= month && w.startedAt < addMonths(month, 1)), [workouts, month]);
+  const markSeen = () => { try { localStorage.setItem(key, '1'); } catch { /* ignore */ } setSeen(true); };
+  return { month, show: ready && !seen, markSeen, name: cap(monthName(month)) };
+}
 
 // Barva sloupce Heatu (pro sheet i obrázek)
 const barColor = (h) => (h >= 80 ? '#fb923c' : h >= 50 ? '#ea580c' : h >= 25 ? '#9a3412' : '#525252');

@@ -19,6 +19,7 @@ export function useAccountData(api, user, fail) {
   const [weeklyGoal, setWeeklyGoalState] = useState(3);
   const [pinnedLifts, setPinnedLifts] = useState([]);
   const [strengthScale, setStrengthScaleState] = useState('standard'); // Milestones: síla vůči tělesné váze
+  const [gamify, setGamifyState] = useState(true); // Forge Heat (Progress, Within reach, řádek na Home) – vypínatelné
 
   useEffect(() => {
     if (!api) return undefined;
@@ -58,6 +59,7 @@ export function useAccountData(api, user, fail) {
       let pins = d.settings?.pinnedLifts;
       if (!Array.isArray(pins)) { try { pins = JSON.parse(localStorage.getItem(`forge:pins:${user.uid}`)); } catch { pins = null; } }
       setStrengthScaleState(d.settings?.strengthScale === 'lighter' ? 'lighter' : 'standard');
+      setGamifyState(d.settings?.gamify !== false);
       setPinnedLifts(Array.isArray(pins) ? pins.filter((k) => typeof k === 'string').slice(0, MAX_PINS) : []);
       if (first) { first = false; setMetaReady(true); setMetaLoading(false); }
     }, (e) => { if (cancelled) return; fail('err.load')(e); setMetaLoading(false); });
@@ -65,11 +67,11 @@ export function useAccountData(api, user, fail) {
   }, [api, fail]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const resetAccount = useCallback(() => {
-    setCustom([]); setPrs({}); setLibrary(EXERCISES); setStarter(null); setMainCfg(null); setAppearanceState(null); setPinnedLifts([]); setStrengthScaleState('standard');
+    setCustom([]); setPrs({}); setLibrary(EXERCISES); setStarter(null); setMainCfg(null); setAppearanceState(null); setPinnedLifts([]); setStrengthScaleState('standard'); setGamifyState(true);
   }, []);
 
   return {
     metaLoading, metaReady, custom, setCustom, prs, setPrs, library, setLibrary, starter, setStarter, mainCfg, setMainCfg,
-    appearance, setAppearanceState, weeklyGoal, setWeeklyGoalState, pinnedLifts, setPinnedLifts, strengthScale, setStrengthScaleState, resetAccount,
+    appearance, setAppearanceState, weeklyGoal, setWeeklyGoalState, pinnedLifts, setPinnedLifts, strengthScale, setStrengthScaleState, gamify, setGamifyState, resetAccount,
   };
 }

@@ -15,7 +15,7 @@ const cleanMainTpl = (x) => { const { builtin: _b, ...rest } = x; return rest; }
 export function useAccountActions({ api, fail, notify, remember, user, acc, workouts }) {
   const {
     custom, setCustom, library, setLibrary, mainCfg, setMainCfg, setStarter, appearance, setAppearanceState,
-    setWeeklyGoalState, pinnedLifts, setPinnedLifts, setStrengthScaleState,
+    setWeeklyGoalState, pinnedLifts, setPinnedLifts, setStrengthScaleState, setGamifyState,
   } = acc;
 
   // ——— Hlavní šablony (vlastní konfigurace účtu) ———
@@ -100,6 +100,11 @@ export function useAccountActions({ api, fail, notify, remember, user, acc, work
     setStrengthScaleState(next);
     api?.saveSettings({ strengthScale: next }).catch((e) => console.warn('settings', e));
   }, [api, setStrengthScaleState]);
+  // Forge Heat zapnuto / vypnuto (účet)
+  const setGamify = useCallback((on) => {
+    setGamifyState(Boolean(on));
+    api?.saveSettings({ gamify: Boolean(on) }).catch((e) => console.warn('settings', e));
+  }, [api, setGamifyState]);
 
   // ——— Knihovna: vyhledávání ———
   const libMap = useMemo(() => new Map(library.map((e) => [exKey(e.name), e])), [library]);
@@ -170,9 +175,9 @@ export function useAccountActions({ api, fail, notify, remember, user, acc, work
   // Stabilní objekt: jinak by se kontext s daty přepočítal při každém úhozu v tréninku
   return useMemo(() => ({
     main, templates, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, chooseStarter,
-    saveTemplate, deleteTemplate, setAppearance, setWeeklyGoal, togglePin, setStrengthScale,
+    saveTemplate, deleteTemplate, setAppearance, setWeeklyGoal, togglePin, setStrengthScale, setGamify,
     typeOf, catOf, stepOf, stepIsManual, infoOf, saveLibrary, addToLibrary, resetLibrary, setStep, bwOf, setBw,
   }), [main, templates, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, chooseStarter,
-    saveTemplate, deleteTemplate, setAppearance, setWeeklyGoal, togglePin, setStrengthScale,
+    saveTemplate, deleteTemplate, setAppearance, setWeeklyGoal, togglePin, setStrengthScale, setGamify,
     typeOf, catOf, stepOf, stepIsManual, infoOf, saveLibrary, addToLibrary, resetLibrary, setStep, bwOf, setBw]);
 }

@@ -24,15 +24,15 @@ function Sparkline({ values }) {
   return <svg className="ms-spark" viewBox="0 0 64 24" aria-hidden="true"><polyline points={pts} /></svg>;
 }
 
-export default function MobileStats({ go }) {
+export default function MobileStats({ go, tabs = null }) {
   const [detail, setDetail] = useState(null);
   useEffect(() => { markGuide('stats'); }, []);
   useEffect(() => { window.scrollTo({ top: 0 }); }, [detail]);
   if (detail) return <ExerciseDetail exKey={detail} onBack={() => setDetail(null)} />;
-  return <Overview go={go} open={setDetail} />;
+  return <Overview go={go} open={setDetail} tabs={tabs} />;
 }
 
-function Overview({ go, open }) {
+function Overview({ go, open, tabs }) {
   const { workouts, prs, catOf, weeklyGoal, main, groupLabel, pinnedLifts } = useStore();
   const [range, setRange] = useState(12);
   const [mMode, setMMode] = useState('sets');
@@ -151,12 +151,13 @@ function Overview({ go, open }) {
     </header>
   );
 
-  if (!workouts.length) return <div className="screen">{head}<p className="empty">{t('an.empty')}</p></div>;
+  if (!workouts.length) return <div className="screen">{head}{tabs}<p className="empty">{t('an.empty')}</p></div>;
   const k = data.kpi;
 
   return (
     <div className="screen ms">
       {head}
+      {tabs}
 
       <section className="kpis">
         <div className="card kpi"><span className="label">{t('an.workouts')}</span><span className="num">{k.count}</span><span className="muted small">{t('an.perWeek', { n: fmtNum(Math.round(k.perWeek * 10) / 10) })}</span></div>

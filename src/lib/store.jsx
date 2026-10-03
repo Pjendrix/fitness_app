@@ -90,11 +90,11 @@ export function StoreProvider({ children }) {
 
   const data = useMemo(() => ({
     user, denied, loading, mode: backend.mode, signIn, signOut, deleteAccount, startDemo, resetDemo, live, sync, online,
-    workouts, prs, library, starter: acc.starter, needsSetup, appearance: acc.appearance, weeklyGoal: acc.weeklyGoal, pinnedLifts: acc.pinnedLifts, strengthScale: acc.strengthScale,
+    workouts, prs, library, starter: acc.starter, needsSetup, appearance: acc.appearance, weeklyGoal: acc.weeklyGoal, pinnedLifts: acc.pinnedLifts, strengthScale: acc.strengthScale, gamify: acc.gamify,
     ...account, ...history, startWorkout: session.startWorkout, startEmptyWorkout: session.startEmptyWorkout, syncTemplate: session.syncTemplate,
     undoStack, undo, redoStack, redo, notify, renamePreview, renameExercise, ...bodyData,
   }), [user, denied, loading, signIn, signOut, deleteAccount, startDemo, resetDemo, live, sync, online, workouts, prs, library, acc.starter, needsSetup,
-    acc.appearance, acc.weeklyGoal, acc.pinnedLifts, acc.strengthScale, account, history, session.startWorkout, session.startEmptyWorkout, session.syncTemplate,
+    acc.appearance, acc.weeklyGoal, acc.pinnedLifts, acc.strengthScale, acc.gamify, account, history, session.startWorkout, session.startEmptyWorkout, session.syncTemplate,
     undoStack, undo, redoStack, redo, notify, renamePreview, renameExercise, bodyData]);
 
   const sessionValue = useMemo(() => ({

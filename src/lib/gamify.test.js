@@ -78,7 +78,7 @@ describe('milestones', () => {
     expect(list.find((m) => m.id === 'bench').nobody).toBe(true);
     expect(closestMilestone(list)?.id).not.toBe('bench');
   });
-  it('workouts, records, comeback, early bird', () => {
+  it('workouts, records, level ups, explorer, early bird', () => {
     const ws = [
       W(40, [['a', [[50, 5]]], ['b', [[20, 8]]], ['c', [[10, 10]]]], { startedAt: new Date(2026, 7, 20, 6, 30).getTime() }),
       W(2, [['a', [[55, 5]]], ['b', [[22, 8]]], ['c', [[12, 10]]]]),
@@ -87,10 +87,42 @@ describe('milestones', () => {
     expect(by.workouts.value).toBe(2);
     expect(by.prs.value).toBe(3);
     expect(by.hot.value).toBe(3);
-    expect(by.sweep.value).toBe(1);
-    expect(by.comeback.tier).toBe(1);
+    expect(by.levelup.value).toBe(3);
+    expect(by.explorer.value).toBe(3);
     expect(by.early.value).toBe(1);
     expect(by.plank).toBeUndefined(); // jen když se cvik logoval
+  });
+  it('big three total vs bodyweight, flagged when a lift is missing', () => {
+    const ws = [W(2, [['bench-press-barbell', [[80, 1]]], ['squat', [[100, 1]]], ['deadlift', [[140, 1]]]])];
+    const t = milestones(ws, { body, now: NOW }).find((m) => m.id === 'total');
+    expect(t.value).toBeCloseTo(4); // 320 / 80
+    expect(t.tier).toBe(4);
+    expect(milestones([W(2, [['squat', [[100, 1]]]])], { body, now: NOW }).find((m) => m.id === 'total').missing).toBe(true);
+  });
+  it('growth: e1RM % vs first session, needs 3 sessions', () => {
+    const ws = [W(30, [['row', [[50, 10]]]]), W(20, [['row', [[55, 10]]]]), W(10, [['row', [[60, 10]]]])];
+    const g = milestones(ws, { now: NOW }).find((m) => m.id === 'growth');
+    expect(Math.round(g.value)).toBe(20);
+    expect(g.lift).toBe('row');
+    expect(milestones(ws.slice(0, 2), { now: NOW }).find((m) => m.id === 'growth').value).toBe(0);
+  });
+  it('heat milestones: steady flame and forged from regular training', () => {
+    const ws = Array.from({ length: 60 }, (_, i) => W(i * 1.5));
+    const by = Object.fromEntries(milestones(ws, { now: NOW, goal: 3 }).map((m) => [m.id, m]));
+    expect(by.steady.value).toBeGreaterThanOrEqual(80);
+    expect(by.forged.value).toBeGreaterThan(0);
+    expect(by.rekindled.value).toBe(0);
+  });
+  it('rekindled: back from cold to glowing within a week', () => {
+    const ws = [...Array.from({ length: 10 }, (_, i) => W(60 + i * 2)), ...Array.from({ length: 6 }, (_, i) => W(6 - i))];
+    expect(milestones(ws, { now: NOW, goal: 3 }).find((m) => m.id === 'rekindled').tier).toBe(1);
+  });
+  it('secret milestones: three in a row, full week', () => {
+    const ws = [W(1), W(2), W(3)];
+    const by = Object.fromEntries(milestones(ws, { now: NOW }).map((m) => [m.id, m]));
+    expect(by.triple).toMatchObject({ tier: 1, secret: true });
+    expect(by.fullweek.tier).toBe(0);
+    expect(by.fullweek.tier + milestones(Array.from({ length: 7 }, (_, i) => W(i)), { now: NOW }).find((m) => m.id === 'fullweek').tier).toBe(1);
   });
   it('demo data produce sensible milestones', () => {
     const d = generateDemo(NOW);
