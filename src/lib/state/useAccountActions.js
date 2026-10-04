@@ -109,6 +109,12 @@ export function useAccountActions({ api, fail, notify, remember, user, acc, work
     api?.saveSettings({ gamify: Boolean(on) }).catch((e) => console.warn('settings', e));
   }, [api, setGamifyState]);
 
+  // Zápis nastavení odmítnutý serverem = nenasazená nová firestore.rules → srozumitelná hláška místo kódu chyby
+  const failSettings = useCallback((e) => {
+    if (e?.code === 'permission-denied') { console.error(e); notify(t('err.rules'), { duration: 8000 }); }
+    else fail('err.save')(e);
+  }, [fail, notify]);
+
   // ——— Pauza a lehký týden (settings.breaks) ———
   const breaksRef = useRef(breaks);
   breaksRef.current = breaks;
@@ -116,8 +122,8 @@ export function useAccountActions({ api, fail, notify, remember, user, acc, work
     const list = cleanBreaks(next);
     breaksRef.current = list;
     setBreaks(list);
-    api?.saveSettings({ breaks: list }).catch(fail('err.save'));
-  }, [api, fail, setBreaks]);
+    api?.saveSettings({ breaks: list }).catch(failSettings);
+  }, [api, failSettings, setBreaks]);
   // Pauza (nemoc, dovolená, zranění): běží, dokud ji člověk neukončí (nebo dokud nezačne trénovat)
   const startPause = useCallback(() => {
     const now = Date.now();
@@ -149,8 +155,9 @@ export function useAccountActions({ api, fail, notify, remember, user, acc, work
   const setStrengthLifts = useCallback((keys) => {
     const next = [...new Set((keys || []).filter((k) => typeof k === 'string'))].slice(0, 4);
     setStrengthLiftsState(next);
-    api?.saveSettings({ strengthLifts: next }).catch(fail('err.save'));
-  }, [api, fail, setStrengthLiftsState]);
+    try { localStorage.setItem(`forge:lifts:${user?.uid}`, JSON.stringify(next)); } catch { /* ignore */ }
+    api?.saveSettings({ strengthLifts: next }).catch(failSettings);
+  }, [api, failSettings, setStrengthLiftsState, user?.uid]);
   // Týdenní cíl kardia (minuty; 0 = jen sledovat)
   const setCardioGoal = useCallback((v) => {
     const next = CARDIO_GOALS.includes(v) ? v : 150;

@@ -5,6 +5,8 @@ import { metricsOf, recordsOf } from '../lib/derived.js';
 import { exerciseTrend, fmtRest, groupSets, setNotes, withRpe } from '../lib/body.js';
 import { fmtDate, fmtDuration, fmtNum, fmtSet, workoutVolume } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
+import { effTime } from '../lib/breaks.js';
+import { COMEBACK_DAYS } from '../lib/gamify.js';
 import { ContactSheet } from './DemoBar.jsx';
 import { RepeatIcon, TrashIcon, TrophyIcon } from './Icons.jsx';
 
@@ -29,16 +31,19 @@ const trendText = (tr) => (tr.dir === 0 ? t('sum.same') : `${tr.dir > 0 ? '▲ +
 // W3: souhrn tréninku – po dokončení i z Historie (actions = Upravit / Zopakovat / Smazat)
 // embedded = panel v desktopové Historii (bez obalu obrazovky a bez tlačítka Zavřít)
 export default function WorkoutSummary({ done, onClose, actions = null, embedded = false }) {
-  const { workouts, mode } = useStore();
+  const { workouts, mode, breaks } = useStore();
   const [contact, setContact] = useState(false);
   const all = useMemo(() => (workouts.some((w) => w.id === done.id) ? workouts : [done, ...workouts]), [workouts, done]);
   const records = useMemo(() => recordsOf(all).get(done.id) || [], [all, done.id]);
   const prev = useMemo(() => previousSame(done, all), [done, all]);
   // Návrat po ≥ 7 dnech bez tréninku → „Vítej zpátky“ (návrat je to nejdůležitější, ne výkon)
+  // Stejný „tréninkový čas“ jako Heat a milník Návrat: zapsaná pauza se do mezery nepočítá → pak „Pauza skončila“
   const back = useMemo(() => {
     const before = all.filter((x) => x.id !== done.id && x.startedAt < done.startedAt).reduce((a, x) => Math.max(a, x.startedAt), 0);
-    return before > 0 && done.startedAt - before >= 7 * 864e5;
-  }, [all, done]);
+    if (!(before > 0) || done.startedAt - before < COMEBACK_DAYS * 864e5) return null;
+    const eff = effTime(breaks);
+    return eff(done.startedAt) - eff(before) >= COMEBACK_DAYS * 864e5 ? 'back' : 'pause';
+  }, [all, done, breaks]);
   const m = metricsOf(all);
   const cur = m.get(done.id), pm = prev ? m.get(prev.id) : null;
   const sets = done.exercises.reduce((n, e) => n + e.sets.length, 0);
@@ -51,7 +56,7 @@ export default function WorkoutSummary({ done, onClose, actions = null, embedded
   return (
     <div className={embedded ? 'summary sum-embed' : 'screen summary'}>
       <header className="screen-head">
-        <p className="label">{actions ? fmtDate(done.startedAt) : `${back ? t('sum.back') : t('sum.eyebrow')} · ${fmtDate(done.startedAt)}`}</p>
+        <p className="label">{actions ? fmtDate(done.startedAt) : `${back === 'back' ? t('sum.back') : back === 'pause' ? t('sum.afterPause') : t('sum.eyebrow')} · ${fmtDate(done.startedAt)}`}</p>
         <h1>{done.name}</h1>
       </header>
       <section className="card sum-stats">

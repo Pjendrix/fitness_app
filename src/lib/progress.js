@@ -44,16 +44,21 @@ export function learnedSteps(workouts) {
   return out;
 }
 
-// Cílová rezerva (RIR) podle typu cviku: základní vícekloubové cviky 2–3 opakování v rezervě, izolace a stroje 0–2.
-// (ACSM 2026: trénink do selhání je volitelný; Refalo 2024: selhání vs. 1–2 RIR → podobný růst, horší pocit.)
-const COMPOUND = /squat|deadlift|bench|press|row|pull-?up|chin-?up|pulldown|dip|lunge|hip thrust|clean|good morning/;
-const ISOLATION = /curl|extension|raise|fly|flye|pushdown|kickback|crunch|calf|shrug|pec deck|crossover|face pull|abduction|adduction|machine|cable/;
-// Vícekloubový (základní) cvik podle názvu – RIR cíl a výběr silových milníků
+// Cílová rezerva (RIR) – tři třídy (ACSM 2026: selhání je volitelné; Halperin 2022: odhad RIR je přesnější blízko selhání):
+//   vícekloubové s volnou vahou 2–3 · vícekloubové stroje a kladky 1–2 · izolace 0–2
+// Vybavení se z názvu nejdřív odstraní, ať pořadí slov nehraje roli („Machine Chest Press“ = „Chest Press (Machine)“).
+const COMPOUND = /squat|deadlift|\brdl\b|romanian|bench|press|row|pull-?up|chin-?up|pulldown|dip|lunge|hip thrust|clean|good morning/;
+const ISOLATION = /curl|extension|raise|\bfly|flye|pushdown|kickback|crunch|calf|shrug|pec deck|crossover|face pull|abduction|adduction/;
+const EQUIP = /\b(machine|cable|smith|plate[- ]loaded|selectorized|hammer strength)\b/g;
+const MACHINE = /\b(machine|cable|smith)\b|leg press|hack squat|pulldown|pec deck|selectorized|plate[- ]loaded/;
+// Vícekloubový (základní) cvik podle názvu – RIR cíl a výběr silových milníků (stroje se počítají)
 export function isCompound(name) {
-  const n = String(name || '').toLowerCase();
-  return COMPOUND.test(n) && !ISOLATION.test(n.replace(/\(machine\)|\(cable\)|\(smith[^)]*\)/g, ''));
+  const n = String(name || '').toLowerCase().replace(/[()]/g, ' ');
+  const bare = n.replace(EQUIP, ' ');
+  return COMPOUND.test(bare) && !ISOLATION.test(bare);
 }
-export const rirTarget = (name) => (isCompound(name) ? '2–3' : '0–2');
+export const rirClass = (name) => (!isCompound(name) ? 'iso' : MACHINE.test(String(name || '').toLowerCase()) ? 'machine' : 'free');
+export const rirTarget = (name) => ({ free: '2–3', machine: '1–2', iso: '0–2' })[rirClass(name)];
 
 // Lehké váhy: když krok váhy znamená velký relativní skok (3 kg → 5 kg = +67 %), progreduje se nejdřív přes víc opakování.
 const WIDE = 0.25, MID = 0.125;
@@ -61,20 +66,32 @@ export function widenRange(range, weight, step) {
   if (!range || !(weight > 0) || !(step > 0)) return range;
   const ratio = step / weight;
   const extra = ratio > WIDE ? 6 : ratio > MID ? 3 : 0;
-  return extra ? { lo: range.lo, hi: Math.min(25, range.hi + extra), wide: true } : range;
+  return extra ? { lo: range.lo, hi: Math.max(range.hi, Math.min(WIDE_CAP, range.hi + extra)), wide: true } : range;
 }
-const roundTo = (v, step) => Math.max(step, Math.round(v / step) * step);
+const WIDE_CAP = 20; // rozšířený rozsah nejvýš do 20 opakování (nad ~12–15 je odhad RIR nepřesný – Halperin 2022)
+// Lehčí zátěž pro reset / lehký týden: ~factor × váha zaokrouhleno na krok, ale VŽDY aspoň o krok lehčí
+// a nikdy o víc než ~20 %. Když to krok nedovolí (20 kg, krok 5 kg), váha zůstane a ubere se ~3 opakování.
+export function lighterLoad(weight, reps, step, factor) {
+  if (!(weight > 0) || !(step > 0)) return { weight, reps };
+  let w = Math.round((weight * factor) / step) * step;
+  if (w >= weight) w = weight - step;
+  if (w <= 0 || (weight - w) / weight > 0.2 + 1e-9) return { weight, reps: Math.max(1, reps - 3), fewer: true };
+  return { weight: Math.round(w * 100) / 100, reps };
+}
 const MAX_CAP = 15; // „max“ série s váhou: dál než 15 opakování už aplikace netlačí
 const BW_CAP = 20; // vlastní váha: od 20 opakování raději přidat zátěž / těžší variantu
-const bestE1 = (sets) => Math.max(0, ...(sets || []).filter((s) => num(s.weight) > 0 && num(s.reps) > 0 && !(num(s.time) > 0)).map((s) => e1rm(num(s.weight), num(s.reps))));
 
-// Stagnace: 3 poslední tréninky cviku nepřekonaly nejlepší odhad 1RM tréninku před nimi.
+// Stagnace: 4 poslední tréninky na STEJNÉ pracovní váze a 3 nejnovější nepřekonaly opakování toho nejstaršího.
+// Po přidání váhy opakování spadnou dolů – to je normální progrese, ne stagnace (proto stejná váha).
 // recent = pracovní série posledních tréninků cviku (od nejnovějšího), recent[0] = minule.
+const topWeight = (sets) => Math.max(0, ...(sets || []).filter((s) => num(s.reps) > 0).map((s) => num(s.weight)));
+const repsAt = (sets, w) => (sets || []).filter((s) => num(s.weight) === w).reduce((a, s) => a + num(s.reps), 0);
 export function isStalled(recent) {
   if (!recent || recent.length < 4) return false;
-  const last3 = Math.max(bestE1(recent[0]), bestE1(recent[1]), bestE1(recent[2]));
-  const before = bestE1(recent[3]);
-  return before > 0 && last3 > 0 && last3 <= before + 0.05;
+  const w = topWeight(recent[0]);
+  if (!(w > 0) || recent.slice(0, 4).some((x) => topWeight(x) !== w)) return false;
+  const before = repsAt(recent[3], w);
+  return before > 0 && Math.max(repsAt(recent[0], w), repsAt(recent[1], w), repsAt(recent[2], w)) <= before;
 }
 
 // Cíle pro celý cvik (dvojitá progrese s brzdou). prev = minulé pracovní série (s RPE), specs = opakování po sériích (plán),
@@ -94,10 +111,10 @@ export function exerciseTargets(prev, { specs, spec, to, step = 2.5, recent = nu
     const base = weight > 0 ? (sp === undefined ? DEFAULT_RANGE : repRange(sp, specs ? undefined : to)) : null;
     return { p: { weight, reps, rpe }, range: widenRange(base, weight, step), isMax };
   });
-  // Lehký týden: „light“ = váhy −12,5 % (zaokrouhleno na krok), stejná opakování; „short“ / true = stejné váhy
+  // Lehký týden: „light“ = váhy ~−12,5 % (vždy aspoň o krok lehčí), stejná opakování; „short“ / true = stejné váhy
   if (deload) {
     const lighter = deload === 'light';
-    return rows.map(({ p }) => (p ? { weight: lighter && p.weight > 0 ? roundTo(p.weight * 0.875, step) : p.weight, reps: p.reps, hold: true, state: 'deload' } : null));
+    return rows.map(({ p }) => (p ? { ...(lighter && p.weight > 0 ? lighterLoad(p.weight, p.reps, step, 0.875) : { weight: p.weight, reps: p.reps }), hold: true, state: 'deload' } : null));
   }
   const weighted = rows.filter((r) => r.p && r.p.weight > 0);
   const ranged = rows.filter((r) => r.p && r.range);
@@ -108,6 +125,14 @@ export function exerciseTargets(prev, { specs, spec, to, step = 2.5, recent = nu
   const unrangedWeighted = weighted.filter((r) => !r.range && !r.isMax).length; // „pyramid“ bez rozsahu
   const allTop = judged.length > 0 && unrangedWeighted === 0 && judged.every((r) => r.p.reps >= r.range.hi);
   const hard = judged.some((r) => r.p.rpe >= 9.5);
+  // „2 za 2“: bez zapsaného RPE musí být horní hranice dva tréninky po sobě (ACSM 2009). S RPE ≤ 9 stačí jeden.
+  const hasRpe = judged.some((r) => r.p.rpe > 0);
+  let confirmed = true;
+  if (allTop && !hasRpe && recent && recent.length >= 2) {
+    const w = Math.max(...judged.map((r) => r.p.weight)), hi = Math.min(...judged.map((r) => r.range.hi));
+    const before = (recent[1] || []).filter((x) => num(x.weight) === w && num(x.reps) > 0);
+    confirmed = before.length > 0 && before.every((x) => num(x.reps) >= hi);
+  }
   const failed = ranged.some((r) => r.p.rpe >= 10 && !r.isMax);
   const stalled = ranged.length > 0 && isStalled(recent);
 
@@ -119,8 +144,8 @@ export function exerciseTargets(prev, { specs, spec, to, step = 2.5, recent = nu
       if (isMax || !specs) return p.reps >= MAX_CAP ? { weight: p.weight, reps: p.reps, hold: true, state: 'cap' } : { weight: p.weight, reps: p.reps + 1 };
       return { weight: p.weight, reps: p.reps + 1 };
     }
-    if (stalled) return { weight: roundTo(p.weight * 0.9, step), reps: p.reps, state: 'reset' };
-    if (allTop && hard) return { weight: p.weight, reps: p.reps, hold: true, state: 'verify' };
+    if (stalled) return { ...lighterLoad(p.weight, p.reps, step, 0.9), state: 'reset' };
+    if (allTop && (hard || !confirmed)) return { weight: p.weight, reps: p.reps, hold: true, state: 'verify' };
     if (allTop) return { weight: Math.round((p.weight + step) * 100) / 100, reps: range.lo, state: 'up' };
     if (failed) return { weight: p.weight, reps: p.reps, hold: true, state: 'easy' };
     if (p.reps >= range.hi) return { weight: p.weight, reps: p.reps, hold: true };
@@ -203,8 +228,8 @@ export function exerciseRecords(workouts, key) {
     for (const s of e.sets) {
       const weight = num(s.weight), reps = num(s.reps);
       if (!(weight > 0) || num(s.time) > 0 || !(reps > 0)) continue;
-      const v = e1rm(weight, reps);
-      if (!e1 || v > e1.value) e1 = { value: Math.round(v * 10) / 10, date: w.startedAt, weight, reps };
+      const v = reps <= E1_REC_MAX ? e1rm(weight, reps) : 0; // e1RM jen ze sérií do 10 opakování
+      if (v > 0 && (!e1 || v > e1.value)) e1 = { value: Math.round(v * 10) / 10, date: w.startedAt, weight, reps };
       const cur = at.get(weight);
       if (!cur || reps > cur.reps) at.set(weight, { weight, reps, date: w.startedAt });
     }
@@ -221,7 +246,7 @@ export function specFromTemplates(templates, key) {
 
 // Návrh lehkého týdne (nikdy povinnost). Bell 2023 (Delphi): deload zhruba každé 4–6 týdnů na ~7 dní, plánovaně
 // nebo podle únavy. Aplikace navrhuje až po 8 týdnech bez přestávky (aspoň 6 z nich se splněným cílem),
-// nebo když výkon klesl u 2+ cviků ve 2 posledních trénincích (o víc než 5 % e1RM proti minulému tréninku cviku).
+// nebo když výkon klesl u 2+ cviků ve 2 posledních trénincích (na stejné váze o 15+ % opakování proti minulému tréninku).
 // → null | { reason: 'weeks', weeks } | { reason: 'drop', n }
 export function deloadAdvice(workouts, { goal = 3, breaks = [], now = Date.now() } = {}) {
   const DAY = 864e5, WEEK = 7 * DAY;
@@ -244,11 +269,15 @@ export function deloadAdvice(workouts, { goal = 3, breaks = [], now = Date.now()
     const dropped = new Set();
     for (const w of last2) for (const e of w.exercises) {
       if (e.type === 'time') continue;
-      const cur = bestE1(e.sets.filter((s) => num(s.reps) <= 12));
-      if (!(cur > 0)) continue;
+      // Pokles se měří jen na STEJNÉ pracovní váze (opakování) – krok nahoru ani reset / lehký týden nejsou pokles
+      const sets = e.sets.filter((s) => !s.warm);
+      const w0 = topWeight(sets);
+      if (!(w0 > 0)) continue;
       const before = ws.filter((x) => x.startedAt < w.startedAt).reverse().find((x) => x.exercises.some((y) => y.key === e.key && y.sets.length));
-      const prev = before ? bestE1(before.exercises.find((y) => y.key === e.key).sets.filter((s) => num(s.reps) <= 12)) : 0;
-      if (prev > 0 && cur < prev * 0.95) dropped.add(e.key);
+      const prevSets = before ? before.exercises.find((y) => y.key === e.key).sets.filter((s) => !s.warm) : [];
+      if (topWeight(prevSets) !== w0) continue;
+      const cur = repsAt(sets, w0), prev = repsAt(prevSets, w0);
+      if (prev > 0 && cur < prev * 0.85) dropped.add(e.key); // ~−15 % opakování ≈ −5 % e1RM
     }
     if (dropped.size >= 2) return { reason: 'drop', n: dropped.size };
   }

@@ -1202,3 +1202,22 @@ html:not(.desktop) .why-side { position: static; }
 .lift-pick input { width: 18px; height: 18px; accent-color: var(--ink); flex: none; }
 .lift-pick.is-on .grow { font-weight: 500; }
 .lift-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding-top: 4px; }
+/* 5.15: Proč – kapitola Heat a slovníček */
+.why-toc-link.is-extra:first-of-type { margin-top: 4px; }
+.why-doc { display: flex; flex-direction: column; gap: 14px; }
+.why-doc p { margin: 0; line-height: 1.55; color: var(--charcoal); }
+.why-rules { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; line-height: 1.55; color: var(--charcoal); }
+.why-states { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+.why-state { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--r); box-shadow: 0 0 0 1px var(--hairline); }
+.why-state-head { display: flex; align-items: center; gap: 8px; }
+.why-state-head .mono { margin-left: auto; }
+.why-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.why-table th { text-align: left; font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--stone); padding: 6px 0; border-bottom: 1px solid var(--hairline); }
+.why-table td { padding: 7px 0; border-bottom: 1px solid var(--hairline); color: var(--charcoal); }
+.why-table td.mono, .why-table th:last-child { text-align: right; white-space: nowrap; }
+.why-gloss { margin: 0; padding: 4px 16px; }
+.why-gloss-row { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 16px; padding: 10px 0; border-top: 1px solid var(--hairline); }
+.why-gloss-row:first-child { border-top: 0; }
+.why-gloss dt { font-weight: 500; }
+.why-gloss dd { margin: 0; color: var(--charcoal); line-height: 1.5; }
+html:not(.desktop) .why-gloss-row { grid-template-columns: 1fr; gap: 2px; }

@@ -68,7 +68,10 @@ export function useAccountData(api, user, fail) {
       if (!Array.isArray(pins)) { try { pins = JSON.parse(localStorage.getItem(`forge:pins:${user.uid}`)); } catch { pins = null; } }
       setStrengthScaleState(normScale(d.settings?.strengthScale));
       setBreaks(cleanBreaks(d.settings?.breaks));
-      setStrengthLiftsState(Array.isArray(d.settings?.strengthLifts) ? d.settings.strengthLifts.filter((k) => typeof k === 'string').slice(0, 4) : []);
+      // Výběr cviků pro sílu: účet, jinak lokální kopie (kdyby server zápis odmítl – starší pravidla)
+      let lifts = d.settings?.strengthLifts;
+      if (!Array.isArray(lifts)) { try { lifts = JSON.parse(localStorage.getItem(`forge:lifts:${user.uid}`)); } catch { lifts = null; } }
+      setStrengthLiftsState(Array.isArray(lifts) ? lifts.filter((k) => typeof k === 'string').slice(0, 4) : []);
       setCardioGoalState(CARDIO_GOALS.includes(d.settings?.cardioGoal) ? d.settings.cardioGoal : DEFAULT_CARDIO_GOAL);
       setGamifyState(d.settings?.gamify !== false);
       setPinnedLifts(Array.isArray(pins) ? pins.filter((k) => typeof k === 'string').slice(0, MAX_PINS) : []);

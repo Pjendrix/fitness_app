@@ -7,6 +7,7 @@ import { markGuide } from '../guide.js';
 import { t } from '../i18n.js';
 import { keepExercises, newSet, normalizeExercise, prevOf, withIds } from './model.js';
 import { bodyAt } from '../body.js';
+import { lighterLoad } from '../progress.js';
 
 // ——— Draft rozdělaného tréninku (per uživatel, localStorage) ———
 const draftKey = (u) => `forge:active:${u}`;
@@ -88,8 +89,8 @@ export function useActiveWorkout({ user, api, notify, prs, setPrs, workouts, set
         const src = last ? last[Math.min(i, last.length - 1)] : null;
         // Lehký týden „Lehké váhy“: předvyplnit rovnou lehčí váhu (−12,5 %, na krok cviku)
         if (src && deload === 'light' && Number(src.weight) > 0 && type0 !== 'time') {
-          const st = stepOf(e.name) || 2.5;
-          return newSet({ ...src, weight: Math.max(st, Math.round((Number(src.weight) * 0.875) / st) * st) });
+          const l = lighterLoad(Number(src.weight), Number(src.reps) || 0, stepOf(e.name) || 2.5, 0.875);
+          return newSet({ ...src, weight: l.weight, reps: l.reps || src.reps });
         }
         if (src) return newSet(src);
         const p = e.plan?.[i];

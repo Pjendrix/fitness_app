@@ -261,7 +261,7 @@ const D = {
     'mile.d.open': 'Details: {name}', 'mile.d.what': 'What counts', 'mile.d.best': 'Your best', 'mile.d.bestRun': 'Best run', 'mile.d.next': 'Next · {r}',
     'mile.d.atBw': 'at {bw} kg', 'mile.d.current': 'current run: {n} days', 'mile.d.since': 'first workout {d}', 'mile.d.earnedOn': 'Earned {d}', 'mile.d.notYet': 'Not earned yet.',
     'mile.d.tiers': 'Tiers', 'mile.d.tiersScale': 'Tiers · {s} scale', 'mile.d.kgLeft': '{kg} kg to go', 'mile.d.left': '{v} to go',
-    'mile.d.bwNote': 'kg targets use your 90-day average body weight ({bw} kg).', 'mile.d.scaleLink': 'Change scale',
+    'mile.d.bwNote': 'kg targets use your highest 90-day average body weight of the past year ({bw} kg) – weight loss never raises a tier.', 'mile.d.scaleLink': 'Change scale',
     'mile.h.title': 'How milestones work', 'mile.h.sub': 'Tiers I–V, what counts, the strength scale',
     'mile.h.tiers': 'Tiers I–V', 'mile.h.tiersText': 'Most milestones grow in five tiers. The dots show how many you have; the bar shows the way to the next one. The closest next tier is highlighted at the top.',
     'mile.h.history': 'From your history', 'mile.h.historyText': 'Everything is calculated from your logged workouts – nothing extra to tap. Edit or delete a workout and milestones recalculate. Warm-up sets never count.',
@@ -270,7 +270,7 @@ const D = {
     'mile.h.secret': 'Secret milestones', 'mile.h.secretText': 'A few milestones stay hidden until you earn them.',
     'mile.w.workouts': 'Every finished workout counts – any template, any length.',
     'mile.w.tonnage': 'Total weight lifted across all workouts: weight × reps for every working set. Body-weight exercises count your body weight too.',
-    'mile.w.streak': 'Most weeks in a row (Mon–Sun) on plan: goal met or a light week. A paused week, or one missed week every 4 weeks (joker), keeps the streak without adding to it.',
+    'mile.w.streak': 'Most weeks in a row (Mon–Sun) on plan: goal met or a light week. A paused week, or one missed week every 5 weeks (joker), keeps the streak without adding to it.',
     'mile.w.perfect': 'Finished calendar months with no missed week – light weeks, pauses and jokers count.',
     'mile.w.balanced': 'Finished months in which no group of your split (e.g. Push, Pull, Legs) went more than 10 days without training.',
     'mile.w.explorer': 'Different exercises you have logged at least once.',
@@ -297,7 +297,7 @@ const D = {
     'heat.cold': 'Cold', 'heat.warm': 'Warm', 'heat.glow': 'Glowing', 'heat.hot': 'White-hot',
     'heat.subEmpty': 'Your first workout lights the forge.', 'heat.subCold': 'Welcome back whenever you’re ready – your first workout after a break counts double.',
     
-    'heat.explain': 'Heat follows your own weekly goal ({g}×): at most one workout a day and {g} a week count, so training more doesn’t raise it. Coming back after 7+ days counts double, a pause freezes it, and one missed week never resets anything.',
+    'heat.explain': 'Heat follows your own weekly goal ({g}×): at most one workout a day and {g} a week count, length and intensity don’t matter. Each day without training keeps ×0.87. Coming back after 7+ days counts double, a pause freezes it. A missed week lowers Heat but never resets anything. Details: Why it works → How Heat works (desktop).',
     'hist.sec.workouts': 'Workouts', 'hist.sec.milestones': 'Milestones',
     'mile.empty': 'Finish your first workout to start collecting milestones.', 'mile.count': '{n} / {max} tiers',
     'mile.closest': 'Closest next tier', 'mile.maxed': 'All tiers earned', 'mile.tierAria': 'Tier {n} of {max}',
@@ -354,7 +354,7 @@ const D = {
     'wg.restWarn': 'This goal leaves no rest day. 1–2 rest days a week help recovery – rest is part of training.', 'heat.subRest': 'Rest days are part of training. Heat follows how steadily you hit your own weekly goal.', 'heat.subHot': 'You’re on pace with your goal of {g}× a week. Extra sessions won’t add Heat – rest is fine.',
     'heat.subPaused': 'Paused – Heat is on hold until you’re back.', 'mile.lift': 'Lift', 'mile.liftNone': 'Strength milestones appear once you’ve logged an exercise twice.',
     'mile.selfNote': 'Compared with yourself: estimated 1RM vs your first session, on your most trained (or starred) exercises.', 'mile.n.lift': '{r} at +{next} % e1RM · now +{v} %', 'mile.n.liftFew': 'Counts from your 3rd session',
-    'mile.w.lift': 'Your best estimated 1RM on {lift} (sets of up to 10 reps) compared with your first session of it. Starred exercises in Stats come first, then the ones you train most.', 'mile.u.sessions': { one: '{n} session', other: '{n} sessions' }, 'mile.u.returns': { one: '{n} comeback', other: '{n} comebacks' },
+    'mile.w.lift': 'Your best estimated 1RM on {lift} (sets of up to 10 reps) compared with the better of your first 2 sessions. Pick lifts under Strength → Choose lifts; without a choice the app uses big three or your most trained compound lifts.', 'mile.u.sessions': { one: '{n} session', other: '{n} sessions' }, 'mile.u.returns': { one: '{n} comeback', other: '{n} comebacks' },
     'mile.d.lastBack': 'last comeback {d}', 'mile.d.benchNote': 'Orientation only – the tiers come from competition data; women’s tiers are about 25–30 % lower.', 'scale.self': 'Vs yourself',
     'scale.men': 'Men', 'scale.women': 'Women', 'scale.sub.self': 'Progress vs your own first sessions on the lifts you train. Recommended.',
     'scale.sub.men': 'Adds body-weight benchmarks for barbell lifts (e.g. 1× bench, 1.5× squat, 2× deadlift) – orientation only.', 'scale.sub.women': 'Adds body-weight benchmarks for barbell lifts (e.g. 0.65× bench, 1× squat, 1.25× deadlift) – orientation only.', 'sum.back': 'Welcome back',
@@ -373,6 +373,7 @@ const D = {
     'dl.modeShort': 'Shorter + cardio', 'dl.mode.light': 'light weights', 'dl.mode.short': 'shorter + cardio',
     'dl.sub.light': 'same sets, lighter weights', 'dl.sub.short': 'fewer sets + easy cardio', 'dl.woLight': 'Same sets as usual, weights about 12 % lower, 3–4 reps in reserve. No records today – that’s the point.',
     'dl.woShort': 'Fewer sets, same weights, 3–4 reps in reserve. Finish with 10–15 min of easy cardio and log it on Home.',
+    'sum.afterPause': 'Pause over – let’s go', 'err.rules': 'The server refused to save the setting. Deploy the new firestore.rules (Firebase Console → Firestore → Rules).',
   }
 };
 

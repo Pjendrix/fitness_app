@@ -109,10 +109,10 @@ export function dailyHeat(workouts, goal, now = Date.now(), breaks = []) {
 //   met     cíl splněný
 //   deload  lehký týden (počítá se jako splněný)
 //   pause   pauza ≥ 3 dny (série stojí – nepřibývá, nepřeruší se)
-//   joker   jeden nesplněný týden za 4 týdny se odpustí automaticky (série stojí)
+//   joker   jeden nesplněný týden za 5 týdnů se odpustí automaticky (série stojí)
 //   miss    nesplněno → série končí
 //   open    probíhající týden, zatím nesplněný
-export const JOKER_EVERY = 4;
+export const JOKER_EVERY = 5; // jeden odpuštěný týden za 5 týdnů
 export const KEPT = new Set(['met', 'deload', 'pause', 'joker']);
 function weekCounts(workouts) {
   const m = new Map();
@@ -247,6 +247,19 @@ export function bodyAvg(body, t, days = 90) {
   return list.reduce((s, b) => s + b.weight, 0) / list.length;
 }
 
+// Referenční váha pro poměry: NEJVYŠŠÍ 90denní průměr za posledních 12 měsíců (vzorkováno po 14 dnech).
+// Hubnutí tak poměr nikdy nezvedne – nanejvýš ho přibrzdí, když váha roste.
+export function bodyRef(body, t) {
+  if (!body.length) return null;
+  let best = null;
+  for (let x = t; x >= t - 365 * DAY; x -= 14 * DAY) {
+    if (!body.some((b) => b.date <= x + DAY / 2)) break;
+    const v = bodyAvg(body, x);
+    if (v != null && (best == null || v > best)) best = v;
+  }
+  return best ?? bodyAvg(body, t);
+}
+
 // Nejlepší odhad 1RM cviku vůči tělesné váze: { ratio, e1, best, name, seen }
 function liftBests(workouts, keys, body) {
   let ratio = 0, e1 = 0, bwAt = null, best = null, name = null, seen = false;
@@ -258,7 +271,7 @@ function liftBests(workouts, keys, body) {
       if (!(wt > 0) || !(r >= 1) || r > E1_MAX) continue;
       const v = e1rm(wt, r);
       if (v > e1) { e1 = v; if (!body.length) best = { kg: wt, reps: r, e1: v, date: w.startedAt, bw: null }; }
-      const bw = body.length ? bodyAvg(body, w.startedAt) : null;
+      const bw = body.length ? bodyRef(body, w.startedAt) : null;
       if (bw && v / bw > ratio) { ratio = v / bw; bwAt = bw; best = { kg: wt, reps: r, e1: v, date: w.startedAt, bw }; }
     }
   }
@@ -274,7 +287,7 @@ function pullupBests(workouts) {
   return { reps, best, name };
 }
 
-// Síla vůči sobě: posun nejlepšího e1RM cviku oproti prvnímu tréninku (počítá se od 3. tréninku).
+// Síla vůči sobě: posun nejlepšího e1RM cviku oproti lepšímu z prvních 2 tréninků (počítá se od 3. tréninku).
 // Cviky: vlastní výběr (Nastavení síly, max. 4), jinak automaticky jen VÍCEKLOUBOVÉ cviky – nejdřív big three
 // (bench, dřep, mrtvý tah), pak nejčastější za posledních 120 dní (cvik aspoň 2×, start aspoň 10 kg e1RM).
 // onlyKey = jeden konkrétní klíč (dohledání dat získání úrovní).
@@ -288,6 +301,7 @@ function selfLifts(ws, { lifts = [], now, onlyKey = null }) {
     let x = info.get(e.key);
     if (!x) { x = { key: e.key, name: e.name, first: v, firstDate: w.startedAt, best: v, bestDate: w.startedAt, n: 0, recent: 0 }; info.set(e.key, x); }
     x.name = e.name; x.n++;
+    if (x.n === 2 && v > x.first) x.first = v; // základ = lepší z prvních 2 tréninků (první nese učení techniky)
     if (w.startedAt > now - 120 * DAY) x.recent++;
     if (v > x.best) { x.best = v; x.bestDate = w.startedAt; }
   }
@@ -402,7 +416,7 @@ export function milestones(workouts, { goal = 3, groups = [], body = [], scale =
   }
   // Volitelně: vůči tělesné váze (muži / ženy)
   if (sc) {
-    const bwNow = body.length ? bodyAvg(body, now) : null;
+    const bwNow = body.length ? bodyRef(body, now) : null;
     const e1s = {};
     for (const id of ['bench', 'squat', 'deadlift', 'ohp']) {
       if (!want(id, 'total')) continue;

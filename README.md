@@ -104,3 +104,9 @@ Revize z pohledu trenéra (ACSM 2026, WHO 2020, výzkum návyků). Aplikace teď
 - Silové milníky: vlastní výběr až 4 cviků (Statistiky → Progres → Síla → Vybrat cviky); automaticky jen vícekloubové, big three napřed.
 - Lehký týden ve dvou režimech: **Lehké váhy** (stejné série, váhy −12,5 %, rovnou předvyplněné) a **Kratší + kardio** (~60 % sérií + 10–15 min kardia).
 - Pravidla: nový klíč `strengthLifts` v nastavení → znovu nasadit `firestore.rules`.
+
+## 5.15 – opravy z revize důkazů
+- Stagnace a „pokles výkonu“ se posuzují jen na stejné pracovní váze (krok nahoru ani reset nejsou stagnace/pokles).
+- Poměry k tělesné váze: nejvyšší 90denní průměr za rok – hubnutí stupeň nezvedne (i u Big three).
+- RIR ve třech třídách (volná váha 2–3 / stroje 1–2 / izolace 0–2), „2 za 2“ bez RPE, rozšířený rozsah max 20, lehčí zátěž vždy aspoň o krok, joker 1× za 5 týdnů, základ silových milníků = lepší z prvních 2 tréninků.
+- Proč to funguje: nové zdroje, 7 nových pravidel, kapitola „Jak funguje Heat“ a slovníček.

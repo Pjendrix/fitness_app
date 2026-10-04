@@ -94,7 +94,7 @@ describe('milestones', () => {
     const ws = [W(30, [['hip-thrust', [[60, 10]]]], { }), W(20, [['hip-thrust', [[70, 10]]]]), W(10, [['hip-thrust', [[80, 10]]]])].map((w) => ({ ...w, exercises: w.exercises.map((e) => ({ ...e, name: 'Hip Thrust' })) }));
     const list = milestones(ws, { now: NOW });
     const lift = list.find((m) => m.id === 'lift:hip-thrust');
-    expect(lift).toMatchObject({ group: 'strength', lift: 'Hip Thrust', tier: 2 }); // +33 % → I 10 · II 25
+    expect(lift).toMatchObject({ group: 'strength', lift: 'Hip Thrust', tier: 1 }); // základ = lepší z prvních 2 (70 kg) → +14 %
     expect(list.find((m) => m.id === 'bench')).toBeUndefined(); // poměr k váze jen na přání
   });
   it('auto lifts: compound only, big three first, at most 4', () => {
@@ -122,11 +122,19 @@ describe('milestones', () => {
     const women = milestones(ws, { body, now: NOW, scale: 'women' }).find((m) => m.id === 'bench');
     expect(women.tier).toBe(5);
   });
-  it('weight loss does not raise the benchmark (90-day average)', () => {
+  it('weight loss never raises the benchmark (highest 90-day average of the last year)', () => {
     const ws = [W(1, [['bench-press-barbell', [[80, 3]]]])];
     const b1 = [{ date: NOW - 60 * DAY, weight: 90 }, { date: NOW - 2 * DAY, weight: 70 }];
     const m = milestones(ws, { body: b1, now: NOW, scale: 'men' }).find((x) => x.id === 'bench');
-    expect(m.best.bw).toBeCloseTo(80); // průměr, ne poslední zápis 70
+    expect(m.best.bw).toBeCloseTo(90);
+    // big three: stejné zvednutí, váha 100 → 90 kg → stupeň se nezvedne
+    const big = [W(30, [['bench-press-barbell', [[60, 5]]], ['squat', [[80, 5]]], ['deadlift', [[100, 5]]]])];
+    const heavy = [{ date: NOW - 200 * DAY, weight: 100 }, { date: NOW - 100 * DAY, weight: 100 }];
+    const light = [...heavy, { date: NOW - 60 * DAY, weight: 90 }, { date: NOW - 5 * DAY, weight: 90 }];
+    const a = milestones(big, { body: heavy, now: NOW, scale: 'men' }).find((x) => x.id === 'total');
+    const b = milestones(big, { body: light, now: NOW, scale: 'men' }).find((x) => x.id === 'total');
+    expect(b.value).toBeLessThanOrEqual(a.value + 1e-9);
+    expect(b.tier).toBe(a.tier);
   });
   it('warm-up sets do not count', () => {
     const ws = [{ ...W(1), exercises: [{ key: 'squat', name: 'Squat', sets: [{ weight: 200, reps: 1, warm: true }, { weight: 50, reps: 5 }] }] }];

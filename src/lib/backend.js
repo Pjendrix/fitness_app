@@ -27,7 +27,7 @@ export const pickTemplate = (tpl) => Object.fromEntries(TEMPLATE_KEYS.filter((k)
 const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || Boolean(window.navigator.standalone);
 // Lokální data účtu v tomto prohlížeči (draft, cíl, připnuté cviky, příznak synchronizace)
 const clearLocal = (uid) => {
-  try { ['active', 'goal', 'pins', 'metaSynced'].forEach((k) => localStorage.removeItem(`forge:${k}:${uid}`)); } catch { /* ignore */ }
+  try { ['active', 'goal', 'pins', 'lifts', 'metaSynced'].forEach((k) => localStorage.removeItem(`forge:${k}:${uid}`)); } catch { /* ignore */ }
 };
 const toUser = (u) => ({ uid: u.uid, name: u.displayName || '', email: u.email || '', photo: u.photoURL || '' });
 
