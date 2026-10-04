@@ -27,7 +27,8 @@ const setsText = (sets) => groupSets(sets).map(({ n, set }) => {
 const trendText = (tr) => (tr.dir === 0 ? t('sum.same') : `${tr.dir > 0 ? '▲ +' : '▼ −'}${fmtNum(tr.diff)} ${tr.kind === 'reps' ? t('sum.reps', { n: tr.diff }) : tr.kind}`);
 
 // W3: souhrn tréninku – po dokončení i z Historie (actions = Upravit / Zopakovat / Smazat)
-export default function WorkoutSummary({ done, onClose, actions = null }) {
+// embedded = panel v desktopové Historii (bez obalu obrazovky a bez tlačítka Zavřít)
+export default function WorkoutSummary({ done, onClose, actions = null, embedded = false }) {
   const { workouts, mode } = useStore();
   const [contact, setContact] = useState(false);
   const all = useMemo(() => (workouts.some((w) => w.id === done.id) ? workouts : [done, ...workouts]), [workouts, done]);
@@ -48,7 +49,7 @@ export default function WorkoutSummary({ done, onClose, actions = null }) {
     return <span className={neutral || r === 0 ? 'muted' : r > 0 ? 'ms-up' : 'ms-down'}>{r > 0 ? '+' : r < 0 ? '−' : '±'}{fmtNum(Math.abs(r))}{unit}</span>;
   };
   return (
-    <div className="screen summary">
+    <div className={embedded ? 'summary sum-embed' : 'screen summary'}>
       <header className="screen-head">
         <p className="label">{actions ? fmtDate(done.startedAt) : `${back ? t('sum.back') : t('sum.eyebrow')} · ${fmtDate(done.startedAt)}`}</p>
         <h1>{done.name}</h1>
@@ -99,7 +100,7 @@ export default function WorkoutSummary({ done, onClose, actions = null }) {
             <button className="btn btn-ghost btn-sm" onClick={actions.edit}>{t('hist.edit')}</button>
             <button className="btn btn-danger btn-sm" onClick={actions.remove}><TrashIcon width={16} height={16} /> {t('hist.delete')}</button>
           </div>
-          <button className="btn btn-ghost btn-block" onClick={onClose}>{t('pick.close')}</button>
+          {!embedded && <button className="btn btn-ghost btn-block" onClick={onClose}>{t('pick.close')}</button>}
         </>
       ) : <button className="btn btn-finish btn-lg btn-block" onClick={onClose}>{t('sum.done')}</button>}
       {contact && <ContactSheet kind={mode === 'trial' ? 'access' : 'offer'} onClose={() => setContact(false)} />}

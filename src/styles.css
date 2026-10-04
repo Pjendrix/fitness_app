@@ -1146,3 +1146,54 @@ html.desktop .mobile-only { display: none; }
 .cardio-note { margin-top: 4px; }
 .wg-bar.kept i { background: color-mix(in srgb, var(--ink) 35%, transparent); }
 .wg-warn { margin-top: 6px; color: var(--charcoal); }
+
+/* ——— 5.13: desktop Historie a Nastavení ve dvou sloupcích, sekce „Proč“ ——— */
+.set-grid, .set-col { display: contents; }
+html.desktop .settings.screen-wide { max-width: 1100px; }
+html.desktop .set-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+html.desktop .set-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+html.desktop .set-col > .set-sec:first-child { margin-top: 0; }
+html.desktop .hist-desk { max-width: 1200px; }
+.hist-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 24px; align-items: start; }
+.hist-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.hist-rows { padding: 4px; display: flex; flex-direction: column; gap: 2px; }
+.hist-row { display: flex; align-items: center; gap: 12px; width: 100%; border: 0; background: none; padding: 10px 12px; border-radius: var(--r); text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.hist-row:hover { background: var(--paper); }
+.hist-row.is-sel { background: var(--paper); box-shadow: inset 0 0 0 1px var(--ink); }
+.hist-row-dot { width: 8px; height: 8px; border-radius: 9999px; flex: none; }
+.hist-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hist-row-name { font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.hist-row-vol { color: var(--stone); white-space: nowrap; }
+.hist-detail { position: sticky; top: 24px; max-height: calc(100dvh - 48px); overflow-y: auto; min-width: 0; padding: 2px; }
+.sum-embed { display: flex; flex-direction: column; gap: 12px; }
+.sum-embed .screen-head { padding: 0; }
+.sum-embed h1 { font-size: 28px; }
+.why-intro { max-width: 720px; margin-top: 8px; }
+.why-grid { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 24px; align-items: start; }
+.why-side { position: sticky; top: 24px; display: flex; flex-direction: column; gap: 12px; }
+.why-toc { display: flex; flex-direction: column; gap: 2px; }
+.why-toc .label { margin-bottom: 6px; }
+.why-toc .btn { margin-top: 8px; }
+.why-toc-link { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; border: 0; background: none; padding: 7px 8px; border-radius: var(--r); font: inherit; font-size: 14px; color: var(--charcoal); text-align: left; cursor: pointer; }
+.why-toc-link:hover { background: var(--paper); color: var(--ink); }
+.why-legend { display: flex; flex-direction: column; gap: 8px; }
+.why-legend p { margin: 0; }
+.why-main { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+.why-chapter { scroll-margin-top: 24px; display: flex; flex-direction: column; gap: 10px; }
+.why-chapter h2 { font-size: 20px; font-weight: 500; letter-spacing: -0.02em; }
+.why-list { padding: 0; }
+.why-item + .why-item { border-top: 1px solid var(--hairline); }
+.why-item summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; cursor: pointer; list-style: none; }
+.why-item summary::-webkit-details-marker { display: none; }
+.why-item summary::after { content: '›'; color: var(--smoke); transition: transform .15s; }
+.why-item[open] summary::after { transform: rotate(90deg); }
+.why-item-title { flex: 1; font-weight: 500; }
+.why-body { display: flex; flex-direction: column; gap: 12px; padding: 0 16px 16px; }
+.why-body p { margin: 4px 0 0; line-height: 1.55; color: var(--charcoal); }
+.why-src { margin: 4px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.6; }
+.why-src a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--ash); text-underline-offset: 3px; }
+.why-level { flex: none; font: 500 10px var(--mono); letter-spacing: .06em; text-transform: uppercase; border-radius: 9999px; padding: 2px 8px; box-shadow: 0 0 0 1px var(--hairline); color: var(--stone); }
+.why-level.is-strong { color: var(--green); box-shadow: 0 0 0 1px color-mix(in srgb, var(--green) 40%, transparent); }
+.why-level.is-moderate { color: var(--ember-ink); box-shadow: 0 0 0 1px var(--ember-line); }
+html:not(.desktop) .why-grid { grid-template-columns: 1fr; }
+html:not(.desktop) .why-side { position: static; }

@@ -1,6 +1,6 @@
 import ViewToggle from './ViewToggle.jsx';
 import ProfileBadge from './ProfileBadge.jsx';
-import { ChartIcon, DumbbellIcon, HistoryIcon, HomeIcon, ListIcon, SettingsIcon, TemplatesIcon } from './Icons.jsx';
+import { ChartIcon, DumbbellIcon, HistoryIcon, HomeIcon, InfoIcon, ListIcon, SettingsIcon, TemplatesIcon } from './Icons.jsx';
 import { t } from '../lib/i18n.js';
 
 // Mobile: bottom bar with 5 tabs (Stats místo Templates – šablony jsou v Nastavení a na Home). Desktop: sidebar se vším.
@@ -11,6 +11,7 @@ const TABS = [
   { id: 'stats', Icon: ChartIcon },
   { id: 'templates', Icon: TemplatesIcon, desktop: true },
   { id: 'exercises', Icon: ListIcon, desktop: true },
+  { id: 'why', Icon: InfoIcon, desktop: true }, // Proč to tak funguje – jen desktop
   { id: 'settings', Icon: SettingsIcon },
 ];
 const PARENT = { statsFull: 'stats', templates: 'settings', exercises: 'settings' };

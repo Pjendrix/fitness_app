@@ -2,7 +2,7 @@
 // nebo vrátí předchozí obrazovku, místo aby zavřelo appku. Adresa #/workout přežije reload.
 import { useEffect, useRef } from 'react';
 
-const TABS = new Set(['home', 'workout', 'history', 'templates', 'settings', 'stats', 'statsFull', 'exercises']);
+const TABS = new Set(['home', 'workout', 'history', 'templates', 'settings', 'stats', 'statsFull', 'exercises', 'why']);
 const hasHistory = typeof window !== 'undefined' && typeof history !== 'undefined';
 const fromHash = () => {
   const h = hasHistory ? location.hash.replace(/^#\/?/, '') : '';

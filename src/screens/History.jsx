@@ -14,6 +14,7 @@ import { previousSame } from '../lib/metrics.js';
 import { metricsOf, recordsOf } from '../lib/derived.js';
 import { fmtRest, setNotes, withRpe } from '../lib/body.js';
 import { setStatsTab } from '../lib/statsTab.js';
+import { useViewMode } from '../lib/viewMode.js';
 
 const dayKey = (ms) => new Date(ms).toDateString();
 const monday = (ms) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); };
@@ -148,6 +149,21 @@ function Calendar({ workouts, colorOf, selected, onSelect }) {
 
 const WEEKS_PAGE = 8;
 
+// Desktop: kompaktní řádek tréninku v levém sloupci (detail je vpravo)
+function HistRow({ w, color, selected, records, onSelect }) {
+  const sets = w.exercises.reduce((n, e) => n + e.sets.length, 0);
+  return (
+    <button className={'hist-row' + (selected ? ' is-sel' : '')} onClick={() => onSelect(w.id)} aria-pressed={selected}>
+      <i className="hist-row-dot" style={{ background: color || 'var(--ink)' }} aria-hidden="true" />
+      <span className="hist-row-main">
+        <span className="hist-row-name">{w.name}{records?.length ? <span className="pb-badge"><TrophyIcon width={12} height={12} /> {t('hist.pbBadge', { n: records.length })}</span> : null}</span>
+        <span className="muted small">{fmtDate(w.startedAt)} · {fmtDuration(w.finishedAt - w.startedAt)} · {t('count.sets', { n: sets })}</span>
+      </span>
+      <span className="mono small hist-row-vol">{fmtNum(Math.round(workoutVolume(w)))} kg</span>
+    </button>
+  );
+}
+
 // Obal kvůli systémovému Zpět (zavře souhrn, ne celou Historii)
 function SummaryView({ w, onClose, actions }) {
   useBackClose(onClose);
@@ -156,6 +172,8 @@ function SummaryView({ w, onClose, actions }) {
 
 export default function History({ go }) {
   const { workouts, templates, deleteWorkout, loading, startWorkout, live } = useStore();
+  const { desktop } = useViewMode();
+  const [selId, setSelId] = useState(null); // desktop: vybraný trénink v pravém panelu
   const dialog = useDialog();
   const [q, setQ] = useState('');
   const [exKeyOpen, setExKeyOpen] = useState(null);
@@ -226,6 +244,65 @@ export default function History({ go }) {
           }} />
         {editing && <WorkoutEditor key={editing.id} workout={editing} onClose={() => setEditing(null)} />}
       </>
+    );
+  }
+
+  const header = <header className="screen-head row-between"><h1>{t('hist.title')}</h1><button className="btn btn-ghost btn-sm" onClick={() => { setStatsTab('numbers'); go('stats'); }}>{t('hist.analytics')}</button></header>;
+  const tools = workouts.length > 0 && (
+    <div className="hist-tools">
+      <div className="seg seg-sm seg-inline" role="tablist">
+        {['list', 'calendar'].map((v) => <button key={v} role="tab" aria-selected={view === v} className={view === v ? 'is-on' : ''} onClick={() => setView(v)}>{t('hist.' + v)}</button>)}
+      </div>
+      <select className="input input-sm" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label={t('hist.allTemplates')}>
+        <option value="all">{t('hist.allTemplates')}</option>
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
+      <label className="hist-search"><SearchIcon width={16} height={16} /><input className="input input-sm" type="search" maxLength={60} placeholder={t('hist.searchEx')} aria-label={t('hist.searchEx')} value={q} onChange={(e) => setQ(e.target.value)} /></label>
+    </div>
+  );
+
+  // ——— Desktop: dva sloupce – seznam (nebo kalendář) vlevo, souhrn vybraného tréninku vpravo ———
+  if (desktop) {
+    const sel = shown.find((w) => w.id === selId) || shown[0] || null;
+    return (
+      <div className="screen screen-wide hist-desk">
+        {header}
+        {tools}
+        {!workouts.length && <p className="empty">{loading ? t('hist.loading') : t('hist.empty')}</p>}
+        {workouts.length > 0 && (
+          <div className="hist-grid">
+            <div className="hist-col">
+              {view === 'calendar' && <Calendar workouts={filtered} colorOf={colorOf} selected={day} onSelect={setDay} />}
+              {!shown.length && <p className="empty">{view === 'calendar' ? t('hist.dayEmpty') : t('hist.noMatch')}</p>}
+              {visible.map((g) => (
+                <section key={g.key} className="hist-week">
+                  {view === 'list' && (
+                    <div className="hist-week-head">
+                      <h3 className="label">{g.label}</h3>
+                      <span className="label">{t('hist.weekSum', { n: g.list.length, v: fmtNum(Math.round(g.vol / 100) / 10) })}</span>
+                    </div>
+                  )}
+                  <div className="card hist-rows">
+                    {g.list.map((w) => <HistRow key={w.id} w={w} color={colorOf(w)} selected={sel?.id === w.id} records={records.get(w.id)} onSelect={setSelId} />)}
+                  </div>
+                </section>
+              ))}
+              {hidden > 0 && <button className="btn btn-ghost btn-block" onClick={() => setWeeks((n) => n + WEEKS_PAGE)}>{t('hist.more', { n: hidden })}</button>}
+            </div>
+            <div className="hist-detail">
+              {sel ? (
+                <WorkoutSummary key={sel.id} done={sel} embedded onClose={() => setSelId(null)}
+                  actions={{
+                    repeat: () => repeat(sel),
+                    edit: () => setEditing(sel),
+                    remove: async () => { if (await dialog.confirm(t('hist.confirmDelete'), { danger: true, ok: t('hist.delete') })) { deleteWorkout(sel.id); setSelId(null); } },
+                  }} />
+              ) : <p className="empty">{t('hist.pick')}</p>}
+            </div>
+          </div>
+        )}
+        {editing && <WorkoutEditor key={editing.id} workout={editing} onClose={() => setEditing(null)} />}
+      </div>
     );
   }
 

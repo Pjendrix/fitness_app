@@ -14,6 +14,7 @@ import { useTheme } from '../lib/theme.js';
 import { getRestDefault, REST_OPTIONS, setRestDefault } from '../lib/rest.js';
 import { useRef, useState } from 'react';
 import { setPref, usePref } from '../lib/prefs.js';
+import { useViewMode } from '../lib/viewMode.js';
 import { activeBreak } from '../lib/breaks.js';
 import { CARDIO_GOALS } from '../lib/state/useAccountData.js';
 
@@ -29,6 +30,7 @@ export default function Settings({ go }) {
   const swipeSet = usePref('swipeSet');
   const [showAccess, setShowAccess] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
+  const { desktop } = useViewMode();
   const paused = activeBreak(breaks, 'pause');
   const deloading = activeBreak(breaks, 'deload');
 
@@ -91,8 +93,11 @@ export default function Settings({ go }) {
   };
 
   return (
-    <div className="screen settings">
+    <div className={'screen settings' + (desktop ? ' screen-wide' : '')}>
       <header className="screen-head"><h1>{t('set.title')}</h1></header>
+      {/* Desktop: dva sloupce (profil + trénink | vzhled, data, účet); na mobilu se obaly „rozpustí“ (display: contents) */}
+      <div className="set-grid">
+      <div className="set-col">
 
       <section className="card profile">
         {user.photo ? <img src={user.photo} alt="" referrerPolicy="no-referrer" className="avatar" /> : <div className="avatar avatar-fallback">{(user.name || '?')[0]}</div>}
@@ -141,7 +146,9 @@ export default function Settings({ go }) {
           <span className="muted small">{t('cardio.goalHelp')}</span>
         </div>
       </section>
+      </div>
 
+      <div className="set-col">
       <h2 className="set-sec">{t('look.title')}</h2>
       <section className="card list">
         <div className="row"><span>{t('set.lang')}</span>
@@ -212,6 +219,8 @@ export default function Settings({ go }) {
 
       <button className="btn btn-danger btn-block set-logout" onClick={signOut}>{demo ? t(trial ? 'trial.exit' : 'demo.exit') : t('set.logout')}</button>
       <p className="muted small legal-links"><a href="./privacy.html" target="_blank" rel="noopener">{t('legal.privacy')}</a></p>
+      </div>
+      </div>
     </div>
   );
 }

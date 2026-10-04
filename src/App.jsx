@@ -29,6 +29,7 @@ const Analytics = lazy(() => import('./screens/Analytics.jsx'));
 const Exercises = lazy(() => import('./screens/Exercises.jsx'));
 const MobileStats = lazy(() => import('./screens/MobileStats.jsx'));
 const Progress = lazy(() => import('./screens/Progress.jsx'));
+const Why = lazy(() => import('./screens/Why.jsx'));
 // Statistiky: desktop = plná analytika, mobil = zjednodušený přehled (plná verze přes „statsFull“)
 // Forge Heat: záložky Progress | Numbers (jen když je gamifikace zapnutá; jinak rovnou čísla)
 function Stats({ go }) {
@@ -45,7 +46,7 @@ function Stats({ go }) {
   if (cur === 'progress') return <Progress go={go} tabs={tabs} />;
   return desktop ? <Analytics go={go} tabs={tabs} /> : <MobileStats go={go} tabs={tabs} />;
 }
-const SCREENS = { home: Home, workout: Workout, history: History, templates: Templates, settings: Settings, stats: Stats, statsFull: Analytics, exercises: Exercises };
+const SCREENS = { home: Home, workout: Workout, history: History, templates: Templates, settings: Settings, stats: Stats, statsFull: Analytics, exercises: Exercises, why: Why };
 
 const Nav = memo(BottomNav);
 const Undo = memo(UndoButton);

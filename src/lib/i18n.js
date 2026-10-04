@@ -359,6 +359,13 @@ const D = {
     'scale.men': 'Men', 'scale.women': 'Women', 'scale.sub.self': 'Progress vs your own first sessions on the lifts you train. Recommended.',
     'scale.sub.men': 'Adds body-weight benchmarks for barbell lifts (e.g. 1× bench, 1.5× squat, 2× deadlift) – orientation only.', 'scale.sub.women': 'Adds body-weight benchmarks for barbell lifts (e.g. 0.65× bench, 1× squat, 1.25× deadlift) – orientation only.', 'sum.back': 'Welcome back',
     'cardio.splitM': 'moderate {n} min', 'cardio.splitV': 'vigorous {n} min (counts double)', 'cardio.splitG': 'incl. {n} min from workouts',
+    'nav.why': 'Why it works', 'why.eyebrow': '{n} rules · coach review 10/2026', 'why.title': 'Why it works this way',
+    'why.intro': 'Every rule Forge uses to suggest weights, count records and keep you motivated – what it does, why, and the evidence behind it.', 'why.toc': 'Chapters', 'why.expand': 'Expand all',
+    'why.collapse': 'Collapse all', 'why.levels': 'Strength of evidence', 'why.level.strong': 'strong',
+    'why.level.moderate': 'moderate', 'why.level.practice': 'practice', 'why.levelText.strong': 'meta-analyses or a consensus of professional bodies (ACSM, WHO, IOC).',
+    'why.levelText.moderate': 'individual studies or preprints – likely, not certain.', 'why.levelText.practice': 'coaching practice or a design decision without a direct study.', 'why.note': 'Not medical advice. Pain that doesn’t settle by the next day belongs to a physio, not an app.',
+    'why.rule': 'What the app does', 'why.why': 'Why', 'why.sources': 'Sources',
+    'hist.pick': 'Pick a workout on the left.',
   }
 };
 

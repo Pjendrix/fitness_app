@@ -319,4 +319,11 @@ export default {
     'scale.men': 'Muži', 'scale.women': 'Ženy', 'scale.sub.self': 'Pokrok proti vlastním začátkům na cvicích, které děláš. Doporučeno.',
     'scale.sub.men': 'Přidá benchmarky vůči tělesné váze pro cviky s osou (např. bench 1×, dřep 1,5×, mrtvý tah 2×) – jen orientačně.', 'scale.sub.women': 'Přidá benchmarky vůči tělesné váze pro cviky s osou (např. bench 0,65×, dřep 1×, mrtvý tah 1,25×) – jen orientačně.', 'sum.back': 'Vítej zpátky',
     'cardio.splitM': 'středně {n} min', 'cardio.splitV': 'intenzivně {n} min (počítá se 2×)', 'cardio.splitG': 'z toho {n} min z tréninků',
+    'nav.why': 'Proč to funguje', 'why.eyebrow': '{n} pravidel · revize trenéra 10/2026', 'why.title': 'Proč to funguje takhle',
+    'why.intro': 'Všechna pravidla, podle kterých Forge navrhuje váhy, počítá rekordy a motivuje – co dělá, proč a o jaké důkazy se opírá.', 'why.toc': 'Kapitoly', 'why.expand': 'Rozbalit vše',
+    'why.collapse': 'Sbalit vše', 'why.levels': 'Síla důkazů', 'why.level.strong': 'silné',
+    'why.level.moderate': 'střední', 'why.level.practice': 'praxe', 'why.levelText.strong': 'metaanalýzy nebo konsenzus odborných společností (ACSM, WHO, IOC).',
+    'why.levelText.moderate': 'jednotlivé studie nebo preprinty – pravděpodobné, ne jisté.', 'why.levelText.practice': 'trenérská praxe nebo designové rozhodnutí bez přímé studie.', 'why.note': 'Není to lékařská rada. Bolest, která do druhého dne neodezní, patří fyzioterapeutovi, ne aplikaci.',
+    'why.rule': 'Co aplikace dělá', 'why.why': 'Proč', 'why.sources': 'Zdroje',
+    'hist.pick': 'Vyber trénink vlevo.',
 };
