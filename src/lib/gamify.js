@@ -208,7 +208,11 @@ export const SCALES = {
   men: { bench: [0.5, 0.75, 1, 1.25, 1.5], squat: [0.75, 1, 1.5, 1.75, 2], deadlift: [1, 1.5, 2, 2.25, 2.5], ohp: [0.4, 0.5, 0.6, 0.75, 0.9], pullups: [1, 5, 10, 15, 20], total: [2, 2.5, 3, 4, 5] },
   women: { bench: [0.35, 0.5, 0.65, 0.85, 1.05], squat: [0.5, 0.75, 1, 1.25, 1.5], deadlift: [0.75, 1, 1.25, 1.6, 1.9], ohp: [0.25, 0.35, 0.45, 0.55, 0.65], pullups: [1, 3, 5, 8, 12], total: [1.5, 2, 2.5, 3, 3.6] },
 };
-export const LIFT_TIERS = [10, 25, 50, 75, 100]; // % e1RM oproti prvnímu tréninku cviku
+// Síla vůči sobě: počet „nových maxim“ – odhad 1RM překoná dosavadní nejlepší aspoň o 2,5 %.
+// Opakovatelné a bez stropu: začátečník je sbírá rychle, pokročilý pomaleji, ale vždy dosažitelně
+// (Steele 2023: +30–50 % za 1. rok u začátečníků; Latella 2024: powerlifteři ~+20 % za 10 let).
+export const LIFT_STEP = 0.025;
+export const LIFT_TIERS = [1, 3, 6, 10, 15];
 export const MAX_SELF_LIFTS = 4;
 export const TIERS = {
   workouts: [10, 50, 100, 250, 500],
@@ -299,9 +303,10 @@ function selfLifts(ws, { lifts = [], now, onlyKey = null }) {
     const v = bestE1Of(e.sets);
     if (!(v > 0)) continue;
     let x = info.get(e.key);
-    if (!x) { x = { key: e.key, name: e.name, first: v, firstDate: w.startedAt, best: v, bestDate: w.startedAt, n: 0, recent: 0 }; info.set(e.key, x); }
+    if (!x) { x = { key: e.key, name: e.name, first: v, firstDate: w.startedAt, best: v, bestDate: w.startedAt, n: 0, recent: 0, ref: v, steps: 0, stepDate: null }; info.set(e.key, x); }
     x.name = e.name; x.n++;
-    if (x.n === 2 && v > x.first) x.first = v; // základ = lepší z prvních 2 tréninků (první nese učení techniky)
+    if (x.n === 2 && v > x.first) { x.first = v; x.ref = v; } // základ = lepší z prvních 2 tréninků (první nese učení techniky)
+    if (x.n >= 3 && v >= x.ref * (1 + LIFT_STEP) - 1e-9) { x.steps++; x.ref = v; x.stepDate = w.startedAt; } // nové maximum
     if (w.startedAt > now - 120 * DAY) x.recent++;
     if (v > x.best) { x.best = v; x.bestDate = w.startedAt; }
   }
@@ -314,7 +319,7 @@ function selfLifts(ws, { lifts = [], now, onlyKey = null }) {
       .sort((a, b) => big(a.key) - big(b.key) || b.recent - a.recent || b.n - a.n)
       .slice(0, MAX_SELF_LIFTS);
   }
-  return list.map((x) => ({ ...x, pct: x.n >= 3 ? Math.max(0, (x.best / x.first - 1) * 100) : 0 }));
+  return list.map((x) => ({ ...x, pct: x.n >= 3 ? Math.max(0, (x.best / x.first - 1) * 100) : 0, nextKg: Math.ceil(x.ref * (1 + LIFT_STEP) * 2) / 2 }));
 }
 // Kandidáti pro ruční výběr: váhové cviky s historií, vícekloubové napřed, pak podle počtu tréninků
 export function liftCandidates(workouts) {
@@ -411,7 +416,7 @@ export function milestones(workouts, { goal = 3, groups = [], body = [], scale =
   // Síla vůči sobě
   if (want('lift')) {
     for (const x of selfLifts(ws, { lifts, now, onlyKey: only && isLiftId(only) ? only.slice(5) : null })) {
-      push('lift:' + x.key, x.pct, LIFT_TIERS, { lift: x.name, key: x.key, from: Math.round(x.first * 10) / 10, to: Math.round(x.best * 10) / 10, sessions: x.n, few: x.n < 3, bestDate: x.bestDate });
+      push('lift:' + x.key, x.steps, LIFT_TIERS, { lift: x.name, key: x.key, from: Math.round(x.first * 10) / 10, to: Math.round(x.best * 10) / 10, gain: Math.round(x.pct), nextKg: x.nextKg, needKg: Math.max(0, Math.round((x.nextKg - x.best) * 10) / 10), sessions: x.n, few: x.n < 3, bestDate: x.bestDate, stepDate: x.stepDate });
     }
   }
   // Volitelně: vůči tělesné váze (muži / ženy)

@@ -13,7 +13,7 @@ const kgRound = (v) => Math.round(v / 2.5) * 2.5;
 // Jednotka každého milníku (cíle v žebříčku i hodnota „tvůj nejlepší“)
 const UNIT = {
   workouts: 'workouts', tonnage: 't', streak: 'weeks', perfect: 'months', balanced: 'months', explorer: 'exercises', anniversary: 'years',
-  steady: 'days', forged: 'days', pullups: 'reps', levelup: 'weights', growth: 'pct', prs: 'records', rekindled: 'returns', lift: 'pct',
+  steady: 'days', forged: 'days', pullups: 'reps', levelup: 'weights', growth: 'pct', prs: 'records', rekindled: 'returns', lift: 'maxes',
 };
 const STRENGTH = new Set(['bench', 'squat', 'deadlift', 'ohp', 'total']);
 const fmtUnit = (id, v) => {
@@ -51,8 +51,8 @@ export default function MilestoneSheet({ m, onClose, onScale }) {
   } else if (m.id === 'steady') {
     bestVal = fmtUnit('steady', m.value); bestSub = t('mile.d.current', { n: m.current ?? 0 });
   } else if (lift) {
-    if (!m.few) { bestVal = fmtUnit('lift', m.value); bestSub = `${r1(m.from)} → ${r1(m.to)} kg e1RM · ${t('mile.u.sessions', { n: m.sessions })}`; }
-    else bestSub = t('mile.n.liftFew', { r: 'I', next: LIFT_TIERS[0] });
+    if (!m.few) { bestVal = fmtUnit(m.id, m.value); bestSub = `${r1(m.from)} → ${r1(m.to)} kg e1RM (+${m.gain} %) · ${t('mile.u.sessions', { n: m.sessions })}`; }
+    else bestSub = t('mile.n.liftFew');
   } else if (m.id === 'rekindled') {
     bestVal = fmtUnit('rekindled', m.value); if (m.last) bestSub = t('mile.d.lastBack', { d: day(m.last) });
   } else if (m.id === 'growth') {
@@ -84,7 +84,7 @@ export default function MilestoneSheet({ m, onClose, onScale }) {
           <div className="mile-boxes">
             <div className="mile-box"><span className="label">{t(m.id === 'steady' ? 'mile.d.bestRun' : 'mile.d.best')}</span><strong className="mono">{bestVal ?? '—'}</strong>{bestSub && <span className="small muted">{bestSub}</span>}</div>
             {m.next != null
-              ? <div className="mile-box is-next"><span className="label">{t('mile.d.next', { r: ROMAN[m.tier + 1] })}</span><strong className="mono">{strength ? `${r2(m.next)}×` : target(m.next)}</strong><span className="small">{m.nobody && strength ? t('mile.n.nobody') : [strength && bw ? `≈ ${fmtNum(kgRound(m.next * bw))} kg` : null, nextLeft(m)].filter(Boolean).join(' · ')}</span></div>
+              ? <div className="mile-box is-next"><span className="label">{t('mile.d.next', { r: ROMAN[m.tier + 1] })}</span><strong className="mono">{strength ? `${r2(m.next)}×` : target(m.next)}</strong><span className="small">{lift ? t('mile.d.liftNext', { kg: r1(m.nextKg), left: r1(m.needKg) }) : m.nobody && strength ? t('mile.n.nobody') : [strength && bw ? `≈ ${fmtNum(kgRound(m.next * bw))} kg` : null, nextLeft(m)].filter(Boolean).join(' · ')}</span></div>
               : <div className="mile-box is-next"><span className="label">{t('mile.maxed')}</span><strong className="mono">V</strong></div>}
           </div>
         )}
@@ -123,7 +123,7 @@ function nextLeft(m) {
   if (STRENGTH.has(m.id)) return m.needKg != null ? t('mile.d.kgLeft', { kg: fmtNum(m.needKg) }) : '';
   const left = m.next - m.value;
   if (m.id === 'tonnage') return t('mile.d.left', { v: `${r1(left)} t` });
-  if (m.id === 'growth' || isLiftId(m.id)) return t('mile.d.left', { v: `${Math.ceil(left)} %` });
+  if (m.id === 'growth') return t('mile.d.left', { v: `${Math.ceil(left)} %` });
   if (m.id === 'anniversary') return m.nextDate ? day(m.nextDate) : '';
   return t('mile.d.left', { v: fmtNum(Math.ceil(left)) });
 }

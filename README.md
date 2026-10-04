@@ -110,3 +110,4 @@ Revize z pohledu trenéra (ACSM 2026, WHO 2020, výzkum návyků). Aplikace teď
 - Poměry k tělesné váze: nejvyšší 90denní průměr za rok – hubnutí stupeň nezvedne (i u Big three).
 - RIR ve třech třídách (volná váha 2–3 / stroje 1–2 / izolace 0–2), „2 za 2“ bez RPE, rozšířený rozsah max 20, lehčí zátěž vždy aspoň o krok, joker 1× za 5 týdnů, základ silových milníků = lepší z prvních 2 tréninků.
 - Proč to funguje: nové zdroje, 7 nových pravidel, kapitola „Jak funguje Heat“ a slovníček.
+- 5.16: silové milníky = opakovatelná „nová maxima“ (odhad 1RM ≥ +2,5 % nad dosavadním nejlepším), stupně 1/3/6/10/15, cíl v kg v detailu.

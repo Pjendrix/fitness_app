@@ -16,7 +16,7 @@ const r2 = (v) => (Math.round(v * 100) / 100).toLocaleString(locale()); // 1,25Ã
 export function nextText(m) {
   if (m.next == null) return m.max === 1 ? t('mile.d.' + m.id) : t('mile.maxed');
   const r = ROMAN[m.tier + 1];
-  if (isLiftId(m.id)) return m.few ? t('mile.n.liftFew', { r, next: m.next }) : t('mile.n.lift', { r, next: m.next, v: Math.round(m.value) });
+  if (isLiftId(m.id)) return m.few ? t('mile.n.liftFew') : t('mile.n.lift', { r, next: m.next ?? m.max, v: m.value, n: m.next ?? m.max, kg: r1(m.nextKg) });
   switch (m.id) {
     case 'workouts': return t('mile.n.workouts', { r, next: m.next, v: m.value });
     case 'tonnage': return t('mile.n.tonnage', { r, next: fmtNum(m.next), v: r1(m.value) });

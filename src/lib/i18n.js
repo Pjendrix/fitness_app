@@ -353,8 +353,8 @@ const D = {
     'wg.st.miss': '{n}/{g}', 'wg.st.open': 'in progress', 'wg.st.none': '{n}/{g}',
     'wg.restWarn': 'This goal leaves no rest day. 1–2 rest days a week help recovery – rest is part of training.', 'heat.subRest': 'Rest days are part of training. Heat follows how steadily you hit your own weekly goal.', 'heat.subHot': 'You’re on pace with your goal of {g}× a week. Extra sessions won’t add Heat – rest is fine.',
     'heat.subPaused': 'Paused – Heat is on hold until you’re back.', 'mile.lift': 'Lift', 'mile.liftNone': 'Strength milestones appear once you’ve logged an exercise twice.',
-    'mile.selfNote': 'Compared with yourself: estimated 1RM vs your first session, on your most trained (or starred) exercises.', 'mile.n.lift': '{r} at +{next} % e1RM · now +{v} %', 'mile.n.liftFew': 'Counts from your 3rd session',
-    'mile.w.lift': 'Your best estimated 1RM on {lift} (sets of up to 10 reps) compared with the better of your first 2 sessions. Pick lifts under Strength → Choose lifts; without a choice the app uses big three or your most trained compound lifts.', 'mile.u.sessions': { one: '{n} session', other: '{n} sessions' }, 'mile.u.returns': { one: '{n} comeback', other: '{n} comebacks' },
+    'mile.selfNote': 'Compared with yourself: estimated 1RM vs your first session, on your most trained (or starred) exercises.', 'mile.n.lift': { one: '{r} at {n} new max · {v} so far · next at e1RM {kg} kg', other: '{r} at {n} new maxes · {v} so far · next at e1RM {kg} kg' }, 'mile.n.liftFew': 'Counts from your 3rd session',
+    'mile.w.lift': 'Each time your estimated 1RM on {lift} (sets of up to 10 reps) beats your previous best by at least 2.5 %, you collect a new max. The starting point is the better of your first 2 sessions. Repeatable with no ceiling – beginners collect them fast, experienced lifters slower, but always within reach.', 'mile.u.sessions': { one: '{n} session', other: '{n} sessions' }, 'mile.u.returns': { one: '{n} comeback', other: '{n} comebacks' },
     'mile.d.lastBack': 'last comeback {d}', 'mile.d.benchNote': 'Orientation only – the tiers come from competition data; women’s tiers are about 25–30 % lower.', 'scale.self': 'Vs yourself',
     'scale.men': 'Men', 'scale.women': 'Women', 'scale.sub.self': 'Progress vs your own first sessions on the lifts you train. Recommended.',
     'scale.sub.men': 'Adds body-weight benchmarks for barbell lifts (e.g. 1× bench, 1.5× squat, 2× deadlift) – orientation only.', 'scale.sub.women': 'Adds body-weight benchmarks for barbell lifts (e.g. 0.65× bench, 1× squat, 1.25× deadlift) – orientation only.', 'sum.back': 'Welcome back',
@@ -374,6 +374,7 @@ const D = {
     'dl.sub.light': 'same sets, lighter weights', 'dl.sub.short': 'fewer sets + easy cardio', 'dl.woLight': 'Same sets as usual, weights about 12 % lower, 3–4 reps in reserve. No records today – that’s the point.',
     'dl.woShort': 'Fewer sets, same weights, 3–4 reps in reserve. Finish with 10–15 min of easy cardio and log it on Home.',
     'sum.afterPause': 'Pause over – let’s go', 'err.rules': 'The server refused to save the setting. Deploy the new firestore.rules (Firebase Console → Firestore → Rules).',
+    'mile.u.maxes': { one: '{n} new max', other: '{n} new maxes' }, 'mile.d.liftNext': 'next new max at e1RM {kg} kg · {left} kg to go',
   }
 };
 

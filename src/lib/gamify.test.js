@@ -94,7 +94,7 @@ describe('milestones', () => {
     const ws = [W(30, [['hip-thrust', [[60, 10]]]], { }), W(20, [['hip-thrust', [[70, 10]]]]), W(10, [['hip-thrust', [[80, 10]]]])].map((w) => ({ ...w, exercises: w.exercises.map((e) => ({ ...e, name: 'Hip Thrust' })) }));
     const list = milestones(ws, { now: NOW });
     const lift = list.find((m) => m.id === 'lift:hip-thrust');
-    expect(lift).toMatchObject({ group: 'strength', lift: 'Hip Thrust', tier: 1 }); // základ = lepší z prvních 2 (70 kg) → +14 %
+    expect(lift).toMatchObject({ group: 'strength', lift: 'Hip Thrust', tier: 1, value: 1, gain: 14 }); // základ = lepší z prvních 2 (70 kg); 80 kg = 1 nové maximum
     expect(list.find((m) => m.id === 'bench')).toBeUndefined(); // poměr k váze jen na přání
   });
   it('auto lifts: compound only, big three first, at most 4', () => {
@@ -107,6 +107,16 @@ describe('milestones', () => {
     expect(lifts[0].id).toBe('lift:squat');
     expect(lifts.some((m) => m.id === 'lift:lateral-raise-dumbbell')).toBe(false);
     expect(lifts[0].few).toBe(true);
+  });
+  it('new maxes: each ≥ 2.5 % over the previous best, repeatable, next target in kg', () => {
+    // bench e1RM 105 → 106 (ne) → 108 (ano) → 109 (ne) → 111 (ano) → 115 (ano)
+    const kgs = [105, 104, 106, 108, 109, 111, 115].map((e) => e / (1 + 5 / 30)); // série × 5 → e1RM e
+    const ws = kgs.map((kg, k) => W(70 - k * 7, [['bench-press-barbell', [[kg, 5]]]]));
+    const m = milestones(ws, { now: NOW, lifts: ['bench-press-barbell'] }).find((x) => x.id === 'lift:bench-press-barbell');
+    expect(m.value).toBe(3);
+    expect(m.tier).toBe(2);
+    expect(m.nextKg).toBe(118); // 115 × 1,025 = 117,9 → 118
+    expect(m.gain).toBe(10);
   });
   it('own lift selection wins (order kept, isolation allowed)', () => {
     const ws = [W(9, [['squat', [[60, 5]]], ['curl', [[15, 10]]]]), W(5, [['squat', [[60, 5]]], ['curl', [[15, 10]]]])];

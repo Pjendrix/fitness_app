@@ -158,19 +158,19 @@ export const PRINCIPLES = [
     id: 'strength',
     title: { cs: 'Síla', en: 'Strength' },
     items: [
-      i('self', 'moderate', ['Silové milníky vůči sobě', 'Strength milestones vs yourself'], [
-        'Silové milníky měří růst odhadu 1RM proti lepšímu z tvých prvních 2 tréninků cviku (procento se ukáže od 3. tréninku). Cviky si vybereš sám (až 4); bez výběru aplikace vezme big three, pokud je děláš, jinak nejčastější vícekloubové cviky.',
-        'Strength milestones measure estimated 1RM growth against the better of your first 2 sessions of a lift (the percentage shows from the 3rd session). You pick the lifts (up to 4); without a choice the app uses big three if you do them, otherwise your most trained compound lifts.',
+      i('self', 'moderate', ['Silové milníky: nová maxima vůči sobě', 'Strength milestones: new maxes vs yourself'], [
+        'U každého vybraného cviku (až 4; bez výběru big three, jinak nejčastější vícekloubové) sbíráš „nová maxima“: kdykoli odhad 1RM překoná tvůj dosavadní nejlepší aspoň o 2,5 %. Výchozí bod je lepší z prvních 2 tréninků, počítá se od 3. tréninku. Stupně: 1, 3, 6, 10 a 15 nových maxim. V detailu vidíš i cíl v kg.',
+        'For each chosen lift (up to 4; without a choice big three, otherwise your most trained compounds) you collect “new maxes”: whenever your estimated 1RM beats your previous best by at least 2.5 %. The starting point is the better of your first 2 sessions, counting from the 3rd. Tiers: 1, 3, 6, 10 and 15 new maxes. The detail also shows the next target in kg.',
       ], [
-        'Hlavní sdělení ACSM 2026: rozhoduje, u čeho vydržíš. Procenta jsou férová bez ohledu na pohlaví – ženy rostou relativně víc, muži absolutně, a v datech powerlifterů rostly obě pohlaví podobně rychle. První trénink nese učení techniky a procenta by nafukoval, proto lepší ze dvou.',
-        'The key message of ACSM 2026: what matters is what you stick with. Percentages are fair regardless of sex – women gain more relatively, men more absolutely, and in powerlifting data both sexes progressed at a similar rate. The first session includes learning the technique and would inflate the percentages, hence the better of two.',
+        'Hlavní sdělení ACSM 2026: rozhoduje, u čeho vydržíš – cíl má být vždy dosažitelný. Pevná procenta od startu by trestala každého, kdo do aplikace přišel už natrénovaný: +100 % ze 105 kg benche je elitní výkon. Nové maximum o 2,5 % je reálné v každé fázi, jen ho začátečník dosáhne za týdny a zkušený za měsíce. Relativní krok je férový i mezi pohlavími (ženy rostou relativně víc, muži absolutně). První trénink nese učení techniky, proto lepší ze dvou.',
+        'The key message of ACSM 2026: what matters is what you stick with – a goal should always be reachable. Fixed percentages from the start would punish anyone who started the app already trained: +100 % from a 105 kg bench is an elite lift. A 2.5 % new max is realistic at every stage – beginners reach it in weeks, experienced lifters in months. A relative step is also fair between sexes (women gain more relatively, men absolutely). The first session includes learning the technique, hence the better of two.',
       ], [S.acsm, S.jones, S.latella20]),
-      i('selfTiers', 'moderate', ['Jak realistické jsou stupně +10 až +100 %', 'How realistic the +10 to +100 % tiers are'], [
-        'Stupně I–V: +10, +25, +50, +75 a +100 % odhadu 1RM.',
-        'Tiers I–V: +10, +25, +50, +75 and +100 % estimated 1RM.',
+      i('selfTiers', 'moderate', ['Jak rychle přibývají nová maxima', 'How fast new maxes come'], [
+        'Stupně I–V: 1, 3, 6, 10 a 15 nových maxim (každé aspoň +2,5 % proti předchozímu).',
+        'Tiers I–V: 1, 3, 6, 10 and 15 new maxes (each at least +2.5 % over the previous one).',
       ], [
-        'Ve velkém souboru 14 690 lidí přidali začátečníci typicky 30–50 % za první rok, pak se růst zpomalil a ustálil; soutěžní powerlifteři přidají za první rok jen ~7,5–12,5 %. +10 a +25 % jsou tedy stupně na týdny až měsíce, +50 % zhruba na rok pro začátečníky a +75/+100 % na roky. Kdo do aplikace přišel už natrénovaný, horní stupně nemusí nikdy dosáhnout – a to je v pořádku.',
-        'In a large sample of 14,690 people beginners typically gained 30–50 % in the first year, then progress slowed and levelled off; competitive powerlifters gain only ~7.5–12.5 % in their first year. +10 and +25 % are tiers for weeks to months, +50 % about a year for beginners, +75/+100 % years. If you started the app already trained you may never reach the top tiers – and that’s fine.',
+        'Začátečníci přidají typicky 30–50 % za první rok (velký soubor 14 690 lidí), takže stupeň V (15 maxim ≈ +45 % a víc) zvládnou zhruba za rok až dva. Soutěžní powerlifteři přidají za první rok jen ~7,5–12,5 % a za 10 let ~20 %, tedy 3–5 nových maxim ročně – i pro pokročilé je tak každý stupeň otázkou měsíců až let, ne nemožnosti. Hranice 2,5 % odpovídá zhruba jednomu kroku váhy nebo 1 opakování navíc u těžké série.',
+        'Beginners typically gain 30–50 % in the first year (a large sample of 14,690 people), so tier V (15 maxes ≈ +45 % or more) takes about one to two years. Competitive powerlifters gain only ~7.5–12.5 % in their first year and ~20 % over 10 years, i.e. 3–5 new maxes a year – so even for experienced lifters each tier is a matter of months to years, not impossible. The 2.5 % threshold is roughly one weight step or one extra rep on a heavy set.',
       ], [S.steele, S.latella24]),
       i('bw', 'moderate', ['Poměr k tělesné váze jen volitelně a podle pohlaví', 'Body-weight ratios: optional and by sex'], [
         'Benchmarky vůči tělesné váze se zapínají v Nastavení zvlášť pro muže a ženy. Počítají se z odhadu 1RM a z NEJVYŠŠÍHO 90denního průměru váhy za poslední rok – hubnutí tedy poměr nikdy nezvedne. Nikdy se neukazují jako „nejbližší cíl“.',
