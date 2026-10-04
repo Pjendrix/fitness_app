@@ -447,13 +447,13 @@ export default function Workout({ go }) {
         <button className="btn btn-finish" onClick={finish}>{t('wo.finish')}</button>
       </header>
       <div className="progress" aria-hidden="true"><i style={{ width: `${total ? (doneCount / total) * 100 : 0}%` }} /></div>
-      {active.deload && <p className="card deload-note small"><b>{t('dl.woTitle')}</b> {t('dl.woText')}</p>}
+      {active.deload && <p className="card deload-note small"><b>{t('dl.woTitle')}</b> {t(active.deload === 'light' ? 'dl.woLight' : 'dl.woShort')}</p>}
       {active.exercises.length > 0 && workouts.length < 5 && <p className="muted small swipe-hint">{t(swipe ? 'wo.swipeHint2' : 'wo.swipeHint')}</p>}
 
       {active.exercises.map((e, ei) => {
         const prevEx = active.exercises[ei - 1], nextEx = active.exercises[ei + 1];
         const first = e.ss && prevEx?.ss !== e.ss;
-        return <ExerciseCard key={e.id} ex={e} step={stepOf(e.name)} pb={prs[e.key]} stat={stats.get(e.key)} reach={gamify} recent={recent.get(e.key)} deload={Boolean(active.deload)} ssLabel={first ? ssLetter(active, e.ss) : ''} ssEnd={!e.ss || nextEx?.ss !== e.ss} handlers={handlers}
+        return <ExerciseCard key={e.id} ex={e} step={stepOf(e.name)} pb={prs[e.key]} stat={stats.get(e.key)} reach={gamify} recent={recent.get(e.key)} deload={active.deload === true ? 'short' : active.deload || null} ssLabel={first ? ssLetter(active, e.ss) : ''} ssEnd={!e.ss || nextEx?.ss !== e.ss} handlers={handlers}
           quick={quick?.exId === e.id ? quick.setId : null} swipe={swipe} />;
       })}
 

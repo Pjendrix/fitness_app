@@ -101,6 +101,8 @@ describe('validace', () => {
     await assertFails(setDoc(doc(d, 'users/friend/meta/settings'), { breaks: 'pause' }));
     await assertSucceeds(setDoc(doc(d, 'users/friend/meta/settings'), { cardioGoal: 150 }));
     await assertFails(setDoc(doc(d, 'users/friend/meta/settings'), { cardioGoal: 1000 }));
+    await assertSucceeds(setDoc(doc(d, 'users/friend/meta/settings'), { strengthLifts: ['squat', 'hip-thrust'] }));
+    await assertFails(setDoc(doc(d, 'users/friend/meta/settings'), { strengthLifts: ['a', 'b', 'c', 'd', 'e'] }));
     await assertFails(setDoc(doc(d, 'users/friend/meta/other'), { a: 1 }));
   });
 });

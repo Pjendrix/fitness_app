@@ -179,7 +179,7 @@ service cloud.firestore {
           && firstIsMap(d.own.templates, ['id', 'exercises'])));
     }
     function validSettings(d) {
-      return d.keys().hasOnly(['weeklyGoal', 'pinnedLifts', 'appearance', 'strengthScale', 'gamify', 'breaks', 'cardioGoal'])
+      return d.keys().hasOnly(['weeklyGoal', 'pinnedLifts', 'appearance', 'strengthScale', 'gamify', 'breaks', 'cardioGoal', 'strengthLifts'])
         && (!('appearance' in d) || validLook(d.appearance))
         && (!('weeklyGoal' in d) || (d.weeklyGoal is int && d.weeklyGoal >= 1 && d.weeklyGoal <= 7))
         && (!('pinnedLifts' in d) || (d.pinnedLifts is list && d.pinnedLifts.size() <= 5))
@@ -187,7 +187,8 @@ service cloud.firestore {
         && (!('gamify' in d) || d.gamify is bool)
         // 5.12: pauzy a lehké týdny [{kind, from, to}] + týdenní cíl kardia (min)
         && (!('breaks' in d) || (d.breaks is list && d.breaks.size() <= 24 && firstIsMap(d.breaks, ['kind', 'from'])))
-        && (!('cardioGoal' in d) || d.cardioGoal in [0, 75, 150, 300]);
+        && (!('cardioGoal' in d) || d.cardioGoal in [0, 75, 150, 300])
+        && (!('strengthLifts' in d) || (d.strengthLifts is list && d.strengthLifts.size() <= 4));
     }
   }
 }

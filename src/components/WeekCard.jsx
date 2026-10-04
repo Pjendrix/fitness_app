@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { heatAt, heatState, monday } from '../lib/gamify.js';
-import { activeBreak } from '../lib/breaks.js';
+import { activeBreak, deloadMode } from '../lib/breaks.js';
 import { cardioWeek } from '../lib/cardio.js';
 import { locale, t } from '../lib/i18n.js';
 import { ArrowIcon, PlusIcon } from './Icons.jsx';
@@ -76,7 +76,7 @@ export default function WeekCard({ onOpen }) {
         <div className="week-row week-break">
           <span className="grow small">
             <b>{pause ? t('brk.pauseOn', { d: dm(pause.from) }) : t('brk.deloadOn', { d: dm(deload.to - 1) })}</b>
-            <span className="muted"> · {pause ? t('brk.pauseSub') : t('brk.deloadSub')}</span>
+            <span className="muted"> · {pause ? t('brk.pauseSub') : t('dl.sub.' + deloadMode(deload))}</span>
           </span>
           <button className="btn btn-ghost btn-sm" onClick={() => (pause ? endPause() : endDeload())}>{t('brk.end')}</button>
         </div>

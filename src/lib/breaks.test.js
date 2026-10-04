@@ -8,6 +8,7 @@ describe('breaks', () => {
   it('cleanBreaks: drops invalid entries, sorts, keeps open end', () => {
     const list = cleanBreaks([{ kind: 'x', from: 1 }, { kind: 'pause', from: 5, to: 3 }, { kind: 'deload', from: 20, to: 30 }, { kind: 'pause', from: 10, to: null }]);
     expect(list).toEqual([{ kind: 'pause', from: 10, to: null }, { kind: 'deload', from: 20, to: 30 }]);
+    expect(cleanBreaks([{ kind: 'deload', from: 1, to: 2, mode: 'short' }, { kind: 'pause', from: 3, to: 4, mode: 'short' }])).toEqual([{ kind: 'deload', from: 1, to: 2, mode: 'short' }, { kind: 'pause', from: 3, to: 4 }]);
   });
   it('activeBreak: running pause and deload with a future end', () => {
     const b = [{ kind: 'pause', from: MON, to: null }, { kind: 'deload', from: MON - 10 * DAY, to: MON - 3 * DAY }];

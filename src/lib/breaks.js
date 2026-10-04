@@ -1,17 +1,20 @@
 // Pauzy a lehké týdny (nastavení účtu: settings.breaks). Čisté funkce, testy v breaks.test.js.
 //   pause  – nemoc / dovolená / zranění: Heat i série stojí, čas se „zastaví“
 //   deload – lehký týden: méně sérií, stejné váhy; týden se počítá jako splněný
-// Záznam: { kind: 'pause' | 'deload', from: ms, to: ms | null } (to null = pořád běží)
+// Záznam: { kind: 'pause' | 'deload', from: ms, to: ms | null, mode? } (to null = pořád běží)
+// mode u lehkého týdne: 'light' = stejné série, váhy −12,5 % · 'short' = ~60 % sérií, stejné váhy + krátké kardio
 const DAY = 864e5;
 export const BREAK_KINDS = ['pause', 'deload'];
 export const MAX_BREAKS = 24;
 export const DELOAD_DAYS = 7;
+export const DELOAD_MODES = ['light', 'short'];
+export const deloadMode = (b) => (b ? (b.mode === 'short' ? 'short' : 'light') : null);
 
 const endOf = (b, now) => (b.to == null ? now : b.to);
 // Platné záznamy seřazené podle začátku
 export const cleanBreaks = (list) => (Array.isArray(list) ? list : [])
   .filter((b) => b && BREAK_KINDS.includes(b.kind) && Number.isFinite(b.from) && (b.to == null || (Number.isFinite(b.to) && b.to >= b.from)))
-  .map((b) => ({ kind: b.kind, from: Math.round(b.from), to: b.to == null ? null : Math.round(b.to) }))
+  .map((b) => ({ kind: b.kind, from: Math.round(b.from), to: b.to == null ? null : Math.round(b.to), ...(b.kind === 'deload' && DELOAD_MODES.includes(b.mode) ? { mode: b.mode } : {}) }))
   .sort((a, b) => a.from - b.from)
   .slice(-MAX_BREAKS);
 

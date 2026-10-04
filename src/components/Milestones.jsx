@@ -7,6 +7,7 @@ import { fmtDate, fmtNum } from '../lib/util.js';
 import MonthlyRecap from './MonthlyRecap.jsx';
 import MilestoneSheet, { MilestonesHelp } from './MilestoneSheet.jsx';
 import { ArrowIcon } from './Icons.jsx';
+import LiftPicker from './LiftPicker.jsx';
 
 const r1 = (v) => fmtNum(Math.round(v * 10) / 10);
 const r2 = (v) => (Math.round(v * 100) / 100).toLocaleString(locale()); // 1,25× – dvě desetinná místa, desetinná čárka v češtině
@@ -66,15 +67,16 @@ function Row({ m, onOpen }) {
 // Milestones: karty s úrovněmi I–V, nahoře nejbližší další úroveň, dole měsíční kapitoly
 // part: 'all' (mobil) | 'side' (souhrn + kapitoly) | 'list' (skupiny karet) – desktop je skládá do dvou sloupců
 export default function Milestones({ go, part = 'all' }) {
-  const { workouts, weeklyGoal, main, body, strengthScale, breaks, pinnedLifts } = useStore();
+  const { workouts, weeklyGoal, main, body, strengthScale, breaks, strengthLifts } = useStore();
   const groups = useMemo(() => main.groups.map((g) => g.id), [main]);
-  const list = useMemo(() => milestones(workouts, { goal: weeklyGoal, groups, body, scale: strengthScale, breaks, pinned: pinnedLifts }), [workouts, weeklyGoal, groups, body, strengthScale, breaks, pinnedLifts]);
+  const list = useMemo(() => milestones(workouts, { goal: weeklyGoal, groups, body, scale: strengthScale, breaks, lifts: strengthLifts }), [workouts, weeklyGoal, groups, body, strengthScale, breaks, strengthLifts]);
   const closest = closestMilestone(list);
   const earned = milestoneTiers(list);
   const hidden = list.filter((m) => m.secret && !m.tier).length; // tajné: vidět až po získání
   const [recap, setRecap] = useState(null);
   const [open, setOpen] = useState(null); // detail milníku
   const [help, setHelp] = useState(false);
+  const [picking, setPicking] = useState(false); // výběr cviků pro sílu
   // Měsíční kapitoly: posledních 6 dokončených měsíců s aspoň jedním tréninkem
   const months = useMemo(() => {
     const out = [];
@@ -122,7 +124,10 @@ export default function Milestones({ go, part = 'all' }) {
         <h3 className="label mile-group-title">{t('mile.g.' + g)}</h3>
         {rows.length > 0 ? <div className="card mile-list">{rows.map((m) => <Row key={m.id} m={m} onOpen={setOpen} />)}</div> : <p className="muted small mile-note">{t('mile.liftNone')}</p>}
         {g === 'strength' && (
-          <p className="muted small mile-note">{t(strengthScale === 'self' ? 'mile.selfNote' : 'mile.scaleNote', { s: t('scale.' + strengthScale) })} <button className="link" onClick={() => go('settings')}>{t('mile.scaleChange')}</button></p>
+          <p className="muted small mile-note">
+            {t(strengthLifts.length ? 'mile.selfNoteOwn' : 'mile.selfNoteAuto')} <button className="link" onClick={() => setPicking(true)}>{t('lp.open')}</button>
+            {strengthScale !== 'self' && <> · {t('mile.scaleNote', { s: t('scale.' + strengthScale) })} <button className="link" onClick={() => go('settings')}>{t('mile.scaleChange')}</button></>}
+          </p>
         )}
       </section>
     );
@@ -149,6 +154,7 @@ export default function Milestones({ go, part = 'all' }) {
       {recap && <MonthlyRecap month={recap} onClose={() => setRecap(null)} />}
       {open && <MilestoneSheet m={list.find((x) => x.id === open.id) || open} onClose={() => setOpen(null)} onScale={() => { setOpen(null); go('settings'); }} />}
       {help && <MilestonesHelp onClose={() => setHelp(false)} />}
+      {picking && <LiftPicker onClose={() => setPicking(false)} />}
     </>
   );
 }

@@ -7,7 +7,7 @@ import { defaultStep, learnedSteps } from '../progress.js';
 import { t } from '../i18n.js';
 import { MAX_PINS, migrateTemplate, toLibEntry } from './model.js';
 import { defaultBw } from '../body.js';
-import { activeBreak, cleanBreaks, DELOAD_DAYS } from '../breaks.js';
+import { activeBreak, cleanBreaks, DELOAD_DAYS, DELOAD_MODES } from '../breaks.js';
 import { normScale } from '../gamify.js';
 import { CARDIO_GOALS } from './useAccountData.js';
 
@@ -18,7 +18,7 @@ const cleanMainTpl = (x) => { const { builtin: _b, ...rest } = x; return rest; }
 export function useAccountActions({ api, fail, notify, remember, user, acc, workouts }) {
   const {
     custom, setCustom, library, setLibrary, mainCfg, setMainCfg, setStarter, appearance, setAppearanceState,
-    setWeeklyGoalState, pinnedLifts, setPinnedLifts, setStrengthScaleState, setGamifyState, breaks, setBreaks, setCardioGoalState,
+    setWeeklyGoalState, pinnedLifts, setPinnedLifts, setStrengthScaleState, setGamifyState, breaks, setBreaks, setCardioGoalState, setStrengthLiftsState,
   } = acc;
 
   // ——— Hlavní šablony (vlastní konfigurace účtu) ———
@@ -127,12 +127,12 @@ export function useAccountActions({ api, fail, notify, remember, user, acc, work
   const endPause = useCallback((at = Date.now()) => {
     writeBreaks(breaksRef.current.map((b) => (b.kind === 'pause' && b.to == null ? { ...b, to: Math.max(b.from, at) } : b)));
   }, [writeBreaks]);
-  // Lehký týden: 7 dní od dneška (méně sérií, stejné váhy); ukončit jde dřív
-  const startDeload = useCallback(() => {
+  // Lehký týden: 7 dní od dneška; režim 'light' (lehčí váhy) nebo 'short' (méně sérií + kardio); ukončit jde dřív
+  const startDeload = useCallback((mode = 'light') => {
     const d = new Date(); d.setHours(0, 0, 0, 0);
     const from = d.getTime();
     if (activeBreak(breaksRef.current, 'deload')) return;
-    writeBreaks([...breaksRef.current, { kind: 'deload', from, to: from + DELOAD_DAYS * 864e5 }]);
+    writeBreaks([...breaksRef.current, { kind: 'deload', from, to: from + DELOAD_DAYS * 864e5, mode: DELOAD_MODES.includes(mode) ? mode : 'light' }]);
   }, [writeBreaks]);
   const endDeload = useCallback(() => {
     const now = Date.now();
@@ -145,6 +145,12 @@ export function useAccountActions({ api, fail, notify, remember, user, acc, work
     const after = workouts.filter((x) => x.startedAt > p.from).map((x) => x.startedAt);
     if (after.length) endPause(Math.min(...after));
   }, [breaks, workouts, endPause]);
+  // Vlastní výběr cviků pro silové milníky (max 4; [] = automaticky vícekloubové)
+  const setStrengthLifts = useCallback((keys) => {
+    const next = [...new Set((keys || []).filter((k) => typeof k === 'string'))].slice(0, 4);
+    setStrengthLiftsState(next);
+    api?.saveSettings({ strengthLifts: next }).catch(fail('err.save'));
+  }, [api, fail, setStrengthLiftsState]);
   // Týdenní cíl kardia (minuty; 0 = jen sledovat)
   const setCardioGoal = useCallback((v) => {
     const next = CARDIO_GOALS.includes(v) ? v : 150;
@@ -223,9 +229,9 @@ export function useAccountActions({ api, fail, notify, remember, user, acc, work
     main, templates, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, chooseStarter,
     saveTemplate, deleteTemplate, setAppearance, setWeeklyGoal, togglePin, setStrengthScale, setGamify,
     typeOf, catOf, stepOf, stepIsManual, infoOf, saveLibrary, addToLibrary, resetLibrary, setStep, bwOf, setBw,
-    startPause, endPause, startDeload, endDeload, setCardioGoal,
+    startPause, endPause, startDeload, endDeload, setCardioGoal, setStrengthLifts,
   }), [main, templates, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, chooseStarter,
     saveTemplate, deleteTemplate, setAppearance, setWeeklyGoal, togglePin, setStrengthScale, setGamify,
     typeOf, catOf, stepOf, stepIsManual, infoOf, saveLibrary, addToLibrary, resetLibrary, setStep, bwOf, setBw,
-    startPause, endPause, startDeload, endDeload, setCardioGoal]);
+    startPause, endPause, startDeload, endDeload, setCardioGoal, setStrengthLifts]);
 }

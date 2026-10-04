@@ -15,11 +15,12 @@ import { getRestDefault, REST_OPTIONS, setRestDefault } from '../lib/rest.js';
 import { useRef, useState } from 'react';
 import { setPref, usePref } from '../lib/prefs.js';
 import { useViewMode } from '../lib/viewMode.js';
-import { activeBreak } from '../lib/breaks.js';
+import { activeBreak, deloadMode } from '../lib/breaks.js';
+import { useStartDeload } from '../lib/useStartDeload.js';
 import { CARDIO_GOALS } from '../lib/state/useAccountData.js';
 
 export default function Settings({ go }) {
-  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, deleteAccount, notify, starter, chooseStarter, resetDemo, endTrial, importData, importBody, body, online, sync, strengthScale, setStrengthScale, gamify, setGamify, breaks, startPause, endPause, startDeload, endDeload, cardioGoal, setCardioGoal, activities } = useStore();
+  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, deleteAccount, notify, starter, chooseStarter, resetDemo, endTrial, importData, importBody, body, online, sync, strengthScale, setStrengthScale, gamify, setGamify, breaks, startPause, endPause, endDeload, cardioGoal, setCardioGoal, activities } = useStore();
   const trial = mode === 'trial';
   const demo = mode === 'demo' || trial; // lokální režimy: bez serveru, bez mazání účtu
   const [requesting, setRequesting] = useState(false);
@@ -31,6 +32,7 @@ export default function Settings({ go }) {
   const [showAccess, setShowAccess] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const { desktop } = useViewMode();
+  const askDeload = useStartDeload();
   const paused = activeBreak(breaks, 'pause');
   const deloading = activeBreak(breaks, 'deload');
 
@@ -135,8 +137,8 @@ export default function Settings({ go }) {
         <div className="row"><span>{t('brk.pause')}<span className="muted small row-sub">{paused ? t('brk.pauseOn', { d: new Date(paused.from).toLocaleDateString(locale()) }) : t('brk.pauseHelp')}</span></span>
           <button type="button" className="switch" role="switch" aria-checked={Boolean(paused)} aria-label={t('brk.pause')} onClick={() => (paused ? endPause() : startPause())} />
         </div>
-        <div className="row"><span>{t('brk.deload')}<span className="muted small row-sub">{deloading ? t('brk.deloadOn', { d: new Date(deloading.to - 1).toLocaleDateString(locale()) }) : t('brk.deloadHelp')}</span></span>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => (deloading ? endDeload() : startDeload())}>{deloading ? t('brk.end') : t('brk.start')}</button>
+        <div className="row"><span>{t('brk.deload')}<span className="muted small row-sub">{deloading ? `${t('brk.deloadOn', { d: new Date(deloading.to - 1).toLocaleDateString(locale()) })} · ${t('dl.mode.' + deloadMode(deloading))}` : t('brk.deloadHelp')}</span></span>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => (deloading ? endDeload() : askDeload())}>{deloading ? t('brk.end') : t('brk.start')}</button>
         </div>
         <div className="row row-stack">
           <span>{t('cardio.goal')}</span>

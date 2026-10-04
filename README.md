@@ -98,3 +98,9 @@ Revize z pohledu trenéra (ACSM 2026, WHO 2020, výzkum návyků). Aplikace teď
 - **Odpuštění:** Heat se počítá vůči vlastnímu cíli (max. 1 trénink denně a cíl za týden), návrat po 7+ dnech přitopí 2×, pauza (nemoc/dovolená) Heat i sérii zmrazí, 1 nesplněný týden za 4 týdny = joker. Nový milník Návrat, zrušeno „Tři dny po sobě“ a „Hot session“.
 - **Kardio:** rychlý záznam (druh, minuty, intenzita) na kartě týdne, minuty podle WHO (intenzivní × 2) + kardio cviky z tréninků; cíl 150 min (nastavitelný). Do cíle tréninků ani Heatu se nepočítá.
 - **Nutné nasadit `firestore.rules`** (nové nastavení `breaks`, `cardioGoal`, nové hodnoty `strengthScale` a kolekce `users/{uid}/activities`).
+
+## 5.13–5.14
+- Desktop: sekce **Proč to funguje** (pravidla aplikace, důvody, zdroje – `src/data/principles.js`), Historie a Nastavení ve dvou sloupcích.
+- Silové milníky: vlastní výběr až 4 cviků (Statistiky → Progres → Síla → Vybrat cviky); automaticky jen vícekloubové, big three napřed.
+- Lehký týden ve dvou režimech: **Lehké váhy** (stejné série, váhy −12,5 %, rovnou předvyplněné) a **Kratší + kardio** (~60 % sérií + 10–15 min kardia).
+- Pravidla: nový klíč `strengthLifts` v nastavení → znovu nasadit `firestore.rules`.

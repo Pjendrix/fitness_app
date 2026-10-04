@@ -3,13 +3,15 @@ import { useStore } from '../lib/store.jsx';
 import { deloadAdvice } from '../lib/progress.js';
 import { t } from '../lib/i18n.js';
 import { XIcon } from './Icons.jsx';
+import { useStartDeload } from '../lib/useStartDeload.js';
 
 const snoozeKey = (uid) => `forge:dlSnooze:${uid}`;
 const SNOOZE_DAYS = 14;
 
 // Návrh lehkého týdne na Home – nabídka, nikdy povinnost. „Teď ne“ ho schová na 2 týdny.
 export default function DeloadCard() {
-  const { user, workouts, weeklyGoal, breaks, startDeload } = useStore();
+  const { user, workouts, weeklyGoal, breaks } = useStore();
+  const startDeload = useStartDeload();
   const [snoozed, setSnoozed] = useState(() => { try { return Number(localStorage.getItem(snoozeKey(user?.uid))) || 0; } catch { return 0; } });
   const advice = useMemo(() => deloadAdvice(workouts, { goal: weeklyGoal, breaks }), [workouts, weeklyGoal, breaks]);
   if (!advice || snoozed > Date.now()) return null;

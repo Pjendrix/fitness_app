@@ -129,12 +129,12 @@ export const PRINCIPLES = [
         level: 'strong',
         title: { cs: 'Lehký týden (deload)', en: 'Light week (deload)' },
         rule: {
-          cs: '7 dní s asi 60 % sérií, stejnými vahami a RIR 3–4. Aplikace ho nabídne po 8 týdnech bez přestávky nebo když výkon klesne u 2+ cviků. Týden se počítá jako splněný.',
-          en: '7 days with about 60 % of the sets, the same weights and RIR 3–4. The app suggests it after 8 weeks without a break or when performance drops on 2+ exercises. The week counts as on plan.',
+          cs: '7 dní lehčího tréninku ve dvou režimech: „Lehké váhy“ (stejné série i délka tréninku, váhy asi o 12 % níž) nebo „Kratší + kardio“ (asi 60 % sérií, stejné váhy, na konec 10–15 min lehkého kardia). Aplikace ho nabídne po 8 týdnech bez přestávky nebo při poklesu výkonu u 2+ cviků. Týden se počítá jako splněný.',
+          en: '7 days of easier training in two modes: “Light weights” (same sets and session length, weights about 12 % lower) or “Shorter + cardio” (about 60 % of the sets, same weights, then 10–15 min of easy cardio). The app suggests it after 8 weeks without a break or when performance drops on 2+ exercises. The week counts as on plan.',
         },
         why: {
-          cs: 'Expertní konsenzus: deload zhruba každé 4–6 týdnů na ~7 dní, hlavně snížením objemu, plánovaně nebo podle únavy. Týden úplného volna vedl ke stejnému růstu svalů, ale o něco menší síle – proto lehký trénink místo úplné pauzy. Je to nabídka, ne povinnost.',
-          en: 'Expert consensus: a deload about every 4–6 weeks for ~7 days, mainly by cutting volume, planned or when fatigued. A week fully off gave the same muscle growth but slightly less strength – hence light training instead of a full break. It’s an offer, not a rule.',
+          cs: 'Expertní konsenzus: deload zhruba každé 4–6 týdnů na ~7 dní, nejčastěji snížením objemu, ale snížení intenzity je taky platná cesta. Týden úplného volna vedl ke stejnému růstu svalů, ale o něco menší síle – proto lehký trénink místo pauzy. Režim „Lehké váhy“ drží rutinu (stejný den i čas), což je pro návyk důležitější než přesná dávka; „Kratší + kardio“ víc uleví kloubům a pomůže splnit minuty WHO.',
+          en: 'Expert consensus: a deload about every 4–6 weeks for ~7 days, most often by cutting volume, though lowering intensity is also valid. A week fully off gave the same muscle growth but slightly less strength – hence light training instead of a break. “Light weights” keeps your routine (same day and time), which matters more for the habit than the exact dose; “Shorter + cardio” gives joints more rest and helps reach the WHO minutes.',
         },
         sources: [S.bell, S.coleman],
       },
@@ -183,12 +183,12 @@ export const PRINCIPLES = [
         level: 'strong',
         title: { cs: 'Silové milníky vůči sobě', en: 'Strength milestones vs yourself' },
         rule: {
-          cs: 'Výchozí silové milníky měří růst odhadu 1RM proti tvému prvnímu tréninku na cvicích, které opravdu děláš (připnuté, pak nejčastější).',
-          en: 'Default strength milestones measure estimated 1RM growth against your first session on the exercises you actually train (starred first, then the most frequent).',
+          cs: 'Silové milníky měří růst odhadu 1RM proti tvému prvnímu tréninku. Cviky si vybereš sám (až 4); bez výběru aplikace vezme big three, pokud je děláš, jinak nejčastější vícekloubové cviky. Izolace se automaticky nevybírají.',
+          en: 'Strength milestones measure estimated 1RM growth against your first session. You pick the lifts (up to 4); without a choice the app uses big three if you do them, otherwise your most trained compound lifts. Isolation exercises are never picked automatically.',
         },
         why: {
-          cs: 'Hlavní sdělení ACSM 2026: rozhoduje, u čeho vydržíš. Každý z vás má jiný split – srovnání s univerzálními čísly by Chiaře bez benche a dřepu s osou nic neukázalo. Pokrok vůči sobě je navíc informační zpětná vazba, která motivaci podporuje.',
-          en: 'The key message of ACSM 2026: what matters is what you stick with. Each of you runs a different split – universal numbers would show nothing for a split without barbell bench or squat. Progress vs yourself is also informational feedback that supports motivation.',
+          cs: 'Hlavní sdělení ACSM 2026: rozhoduje, u čeho vydržíš. Každý má jiný split – napevno dané big three by u splitu bez benche a dřepu s osou zůstalo prázdné. Vícekloubové cviky nejlépe ukazují celkovou sílu; u izolací je odhad 1RM málo vypovídající. Pokrok vůči sobě je navíc informační zpětná vazba, která motivaci podporuje.',
+          en: 'The key message of ACSM 2026: what matters is what you stick with. Splits differ – a fixed big three would stay empty for a split without barbell bench or squat. Compound lifts reflect overall strength best; estimated 1RM on isolation work says little. Progress vs yourself is also informational feedback that supports motivation.',
         },
         sources: [S.acsm, S.deci],
       },

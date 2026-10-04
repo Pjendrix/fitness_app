@@ -25,6 +25,7 @@ export function useAccountData(api, user, fail) {
   const [pinnedLifts, setPinnedLifts] = useState([]);
   const [strengthScale, setStrengthScaleState] = useState('self'); // Milestones: síla vůči sobě / benchmark muži / ženy
   const [breaks, setBreaks] = useState([]); // pauzy a lehké týdny
+  const [strengthLifts, setStrengthLiftsState] = useState([]); // vlastní výběr cviků pro silové milníky (max 4; prázdné = auto)
   const [cardioGoal, setCardioGoalState] = useState(DEFAULT_CARDIO_GOAL); // minut kardia týdně (0 = bez cíle)
   const [gamify, setGamifyState] = useState(true); // Forge Heat (Progress, Within reach, řádek na Home) – vypínatelné
 
@@ -67,6 +68,7 @@ export function useAccountData(api, user, fail) {
       if (!Array.isArray(pins)) { try { pins = JSON.parse(localStorage.getItem(`forge:pins:${user.uid}`)); } catch { pins = null; } }
       setStrengthScaleState(normScale(d.settings?.strengthScale));
       setBreaks(cleanBreaks(d.settings?.breaks));
+      setStrengthLiftsState(Array.isArray(d.settings?.strengthLifts) ? d.settings.strengthLifts.filter((k) => typeof k === 'string').slice(0, 4) : []);
       setCardioGoalState(CARDIO_GOALS.includes(d.settings?.cardioGoal) ? d.settings.cardioGoal : DEFAULT_CARDIO_GOAL);
       setGamifyState(d.settings?.gamify !== false);
       setPinnedLifts(Array.isArray(pins) ? pins.filter((k) => typeof k === 'string').slice(0, MAX_PINS) : []);
@@ -76,12 +78,12 @@ export function useAccountData(api, user, fail) {
   }, [api, fail]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const resetAccount = useCallback(() => {
-    setCustom([]); setPrs({}); setLibrary(EXERCISES); setStarter(null); setMainCfg(null); setAppearanceState(null); setPinnedLifts([]); setStrengthScaleState('self'); setBreaks([]); setCardioGoalState(DEFAULT_CARDIO_GOAL); setGamifyState(true);
+    setCustom([]); setPrs({}); setLibrary(EXERCISES); setStarter(null); setMainCfg(null); setAppearanceState(null); setPinnedLifts([]); setStrengthScaleState('self'); setBreaks([]); setStrengthLiftsState([]); setCardioGoalState(DEFAULT_CARDIO_GOAL); setGamifyState(true);
   }, []);
 
   return {
     metaLoading, metaReady, custom, setCustom, prs, setPrs, library, setLibrary, starter, setStarter, mainCfg, setMainCfg,
     appearance, setAppearanceState, weeklyGoal, setWeeklyGoalState, pinnedLifts, setPinnedLifts, strengthScale, setStrengthScaleState, gamify, setGamifyState, resetAccount,
-    breaks, setBreaks, cardioGoal, setCardioGoalState,
+    breaks, setBreaks, cardioGoal, setCardioGoalState, strengthLifts, setStrengthLiftsState,
   };
 }

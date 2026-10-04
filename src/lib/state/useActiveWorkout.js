@@ -26,10 +26,11 @@ const loadDraft = (u) => {
 };
 
 // Aktivní trénink: draft, pauza, zápis sérií, dokončení. Psaní v tréninku mění jen tenhle stav (SessionCtx).
-// Lehký týden: ~60 % sérií (zaokrouhleno, aspoň 1), stejné váhy – cíle progrese se drží (exerciseTargets deload)
+// Lehký týden (deload = null | 'light' | 'short'): v režimu „Kratší + kardio“ ~60 % sérií (aspoň 1);
+// v režimu „Lehké váhy“ stejný počet sérií – váhy sníží cíle progrese (exerciseTargets deload)
 export const deloadSets = (n) => Math.max(1, Math.round(n * 0.6));
 
-export function useActiveWorkout({ user, api, notify, prs, setPrs, workouts, setWorkouts, typeOf, bwOf, body, templates, saveMainTemplate, saveTemplate, deload = false }) {
+export function useActiveWorkout({ user, api, notify, prs, setPrs, workouts, setWorkouts, typeOf, bwOf, body, templates, saveMainTemplate, saveTemplate, deload = null, stepOf = () => 2.5 }) {
   const [active, setActive] = useState(null);
   const [rest, setRest] = useState(null); // {until, total}
 
@@ -81,9 +82,15 @@ export function useActiveWorkout({ user, api, notify, prs, setPrs, workouts, set
       const key = exKey(e.name);
       const last = lastSets(key);
       // Předvyplnění: 1) poslední trénink 2) plán série 3) výchozí váha/opakování šablony
-      const count = deload && e.type !== 'time' && typeOf(e.name) !== 'time' ? deloadSets(e.sets) : e.sets;
+      const type0 = e.type || typeOf(e.name);
+      const count = deload === 'short' && e.type !== 'time' && typeOf(e.name) !== 'time' ? deloadSets(e.sets) : e.sets;
       const sets = Array.from({ length: count }, (_, i) => {
         const src = last ? last[Math.min(i, last.length - 1)] : null;
+        // Lehký týden „Lehké váhy“: předvyplnit rovnou lehčí váhu (−12,5 %, na krok cviku)
+        if (src && deload === 'light' && Number(src.weight) > 0 && type0 !== 'time') {
+          const st = stepOf(e.name) || 2.5;
+          return newSet({ ...src, weight: Math.max(st, Math.round((Number(src.weight) * 0.875) / st) * st) });
+        }
         if (src) return newSet(src);
         const p = e.plan?.[i];
         return newSet({ weight: p?.w || e.weight || '', reps: p ? (typeof p.r === 'number' ? p.r : '') : firstNum(e.reps), time: p?.t || e.time || '' });
@@ -99,13 +106,13 @@ export function useActiveWorkout({ user, api, notify, prs, setPrs, workouts, set
     });
     setRest(null);
     markGuide('start');
-    setActive({ id: uid(), templateId: tpl.id, name: tpl.name, group: tpl.group || '', variant: tpl.variant || '', startedAt: Date.now(), exercises, ...(deload ? { deload: true } : {}) });
-  }, [lastSets, typeOf, bwOf, deload]);
+    setActive({ id: uid(), templateId: tpl.id, name: tpl.name, group: tpl.group || '', variant: tpl.variant || '', startedAt: Date.now(), exercises, ...(deload ? { deload } : {}) });
+  }, [lastSets, typeOf, bwOf, deload, stepOf]);
 
   const startEmptyWorkout = useCallback(() => {
     setRest(null);
     markGuide('start');
-    setActive({ id: uid(), templateId: '', name: t('wo.emptyName'), group: '', variant: '', startedAt: Date.now(), exercises: [], ...(deload ? { deload: true } : {}) });
+    setActive({ id: uid(), templateId: '', name: t('wo.emptyName'), group: '', variant: '', startedAt: Date.now(), exercises: [], ...(deload ? { deload } : {}) });
   }, [deload]);
   const discardWorkout = useCallback(() => { setActive(null); setRest(null); }, []);
 

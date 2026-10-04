@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   bestStreak, closestMilestone, heatAt, heatInfo, heatState, heatUnits, liftStats, milestones, monday, monthRecap,
-  perfectMonths, reachHint, setRecord, streaks, weekStatuses,
+  perfectMonths, reachHint, setRecord, streaks, weekStatuses, liftCandidates,
 } from './gamify.js';
 import { generateDemo } from './demoData.js';
 
@@ -91,19 +91,28 @@ describe('weeks, streaks and months', () => {
 describe('milestones', () => {
   const body = [{ id: 'x', date: NOW - 30 * DAY, weight: 80 }];
   it('strength is self-relative by default: e1RM growth on the lifts you train', () => {
-    const ws = [W(30, [['hip-thrust', [[60, 10]]]]), W(20, [['hip-thrust', [[70, 10]]]]), W(10, [['hip-thrust', [[80, 10]]]])];
+    const ws = [W(30, [['hip-thrust', [[60, 10]]]], { }), W(20, [['hip-thrust', [[70, 10]]]]), W(10, [['hip-thrust', [[80, 10]]]])].map((w) => ({ ...w, exercises: w.exercises.map((e) => ({ ...e, name: 'Hip Thrust' })) }));
     const list = milestones(ws, { now: NOW });
     const lift = list.find((m) => m.id === 'lift:hip-thrust');
-    expect(lift).toMatchObject({ group: 'strength', lift: 'hip-thrust', tier: 2 }); // +33 % → I 10 · II 25
+    expect(lift).toMatchObject({ group: 'strength', lift: 'Hip Thrust', tier: 2 }); // +33 % → I 10 · II 25
     expect(list.find((m) => m.id === 'bench')).toBeUndefined(); // poměr k váze jen na přání
   });
-  it('self lifts: starred first, at most 4, need 3 sessions to count', () => {
-    const ex = (k) => [k, [[40, 8]]];
-    const ws = [W(9, ['a', 'b', 'c', 'd', 'e'].map(ex)), W(5, ['a', 'b', 'c', 'd', 'e'].map(ex))];
-    const lifts = milestones(ws, { now: NOW, pinned: ['e'] }).filter((m) => m.id.startsWith('lift:'));
+  it('auto lifts: compound only, big three first, at most 4', () => {
+    const names = { 'lateral-raise-dumbbell': 'Lateral Raise (Dumbbell)', 'hip-thrust': 'Hip Thrust', 'leg-press': 'Leg Press (Machine)', 'lat-pulldown-cable': 'Lat Pulldown (Cable)', 'seated-row-cable': 'Seated Row (Cable)', squat: 'Squat' };
+    const keys = Object.keys(names);
+    const mk = (d) => ({ ...W(d), exercises: keys.map((k) => ({ key: k, name: names[k], sets: [{ weight: 40, reps: 8 }] })) });
+    const ws = [mk(9), mk(5)];
+    const lifts = milestones(ws, { now: NOW }).filter((m) => m.id.startsWith('lift:'));
     expect(lifts).toHaveLength(4);
-    expect(lifts[0].id).toBe('lift:e');
+    expect(lifts[0].id).toBe('lift:squat');
+    expect(lifts.some((m) => m.id === 'lift:lateral-raise-dumbbell')).toBe(false);
     expect(lifts[0].few).toBe(true);
+  });
+  it('own lift selection wins (order kept, isolation allowed)', () => {
+    const ws = [W(9, [['squat', [[60, 5]]], ['curl', [[15, 10]]]]), W(5, [['squat', [[60, 5]]], ['curl', [[15, 10]]]])];
+    const lifts = milestones(ws, { now: NOW, lifts: ['curl'] }).filter((m) => m.id.startsWith('lift:'));
+    expect(lifts.map((m) => m.id)).toEqual(['lift:curl']);
+    expect(liftCandidates(ws).map((x) => x.key)).toEqual(['squat', 'curl']);
   });
   it('bodyweight benchmark (opt-in): e1RM up to 10 reps vs 90-day average, men vs women', () => {
     const ws = [W(1, [['bench-press-barbell', [[75, 5], [100, 1]]]])];

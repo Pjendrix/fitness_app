@@ -1197,3 +1197,8 @@ html.desktop .hist-desk { max-width: 1200px; }
 .why-level.is-moderate { color: var(--ember-ink); box-shadow: 0 0 0 1px var(--ember-line); }
 html:not(.desktop) .why-grid { grid-template-columns: 1fr; }
 html:not(.desktop) .why-side { position: static; }
+.lift-sheet .lift-list { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; min-height: 0; }
+.lift-pick { display: flex; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer; }
+.lift-pick input { width: 18px; height: 18px; accent-color: var(--ink); flex: none; }
+.lift-pick.is-on .grow { font-weight: 500; }
+.lift-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding-top: 4px; }

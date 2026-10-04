@@ -6,7 +6,7 @@
 //   monthRecap      měsíční kapitola (počty, rekordy, průběh Heatu, highlights)
 //   liftStats / reachHint / setRecord   „Rekord na dosah“ v aktivním tréninku
 import { e1rm } from './metrics.js';
-import { recordsTimeline } from './progress.js';
+import { isCompound, recordsTimeline } from './progress.js';
 import { bodyAt } from './body.js';
 import { better, num, workoutVolume } from './util.js';
 import { effTime, weekExcuse } from './breaks.js';
@@ -274,9 +274,12 @@ function pullupBests(workouts) {
   return { reps, best, name };
 }
 
-// Síla vůči sobě: posun nejlepšího e1RM cviku oproti prvnímu tréninku (cvik aspoň 3×, start aspoň 10 kg e1RM).
-// Cviky: připnuté (Key lifts) a pak nejčastější za posledních 120 dní. only = jeden konkrétní klíč (dohledání dat).
-function selfLifts(ws, { pinned = [], now, onlyKey = null }) {
+// Síla vůči sobě: posun nejlepšího e1RM cviku oproti prvnímu tréninku (počítá se od 3. tréninku).
+// Cviky: vlastní výběr (Nastavení síly, max. 4), jinak automaticky jen VÍCEKLOUBOVÉ cviky – nejdřív big three
+// (bench, dřep, mrtvý tah), pak nejčastější za posledních 120 dní (cvik aspoň 2×, start aspoň 10 kg e1RM).
+// onlyKey = jeden konkrétní klíč (dohledání dat získání úrovní).
+const BIG3 = [...LIFTS.bench, ...LIFTS.squat, ...LIFTS.deadlift];
+function selfLifts(ws, { lifts = [], now, onlyKey = null }) {
   const info = new Map();
   for (const w of ws) for (const e of w.exercises) {
     if (e.type === 'time' || (onlyKey && e.key !== onlyKey)) continue;
@@ -288,14 +291,26 @@ function selfLifts(ws, { pinned = [], now, onlyKey = null }) {
     if (w.startedAt > now - 120 * DAY) x.recent++;
     if (v > x.best) { x.best = v; x.bestDate = w.startedAt; }
   }
-  let list = [...info.values()].filter((x) => x.first >= 10);
-  if (!onlyKey) {
-    const pin = (k) => { const i = pinned.indexOf(k); return i < 0 ? 99 : i; };
-    list = list.filter((x) => x.n >= 2 || pinned.includes(x.key))
-      .sort((a, b) => pin(a.key) - pin(b.key) || b.recent - a.recent || b.n - a.n)
+  let list;
+  if (onlyKey) list = [...info.values()];
+  else if (lifts.length) list = lifts.map((k) => info.get(k)).filter(Boolean).slice(0, MAX_SELF_LIFTS);
+  else {
+    const big = (k) => (BIG3.includes(k) ? 0 : 1);
+    list = [...info.values()].filter((x) => x.first >= 10 && x.n >= 2 && (isCompound(x.name) || BIG3.includes(x.key)))
+      .sort((a, b) => big(a.key) - big(b.key) || b.recent - a.recent || b.n - a.n)
       .slice(0, MAX_SELF_LIFTS);
   }
   return list.map((x) => ({ ...x, pct: x.n >= 3 ? Math.max(0, (x.best / x.first - 1) * 100) : 0 }));
+}
+// Kandidáti pro ruční výběr: váhové cviky s historií, vícekloubové napřed, pak podle počtu tréninků
+export function liftCandidates(workouts) {
+  const m = new Map();
+  for (const w of workouts) for (const e of w.exercises) {
+    if (e.type === 'time' || !(bestE1Of(e.sets) > 0)) continue;
+    const x = m.get(e.key) || { key: e.key, name: e.name, n: 0, compound: isCompound(e.name) || BIG3.includes(e.key) };
+    x.n++; m.set(e.key, x);
+  }
+  return [...m.values()].sort((a, b) => Number(b.compound) - Number(a.compound) || b.n - a.n);
 }
 
 // Pracovní váha cviku v tréninku (nejtěžší pracovní série s opakováním) → kolikrát nové maximum (bez prvního zápisu)
@@ -335,7 +350,7 @@ function growthOf(ws) {
 
 // → [{ id, group, tier, max, value, next, pct, secret?, ...extra }]; tier 0 = zatím nic, next null = maxed
 // only: spočítat jen jeden milník (pro dohledání dat získání úrovní – volá se opakovaně)
-export function milestones(workouts, { goal = 3, groups = [], body = [], scale = 'self', breaks = [], pinned = [], now = Date.now(), only = null } = {}) {
+export function milestones(workouts, { goal = 3, groups = [], body = [], scale = 'self', breaks = [], lifts = [], now = Date.now(), only = null } = {}) {
   const ws = chrono(workouts.filter((w) => w.startedAt <= now));
   const mode = normScale(scale);
   const sc = SCALES[mode] || null;
@@ -381,7 +396,7 @@ export function milestones(workouts, { goal = 3, groups = [], body = [], scale =
 
   // Síla vůči sobě
   if (want('lift')) {
-    for (const x of selfLifts(ws, { pinned, now, onlyKey: only && isLiftId(only) ? only.slice(5) : null })) {
+    for (const x of selfLifts(ws, { lifts, now, onlyKey: only && isLiftId(only) ? only.slice(5) : null })) {
       push('lift:' + x.key, x.pct, LIFT_TIERS, { lift: x.name, key: x.key, from: Math.round(x.first * 10) / 10, to: Math.round(x.best * 10) / 10, sessions: x.n, few: x.n < 3, bestDate: x.bestDate });
     }
   }
@@ -524,7 +539,7 @@ export function setRecord(set, pb, stat, timed = false) {
 }
 
 // ——— Monthly recap ———
-export function monthRecap(workouts, { month, goal = 3, groups = [], body = [], scale = 'self', breaks = [], pinned = [], now = Date.now() } = {}) {
+export function monthRecap(workouts, { month, goal = 3, groups = [], body = [], scale = 'self', breaks = [], lifts = [], now = Date.now() } = {}) {
   const start = monthStart(month), end = addMonths(start, 1);
   const ws = chrono(workouts.filter((w) => w.startedAt >= start && w.startedAt < end));
   const recs = recordsTimeline(workouts.filter((w) => w.startedAt < end));
@@ -566,7 +581,7 @@ export function monthRecap(workouts, { month, goal = 3, groups = [], body = [], 
   for (const w of ws) if (w.group) gc.set(w.group, (gc.get(w.group) || 0) + 1);
   const top = [...gc].sort((a, b) => b[1] - a[1])[0];
   // Nové úrovně Milestones za měsíc
-  const opts = { goal, groups, body, scale, breaks, pinned };
+  const opts = { goal, groups, body, scale, breaks, lifts };
   const a = milestones(workouts, { ...opts, now: start - 1 }), b = milestones(workouts, { ...opts, now: Math.min(now, end - 1) });
   const gained = b.filter((m) => m.tier > (a.find((x) => x.id === m.id)?.tier || 0)).map((m) => ({ id: m.id, tier: m.tier, lift: m.lift }));
   return {

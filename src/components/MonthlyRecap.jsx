@@ -86,9 +86,9 @@ async function drawImage(r, { title, month, stats, rows, heatLabel }) {
 
 // Měsíční kapitola: shrnutí měsíce, průběh Heatu, highlights, uložení jako obrázek
 export default function MonthlyRecap({ month, onClose }) {
-  const { workouts, weeklyGoal, main, body, strengthScale, groupLabel, notify, breaks, pinnedLifts } = useStore();
+  const { workouts, weeklyGoal, main, body, strengthScale, groupLabel, notify, breaks, strengthLifts } = useStore();
   const groups = useMemo(() => main.groups.map((g) => g.id), [main]);
-  const r = useMemo(() => monthRecap(workouts, { month, goal: weeklyGoal, groups, body, scale: strengthScale, breaks, pinned: pinnedLifts }), [workouts, month, weeklyGoal, groups, body, strengthScale, breaks, pinnedLifts]);
+  const r = useMemo(() => monthRecap(workouts, { month, goal: weeklyGoal, groups, body, scale: strengthScale, breaks, lifts: strengthLifts }), [workouts, month, weeklyGoal, groups, body, strengthScale, breaks, strengthLifts]);
   const [busy, setBusy] = useState(false);
   const title = headline(r, weeklyGoal);
   const label = cap(monthName(month, { month: 'long', year: 'numeric' }));

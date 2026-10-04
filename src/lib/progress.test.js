@@ -48,6 +48,9 @@ describe('exerciseTargets (double progression with brakes)', () => {
     expect(t[0]).toMatchObject({ weight: 55, reps: 8, state: 'reset' });
     expect(isStalled([s, s, s])).toBe(false); // potřeba 4 tréninky
   });
+  it('light week, “light weights” mode → about −12.5 %, same reps', () => {
+    expect(exerciseTargets(prev([[80, 8]]), { spec: '8', step: 2.5, deload: 'light' })).toEqual([{ weight: 70, reps: 8, hold: true, state: 'deload' }]);
+  });
   it('light week → same weights and reps, no progression', () => {
     expect(exerciseTargets(prev([[60, 12], [60, 12]]), { spec: '8', step: 2.5, deload: true })).toEqual([
       { weight: 60, reps: 12, hold: true, state: 'deload' }, { weight: 60, reps: 12, hold: true, state: 'deload' },

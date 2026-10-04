@@ -48,10 +48,12 @@ export function learnedSteps(workouts) {
 // (ACSM 2026: trénink do selhání je volitelný; Refalo 2024: selhání vs. 1–2 RIR → podobný růst, horší pocit.)
 const COMPOUND = /squat|deadlift|bench|press|row|pull-?up|chin-?up|pulldown|dip|lunge|hip thrust|clean|good morning/;
 const ISOLATION = /curl|extension|raise|fly|flye|pushdown|kickback|crunch|calf|shrug|pec deck|crossover|face pull|abduction|adduction|machine|cable/;
-export function rirTarget(name) {
+// Vícekloubový (základní) cvik podle názvu – RIR cíl a výběr silových milníků
+export function isCompound(name) {
   const n = String(name || '').toLowerCase();
-  return COMPOUND.test(n) && !ISOLATION.test(n.replace(/\(machine\)|\(cable\)|\(smith[^)]*\)/g, '')) ? '2–3' : '0–2';
+  return COMPOUND.test(n) && !ISOLATION.test(n.replace(/\(machine\)|\(cable\)|\(smith[^)]*\)/g, ''));
 }
+export const rirTarget = (name) => (isCompound(name) ? '2–3' : '0–2');
 
 // Lehké váhy: když krok váhy znamená velký relativní skok (3 kg → 5 kg = +67 %), progreduje se nejdřív přes víc opakování.
 const WIDE = 0.25, MID = 0.125;
@@ -92,7 +94,11 @@ export function exerciseTargets(prev, { specs, spec, to, step = 2.5, recent = nu
     const base = weight > 0 ? (sp === undefined ? DEFAULT_RANGE : repRange(sp, specs ? undefined : to)) : null;
     return { p: { weight, reps, rpe }, range: widenRange(base, weight, step), isMax };
   });
-  if (deload) return rows.map(({ p }) => (p ? { weight: p.weight, reps: p.reps, hold: true, state: 'deload' } : null));
+  // Lehký týden: „light“ = váhy −12,5 % (zaokrouhleno na krok), stejná opakování; „short“ / true = stejné váhy
+  if (deload) {
+    const lighter = deload === 'light';
+    return rows.map(({ p }) => (p ? { weight: lighter && p.weight > 0 ? roundTo(p.weight * 0.875, step) : p.weight, reps: p.reps, hold: true, state: 'deload' } : null));
+  }
   const weighted = rows.filter((r) => r.p && r.p.weight > 0);
   const ranged = rows.filter((r) => r.p && r.range);
   // Vzestupné / pyramidové série (různé váhy) → rozhoduje nejtěžší série s rozsahem

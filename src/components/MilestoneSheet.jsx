@@ -25,9 +25,9 @@ const fmtUnit = (id, v) => {
 
 // Detail milníku: co přesně se počítá, tvůj nejlepší výkon, další úroveň a žebříček I–V s daty získání
 export default function MilestoneSheet({ m, onClose, onScale }) {
-  const { workouts, weeklyGoal, main, body, strengthScale, breaks, pinnedLifts } = useStore();
+  const { workouts, weeklyGoal, main, body, strengthScale, breaks, strengthLifts } = useStore();
   const groups = useMemo(() => main.groups.map((g) => g.id), [main]);
-  const dates = useMemo(() => tierDates(workouts, m.id, { goal: weeklyGoal, groups, body, scale: strengthScale, breaks, pinned: pinnedLifts }), [workouts, m.id, weeklyGoal, groups, body, strengthScale, breaks, pinnedLifts]);
+  const dates = useMemo(() => tierDates(workouts, m.id, { goal: weeklyGoal, groups, body, scale: strengthScale, breaks, lifts: strengthLifts }), [workouts, m.id, weeklyGoal, groups, body, strengthScale, breaks, strengthLifts]);
   const strength = STRENGTH.has(m.id);
   const lift = isLiftId(m.id);
   const tiers = (lift ? LIFT_TIERS : strength || m.id === 'pullups' ? (SCALES[strengthScale] || SCALES.men)[m.id] : TIERS[m.id]) || [];
