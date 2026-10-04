@@ -291,9 +291,9 @@ export default {
     'wo.tgt.up': 'nová váha', 'wo.tgt.verify': 'drž · ověř', 'wo.tgt.reset': 'reset −10 %',
     'wo.tgt.load': 'přidej zátěž nebo těžší variantu', 'wo.tgt.deload': 'lehce', 'wo.rir': 'RIR {r}',
     'wo.rirDeload': 'RIR 3–4 · lehký týden', 'dl.woTitle': 'Lehký týden.',
-    'reach.atGoal': 'rekord', 'reach.plusOne': '+1 → rekord', 'dl.eyebrow': 'Návrh',
-    'dl.title': 'Čas na lehký týden?', 'dl.whyWeeks': 'Už {n} týdnů trénuješ bez přestávky.', 'dl.whyDrop': 'V posledních dvou trénincích klesl výkon u {n} cviků.',
-    'dl.what': '7 dní lehčího tréninku – únava opadne, síla zůstane. Lehčí váhy, nebo kratší trénink s kardiem, vybereš si. Týden se počítá jako splněný.', 'dl.start': 'Začít lehký týden', 'dl.later': 'Teď ne',
+    'reach.atGoal': 'rekord', 'reach.plusOne': '+1 → rekord',
+    
+    
     'brk.pause': 'Pauza (nemoc, dovolená, zranění)', 'brk.pauseHelp': 'Heat i série týdnů stojí. Skončí s dalším tréninkem.', 'brk.pauseOn': 'Pauza od {d}',
     'brk.pauseSub': 'Heat i série stojí', 'brk.deload': 'Lehký týden', 'brk.deloadHelp': '7 dní lehčího tréninku – lehčí váhy, nebo méně sérií a kardio. Počítá se jako splněný týden.',
     'brk.deloadOn': 'Lehký týden do {d}', 'brk.start': 'Začít',

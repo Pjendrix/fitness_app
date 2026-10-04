@@ -331,9 +331,9 @@ const D = {
     'wo.tgt.up': 'new weight', 'wo.tgt.verify': 'hold · confirm', 'wo.tgt.reset': 'reset −10 %',
     'wo.tgt.load': 'add load or a harder variation', 'wo.tgt.deload': 'light', 'wo.rir': 'RIR {r}',
     'wo.rirDeload': 'RIR 3–4 · light week', 'dl.woTitle': 'Light week.',
-    'reach.atGoal': 'record', 'reach.plusOne': '+1 → record', 'dl.eyebrow': 'Suggestion',
-    'dl.title': 'Time for a lighter week?', 'dl.whyWeeks': '{n} weeks of steady training without a break.', 'dl.whyDrop': 'Performance dipped on {n} exercises in your last two workouts.',
-    'dl.what': '7 days of easier training – fatigue drops, strength stays. Lighter weights or a shorter session plus cardio, your call. The week counts as on plan.', 'dl.start': 'Start light week', 'dl.later': 'Not now',
+    'reach.atGoal': 'record', 'reach.plusOne': '+1 → record',
+    
+    
     'brk.pause': 'Pause (illness, holiday, injury)', 'brk.pauseHelp': 'Heat and your week streak stand still. Ends with your next workout.', 'brk.pauseOn': 'Paused since {d}',
     'brk.pauseSub': 'Heat and streak are on hold', 'brk.deload': 'Light week', 'brk.deloadHelp': '7 days of easier training – lighter weights, or fewer sets plus cardio. Counts as a week on plan.',
     'brk.deloadOn': 'Light week until {d}', 'brk.start': 'Start',

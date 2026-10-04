@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultStep, deloadAdvice, exerciseTargets, isStalled, learnedSteps, lighterLoad, recordsTimeline, repRange, rirTarget, widenRange } from './progress.js';
+import { defaultStep, exerciseTargets, isStalled, learnedSteps, lighterLoad, recordsTimeline, repRange, rirTarget, widenRange } from './progress.js';
 import { templateDiffers, templateFromActive } from './templateSync.js';
 import { platesFor } from '../components/PlateCalc.jsx';
 
@@ -103,29 +103,6 @@ describe('exerciseTargets (double progression with brakes)', () => {
   });
 });
 
-describe('deloadAdvice', () => {
-  const DAY = 864e5, NOW = new Date(2026, 9, 3, 18).getTime();
-  const w = (daysAgo, ex = []) => ({ id: 'd' + daysAgo, startedAt: NOW - daysAgo * DAY, exercises: ex });
-  it('8+ weeks of steady training without a break → suggest', () => {
-    const ws = Array.from({ length: 30 }, (_, i) => w(i * 2 + 1));
-    expect(deloadAdvice(ws, { goal: 3, now: NOW })).toMatchObject({ reason: 'weeks' });
-    expect(deloadAdvice(ws, { goal: 3, now: NOW, breaks: [{ kind: 'deload', from: NOW - 20 * DAY, to: NOW - 13 * DAY }] })).toBeNull();
-  });
-  it('performance drop on 2 exercises at the same weight → suggest', () => {
-    const ex = (ra, rb) => [{ key: 'a', sets: [{ weight: 100, reps: ra }] }, { key: 'b', sets: [{ weight: 50, reps: rb }] }];
-    const ws = [w(9, ex(8, 10)), w(5, ex(6, 10)), w(2, ex(6, 8))];
-    expect(deloadAdvice(ws, { goal: 3, now: NOW })).toEqual({ reason: 'drop', n: 2 });
-  });
-  it('a weight step-up or a reset is not a drop', () => {
-    const ex = (wa, ra, wb, rb) => [{ key: 'a', sets: [{ weight: wa, reps: ra }] }, { key: 'b', sets: [{ weight: wb, reps: rb }] }];
-    const ws = [w(9, ex(100, 12, 50, 12)), w(5, ex(102.5, 8, 52.5, 8)), w(2, ex(92.5, 8, 47.5, 8))];
-    expect(deloadAdvice(ws, { goal: 3, now: NOW })).toBeNull();
-  });
-  it('nothing while paused', () => {
-    const ws = Array.from({ length: 30 }, (_, i) => w(i * 2 + 1));
-    expect(deloadAdvice(ws, { goal: 3, now: NOW, breaks: [{ kind: 'pause', from: NOW - DAY, to: null }] })).toBeNull();
-  });
-});
 
 describe('weight steps', () => {
   it('by equipment', () => {
