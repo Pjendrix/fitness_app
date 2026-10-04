@@ -7,6 +7,7 @@
 //   useActiveWorkout    rozdělaný trénink, draft, pauza
 //   useRenameExercise   přejmenování / sloučení cviku napříč historií (A3)
 //   useBodyData         tělesná váha (E3)
+//   useActivityData     kardio mimo posilovnu
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { backend } from './backend.js';
 import { useToastState } from './state/useToastState.js';
@@ -18,6 +19,8 @@ import { useHistoryActions } from './state/useHistoryActions.js';
 import { useActiveWorkout } from './state/useActiveWorkout.js';
 import { useRenameExercise } from './state/useRenameExercise.js';
 import { useBodyData } from './state/useBodyData.js';
+import { useActivityData } from './state/useActivityData.js';
+import { activeBreak } from './breaks.js';
 
 // Tři oddělené kontexty: psaní v aktivním tréninku nepřekresluje zbytek appky.
 const DataCtx = createContext(null);
@@ -55,9 +58,11 @@ export function StoreProvider({ children }) {
 
   const account = useAccountActions({ api, fail, notify, remember, user, acc, workouts });
   const bodyData = useBodyData(api, fail);
+  const activityData = useActivityData(api, fail);
+  const deload = Boolean(activeBreak(acc.breaks, 'deload'));
   const history = useHistoryActions({ api, fail, remember, workouts, setWorkouts, prs, setPrs, library, setLibrary, setCustom });
   const session = useActiveWorkout({
-    user, api, notify, prs, setPrs, workouts, setWorkouts, typeOf: account.typeOf, bwOf: account.bwOf, body: bodyData.body, templates: account.templates,
+    user, api, notify, prs, setPrs, workouts, setWorkouts, typeOf: account.typeOf, bwOf: account.bwOf, body: bodyData.body, templates: account.templates, deload,
     saveMainTemplate: account.saveMainTemplate, saveTemplate: account.saveTemplate,
   });
   const { detachDraft, resetSession } = session;
@@ -93,10 +98,11 @@ export function StoreProvider({ children }) {
   const data = useMemo(() => ({
     user, denied, loading, mode: backend.mode, signIn, signOut, deleteAccount, startDemo, startTrial, endTrial, resetDemo, live, sync, online,
     workouts, prs, library, starter: acc.starter, needsSetup, appearance: acc.appearance, weeklyGoal: acc.weeklyGoal, pinnedLifts: acc.pinnedLifts, strengthScale: acc.strengthScale, gamify: acc.gamify,
+    breaks: acc.breaks, cardioGoal: acc.cardioGoal, deload, ...activityData,
     ...account, ...history, startWorkout: session.startWorkout, startEmptyWorkout: session.startEmptyWorkout, syncTemplate: session.syncTemplate,
     undoStack, undo, redoStack, redo, notify, renamePreview, renameExercise, ...bodyData,
   }), [user, denied, loading, signIn, signOut, deleteAccount, startDemo, startTrial, endTrial, resetDemo, live, sync, online, workouts, prs, library, acc.starter, needsSetup,
-    acc.appearance, acc.weeklyGoal, acc.pinnedLifts, acc.strengthScale, acc.gamify, account, history, session.startWorkout, session.startEmptyWorkout, session.syncTemplate,
+    acc.appearance, acc.weeklyGoal, acc.pinnedLifts, acc.strengthScale, acc.gamify, acc.breaks, acc.cardioGoal, deload, activityData, account, history, session.startWorkout, session.startEmptyWorkout, session.syncTemplate,
     undoStack, undo, redoStack, redo, notify, renamePreview, renameExercise, bodyData]);
 
   const sessionValue = useMemo(() => ({

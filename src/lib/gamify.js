@@ -1,13 +1,15 @@
 // Forge Heat – tichá gamifikace. Vše se počítá z uložené historie, nic dalšího se neukládá
-// (kromě volby síly „strengthScale“ v nastavení účtu).
-//   heatInfo        žhnutí: každý trénink přitápí, každý den bez tréninku pomalu chladne
-//   milestones      karty s úrovněmi I–V (objem, konzistence, Heat, síla vůči tělesné váze, progres, tajné)
+// (kromě nastavení účtu: strengthScale, breaks = pauzy a lehké týdny).
+//   heatInfo        žhnutí: pravidelnost podle VLASTNÍHO týdenního cíle – trénink nad cíl Heat nezvyšuje
+//   weekStatuses    týdny: splněno / lehký týden / pauza / joker / nesplněno → série a perfektní měsíce
+//   milestones      karty s úrovněmi I–V (objem, konzistence, Heat, síla vůči sobě, progres, tajné)
 //   monthRecap      měsíční kapitola (počty, rekordy, průběh Heatu, highlights)
-//   liftStats / reachHint / setRecord   „Within reach“ v aktivním tréninku
+//   liftStats / reachHint / setRecord   „Rekord na dosah“ v aktivním tréninku
 import { e1rm } from './metrics.js';
 import { recordsTimeline } from './progress.js';
 import { bodyAt } from './body.js';
 import { better, num, workoutVolume } from './util.js';
+import { effTime, weekExcuse } from './breaks.js';
 
 const DAY = 864e5;
 export const ROMAN = ['—', 'I', 'II', 'III', 'IV', 'V'];
@@ -20,10 +22,14 @@ const working = (s) => !s.warm;
 const chrono = (workouts) => [...workouts].sort((a, b) => a.startedAt - b.startedAt);
 
 // ——— Heat ———
-// Každý trénink přidá 1 a chladne exponenciálně (τ = 7 dní, poločas ≈ 4,9 dne).
-// Průměrná hodnota při tempu přesně podle týdenního cíle g je g → škála 70·S/g:
-// trénink podle cíle drží ~70 (Glowing), nad cílem stoupá k 100, týden pauzy spadne zhruba na třetinu.
+// Heat měří pravidelnost vůči vlastnímu týdennímu cíli, ne objem:
+//  • max. 1 trénink za den a max. `goal` tréninků za týden (víc tréninků Heat nezvedá)
+//  • návrat po ≥ 7 dnech bez tréninku přitopí dvojnásob (odměna za návrat – Milkman 2021: +27 % návštěv)
+//  • během pauzy (nemoc, dovolená) čas stojí – Heat nechladne
+// Každá jednotka chladne exponenciálně (τ = 7 dní). Tempo přesně podle cíle drží Heat kolem 80–100 (White-hot / Glowing),
+// jeden vynechaný týden ho sníží zhruba na třetinu.
 export const HEAT_TAU = 7 * DAY;
+export const COMEBACK_DAYS = 7;
 export const HEAT_STATES = [
   { id: 'cold', min: 0 },
   { id: 'warm', min: 25 },
@@ -32,26 +38,45 @@ export const HEAT_STATES = [
 ];
 export const heatState = (h) => [...HEAT_STATES].reverse().find((s) => h >= s.min) || HEAT_STATES[0];
 
-export function heatAt(workouts, goal, at = Date.now()) {
-  let s = 0;
-  for (const w of workouts) {
-    const age = at - w.startedAt;
-    if (age < 0 || age > 60 * DAY) continue;
-    s += Math.exp(-age / HEAT_TAU);
+// Jednotky Heatu: [{ t, u, back }] chronologicky (u = 0 → nad cíl, nepočítá se)
+export function heatUnits(workouts, goal, breaks = []) {
+  const eff = effTime(breaks);
+  const out = [];
+  const days = new Set(), perWeek = new Map();
+  let lastT = null;
+  for (const w of chrono(workouts)) {
+    const d = dayStart(w.startedAt);
+    if (days.has(d)) continue;
+    days.add(d);
+    const back = lastT != null && eff(w.startedAt) - eff(lastT) >= COMEBACK_DAYS * DAY;
+    lastT = w.startedAt;
+    const m = monday(w.startedAt), n = perWeek.get(m) || 0;
+    perWeek.set(m, n + 1);
+    const u = n >= Math.max(1, goal) ? (back ? 1 : 0) : back ? 2 : 1;
+    out.push({ t: w.startedAt, u, back });
   }
-  return Math.min(100, Math.round((70 * s) / Math.max(1, goal)));
+  return out;
 }
-
-// Dny, za které Heat bez tréninku klesne pod hranici aktuálního stavu (null = Cold)
-export function coolDays(heat) {
-  const st = heatState(heat);
-  if (st.id === 'cold' || heat <= 0) return null;
-  return Math.max(1, Math.ceil((Math.log(heat / st.min) * HEAT_TAU) / DAY));
+const heatFromUnits = (units, goal, breaks, at) => {
+  const eff = effTime(breaks, at);
+  const now = eff(at);
+  let s = 0;
+  for (const x of units) {
+    if (!x.u || x.t > at) continue;
+    const age = now - eff(x.t);
+    if (age > 60 * DAY) continue;
+    s += x.u * Math.exp(-age / HEAT_TAU);
+  }
+  return Math.min(100, Math.round((100 * s) / Math.max(1, goal)));
+};
+export function heatAt(workouts, goal, at = Date.now(), breaks = []) {
+  return heatFromUnits(heatUnits(workouts, goal, breaks), goal, breaks, at);
 }
 
 // Heat po dnech za posledních `days` dní (Ember bars): hodnota na konci dne (dnes = teď) + jestli se ten den trénovalo
-export function heatInfo(workouts, goal, now = Date.now(), days = 28) {
-  const heat = heatAt(workouts, goal, now);
+export function heatInfo(workouts, goal, now = Date.now(), days = 28, breaks = []) {
+  const units = heatUnits(workouts, goal, breaks);
+  const heat = heatFromUnits(units, goal, breaks, now);
   const today = dayStart(now);
   const trained = new Set(workouts.map((w) => dayStart(w.startedAt)));
   const bars = Array.from({ length: days }, (_, i) => {
@@ -59,27 +84,73 @@ export function heatInfo(workouts, goal, now = Date.now(), days = 28) {
     d.setDate(d.getDate() - (days - 1 - i));
     const date = d.getTime();
     const at = i === days - 1 ? now : date + DAY - 1;
-    return { date, h: heatAt(workouts, goal, at), on: trained.has(date) };
+    return { date, h: heatFromUnits(units, goal, breaks, at), on: trained.has(date) };
   });
-  return { heat, state: heatState(heat).id, cool: coolDays(heat), bars };
+  return { heat, state: heatState(heat).id, bars };
+}
+
+// Heat na konci každého dne od prvního tréninku
+export function dailyHeat(workouts, goal, now = Date.now(), breaks = []) {
+  const ws = chrono(workouts.filter((w) => w.startedAt <= now));
+  if (!ws.length) return [];
+  const units = heatUnits(ws, goal, breaks);
+  const out = [];
+  for (let d = dayStart(ws[0].startedAt); d <= now; ) {
+    const next = new Date(d); next.setDate(next.getDate() + 1);
+    const end = Math.min(next.getTime() - 1, now);
+    out.push({ date: d, h: heatFromUnits(units, goal, breaks, end) });
+    d = next.getTime();
+  }
+  return out;
 }
 
 // ——— Týdny a série ———
+// Stav každého týdne od prvního tréninku:
+//   met     cíl splněný
+//   deload  lehký týden (počítá se jako splněný)
+//   pause   pauza ≥ 3 dny (série stojí – nepřibývá, nepřeruší se)
+//   joker   jeden nesplněný týden za 4 týdny se odpustí automaticky (série stojí)
+//   miss    nesplněno → série končí
+//   open    probíhající týden, zatím nesplněný
+export const JOKER_EVERY = 4;
+export const KEPT = new Set(['met', 'deload', 'pause', 'joker']);
 function weekCounts(workouts) {
   const m = new Map();
   for (const w of workouts) { const k = monday(w.startedAt); m.set(k, (m.get(k) || 0) + 1); }
   return m;
 }
-// Nejdelší série týdnů se splněným cílem (rozběhnutý týden se počítá, jen když je už splněný)
-export function bestStreak(workouts, goal, now = Date.now()) {
-  if (!workouts.length) return 0;
+export function weekStatuses(workouts, goal, breaks = [], now = Date.now()) {
+  if (!workouts.length) return [];
   const counts = weekCounts(workouts);
   const first = monday(Math.min(...workouts.map((w) => w.startedAt)));
-  let best = 0, run = 0;
-  for (let m = first; m <= now; m = nextMonday(m)) {
-    if ((counts.get(m) || 0) >= goal) { run++; best = Math.max(best, run); } else if (m !== monday(now)) run = 0;
+  const cur = monday(now);
+  const out = [];
+  let lastJoker = -Infinity;
+  for (let m = first, i = 0; m <= cur; m = nextMonday(m), i++) {
+    const n = counts.get(m) || 0;
+    let status;
+    if (n >= goal) status = 'met';
+    else {
+      const ex = weekExcuse(breaks, m, now);
+      if (ex) status = ex;
+      else if (m === cur) status = 'open';
+      else if (i - lastJoker >= JOKER_EVERY) { status = 'joker'; lastJoker = i; }
+      else status = 'miss';
+    }
+    out.push({ mon: m, n, status });
   }
-  return best;
+  return out;
+}
+// Série: splněné týdny (a lehké) přičítají, pauza a joker sérii drží, nesplněný týden ji ukončí
+export function streaks(statuses) {
+  let run = 0, best = 0;
+  for (const w of statuses) {
+    if (w.status === 'met' || w.status === 'deload') { run++; best = Math.max(best, run); } else if (w.status === 'miss') run = 0;
+  }
+  return { current: run, best };
+}
+export function bestStreak(workouts, goal, now = Date.now(), breaks = []) {
+  return streaks(weekStatuses(workouts, goal, breaks, now)).best;
 }
 
 // Dokončené kalendářní měsíce od prvního tréninku
@@ -95,10 +166,13 @@ const mondaysIn = (m, until = Infinity) => {
   for (let d = new Date(m); d.getTime() < end; d.setDate(d.getDate() + 1)) if (d.getDay() === 1 && d.getTime() < until) out.push(d.getTime());
   return out;
 };
-// Měsíc, kdy byl cíl splněný každý týden (týden patří měsíci podle svého pondělí)
-export function perfectMonths(workouts, goal, now = Date.now()) {
-  const counts = weekCounts(workouts);
-  return completedMonths(workouts, now).filter((m) => mondaysIn(m).every((d) => (counts.get(d) || 0) >= goal)).length;
+// Měsíc „podle plánu“: žádný nesplněný týden (lehký týden, pauza i joker se počítají) a aspoň jeden splněný
+export function perfectMonths(workouts, goal, now = Date.now(), breaks = []) {
+  const st = new Map(weekStatuses(workouts, goal, breaks, now).map((w) => [w.mon, w.status]));
+  return completedMonths(workouts, now).filter((m) => {
+    const list = mondaysIn(m).map((d) => st.get(d) || 'miss');
+    return list.every((s) => KEPT.has(s)) && list.some((s) => s === 'met');
+  }).length;
 }
 // Měsíc, kdy žádná skupina splitu nevypadla na víc než `gap` dní (skupiny bez jediného tréninku se nepočítají)
 export function balancedMonths(workouts, groups, now = Date.now(), gap = 10) {
@@ -117,7 +191,9 @@ export function balancedMonths(workouts, groups, now = Date.now(), gap = 10) {
 }
 
 // ——— Milestones ———
-// Síla vůči tělesné váze: dvě škály (Nastavení → Strength scale). Lighter posune hranice níž.
+// Síla: výchozí je pokrok VŮČI SOBĚ na cvicích, které opravdu děláš (lift:<key>).
+// Poměr k tělesné váze je jen volitelný orientační benchmark (Nastavení), zvlášť pro muže a ženy:
+// počítá se z odhadu 1RM (série do 10 opakování) a z průměrné tělesné váhy za 90 dní – hubnutí tedy stupeň neposune.
 export const LIFTS = {
   bench: ['bench-press-barbell', 'bench-press'],
   squat: ['squat', 'back-squat', 'squat-barbell'],
@@ -125,10 +201,15 @@ export const LIFTS = {
   ohp: ['military-press', 'overhead-press', 'overhead-press-barbell', 'ohp'],
   pullups: ['pull-up', 'chin-up', 'pullup', 'pull-ups', 'chin-ups', 'weighted-pull-up'],
 };
+export const SCALE_IDS = ['self', 'men', 'women'];
+export const normScale = (v) => (SCALE_IDS.includes(v) ? v : 'self'); // starší 'standard' / 'lighter' → vůči sobě
+// Ženy ~25–30 % níž (relativní síla soutěžních powerlifterek vs. powerlifterů, JSAMS 2024) – orientační, ne norma.
 export const SCALES = {
-  standard: { bench: [0.5, 0.75, 1, 1.25, 1.5], squat: [0.75, 1, 1.5, 1.75, 2], deadlift: [1, 1.5, 2, 2.25, 2.5], ohp: [0.4, 0.5, 0.6, 0.75, 0.9], pullups: [1, 5, 10, 15, 20], total: [2, 2.5, 3, 4, 5] },
-  lighter: { bench: [0.3, 0.45, 0.6, 0.8, 1], squat: [0.5, 0.75, 1, 1.25, 1.5], deadlift: [0.75, 1, 1.25, 1.5, 2], ohp: [0.25, 0.35, 0.45, 0.55, 0.65], pullups: [1, 3, 5, 8, 12], total: [1.25, 1.5, 2, 2.5, 3] },
+  men: { bench: [0.5, 0.75, 1, 1.25, 1.5], squat: [0.75, 1, 1.5, 1.75, 2], deadlift: [1, 1.5, 2, 2.25, 2.5], ohp: [0.4, 0.5, 0.6, 0.75, 0.9], pullups: [1, 5, 10, 15, 20], total: [2, 2.5, 3, 4, 5] },
+  women: { bench: [0.35, 0.5, 0.65, 0.85, 1.05], squat: [0.5, 0.75, 1, 1.25, 1.5], deadlift: [0.75, 1, 1.25, 1.6, 1.9], ohp: [0.25, 0.35, 0.45, 0.55, 0.65], pullups: [1, 3, 5, 8, 12], total: [1.5, 2, 2.5, 3, 3.6] },
 };
+export const LIFT_TIERS = [10, 25, 50, 75, 100]; // % e1RM oproti prvnímu tréninku cviku
+export const MAX_SELF_LIFTS = 4;
 export const TIERS = {
   workouts: [10, 50, 100, 250, 500],
   tonnage: [10, 50, 100, 500, 1000], // t
@@ -139,62 +220,82 @@ export const TIERS = {
   explorer: [10, 25, 50, 75, 100], // různých cviků
   steady: [30, 60, 90, 180, 365], // dní v kuse aspoň Warm
   forged: [7, 30, 90, 180, 365], // dní celkem White-hot
-  rekindled: [1],
+  rekindled: [1, 3, 5, 10, 15], // návraty po ≥ 7 dnech bez tréninku
   prs: [1, 10, 25, 50, 100],
-  hot: [3, 4, 5, 6, 8], // rekordů v jednom tréninku
   levelup: [10, 25, 50, 100, 200], // nová nejvyšší pracovní váha cviku
   growth: [10, 20, 30, 50, 100], // % e1RM oproti prvnímu zápisu
-  fullweek: [1], yearround: [1], newyear: [1], triple: [1], // tajné
+  fullweek: [1], yearround: [1], newyear: [1], // tajné
 };
 export const MILESTONE_GROUPS = [
   ['volume', ['workouts', 'tonnage', 'streak', 'perfect', 'balanced', 'explorer', 'anniversary']],
   ['heat', ['steady', 'forged', 'rekindled']],
-  ['strength', ['bench', 'squat', 'deadlift', 'ohp', 'total', 'pullups']],
-  ['progress', ['levelup', 'growth', 'prs', 'hot']],
-  ['secret', ['fullweek', 'yearround', 'newyear', 'triple']],
+  ['strength', ['lift', 'bench', 'squat', 'deadlift', 'ohp', 'total', 'pullups']],
+  ['progress', ['levelup', 'growth', 'prs']],
+  ['secret', ['fullweek', 'yearround', 'newyear']],
 ];
-export const SECRET = new Set(['fullweek', 'yearround', 'newyear', 'triple']);
+export const SECRET = new Set(['fullweek', 'yearround', 'newyear']);
+export const isLiftId = (id) => typeof id === 'string' && id.startsWith('lift:');
+export const baseId = (id) => (isLiftId(id) ? 'lift' : id);
 
 const tierOf = (v, tiers) => tiers.filter((x) => v >= x - 1e-9).length;
-
-// Nejlepší výkon cviku: { ratio vůči tělesné váze, kg, reps, time }
-// + best = série, ze které se počítá poměr (pro detail milníku), bestReps = série s nejvíc opakováními
-function liftBests(workouts, keys, body) {
-  let ratio = 0, kg = 0, reps = 0, time = 0, bwAt = null, seen = false, best = null, bestReps = null, name = null;
-  for (const w of workouts) for (const e of w.exercises) {
-    if (!keys.includes(e.key)) continue;
-    seen = true;
-    name = e.name;
-    for (const s of e.sets.filter(working)) {
-      const wt = num(s.weight), r = num(s.reps), tm = num(s.time);
-      if (tm > time) time = tm;
-      if (r > reps) { reps = r; bestReps = { reps: r, date: w.startedAt }; }
-      if (wt > 0 && r >= 1) {
-        if (wt > kg) { kg = wt; if (!body.length) best = { kg: wt, reps: r, date: w.startedAt, bw: null }; }
-        const bw = bodyAt(body, w.startedAt);
-        if (bw && wt / bw > ratio) { ratio = wt / bw; bwAt = bw; best = { kg: wt, reps: r, date: w.startedAt, bw }; }
-      }
-    }
-  }
-  return { seen, ratio, kg, reps, time, bw: bwAt, best, bestReps, name };
+const E1_MAX = 10;
+const bestE1Of = (sets) => Math.max(0, ...sets.filter((s) => working(s) && num(s.weight) > 0 && num(s.reps) > 0 && num(s.reps) <= E1_MAX && !(num(s.time) > 0)).map((s) => e1rm(num(s.weight), num(s.reps))));
+// Průměrná tělesná váha za 90 dní do okamžiku t (jinak poslední známá)
+export function bodyAvg(body, t, days = 90) {
+  const list = body.filter((b) => b.date <= t + DAY / 2 && b.date > t - days * DAY);
+  if (!list.length) return bodyAt(body, t);
+  return list.reduce((s, b) => s + b.weight, 0) / list.length;
 }
 
-// Heat na konci každého dne od prvního tréninku (inkrementálně: včerejšek × e^(−1/7) + dnešní tréninky)
-export function dailyHeat(workouts, goal, now = Date.now()) {
-  const ws = chrono(workouts.filter((w) => w.startedAt <= now));
-  if (!ws.length) return [];
-  const out = [];
-  const decay = Math.exp(-DAY / HEAT_TAU);
-  let s = 0, i = 0;
-  for (let d = dayStart(ws[0].startedAt); d <= now; ) {
-    const next = new Date(d); next.setDate(next.getDate() + 1);
-    const end = Math.min(next.getTime(), now);
-    s *= decay;
-    for (; i < ws.length && ws[i].startedAt < next.getTime(); i++) s += Math.exp(-(end - ws[i].startedAt) / HEAT_TAU);
-    out.push({ date: d, h: Math.min(100, Math.round((70 * s) / Math.max(1, goal))) });
-    d = next.getTime();
+// Nejlepší odhad 1RM cviku vůči tělesné váze: { ratio, e1, best, name, seen }
+function liftBests(workouts, keys, body) {
+  let ratio = 0, e1 = 0, bwAt = null, best = null, name = null, seen = false;
+  for (const w of workouts) for (const e of w.exercises) {
+    if (!keys.includes(e.key)) continue;
+    seen = true; name = e.name;
+    for (const s of e.sets.filter(working)) {
+      const wt = num(s.weight), r = num(s.reps);
+      if (!(wt > 0) || !(r >= 1) || r > E1_MAX) continue;
+      const v = e1rm(wt, r);
+      if (v > e1) { e1 = v; if (!body.length) best = { kg: wt, reps: r, e1: v, date: w.startedAt, bw: null }; }
+      const bw = body.length ? bodyAvg(body, w.startedAt) : null;
+      if (bw && v / bw > ratio) { ratio = v / bw; bwAt = bw; best = { kg: wt, reps: r, e1: v, date: w.startedAt, bw }; }
+    }
   }
-  return out;
+  return { seen, ratio, e1, bw: bwAt, best, name };
+}
+function pullupBests(workouts) {
+  let reps = 0, best = null, name = null;
+  for (const w of workouts) for (const e of w.exercises) {
+    if (!LIFTS.pullups.includes(e.key)) continue;
+    name = e.name;
+    for (const s of e.sets.filter(working)) if (num(s.reps) > reps) { reps = num(s.reps); best = { reps, date: w.startedAt }; }
+  }
+  return { reps, best, name };
+}
+
+// Síla vůči sobě: posun nejlepšího e1RM cviku oproti prvnímu tréninku (cvik aspoň 3×, start aspoň 10 kg e1RM).
+// Cviky: připnuté (Key lifts) a pak nejčastější za posledních 120 dní. only = jeden konkrétní klíč (dohledání dat).
+function selfLifts(ws, { pinned = [], now, onlyKey = null }) {
+  const info = new Map();
+  for (const w of ws) for (const e of w.exercises) {
+    if (e.type === 'time' || (onlyKey && e.key !== onlyKey)) continue;
+    const v = bestE1Of(e.sets);
+    if (!(v > 0)) continue;
+    let x = info.get(e.key);
+    if (!x) { x = { key: e.key, name: e.name, first: v, firstDate: w.startedAt, best: v, bestDate: w.startedAt, n: 0, recent: 0 }; info.set(e.key, x); }
+    x.name = e.name; x.n++;
+    if (w.startedAt > now - 120 * DAY) x.recent++;
+    if (v > x.best) { x.best = v; x.bestDate = w.startedAt; }
+  }
+  let list = [...info.values()].filter((x) => x.first >= 10);
+  if (!onlyKey) {
+    const pin = (k) => { const i = pinned.indexOf(k); return i < 0 ? 99 : i; };
+    list = list.filter((x) => x.n >= 2 || pinned.includes(x.key))
+      .sort((a, b) => pin(a.key) - pin(b.key) || b.recent - a.recent || b.n - a.n)
+      .slice(0, MAX_SELF_LIFTS);
+  }
+  return list.map((x) => ({ ...x, pct: x.n >= 3 ? Math.max(0, (x.best / x.first - 1) * 100) : 0 }));
 }
 
 // Pracovní váha cviku v tréninku (nejtěžší pracovní série s opakováním) → kolikrát nové maximum (bez prvního zápisu)
@@ -216,7 +317,7 @@ function growthOf(ws) {
   const first = new Map(), best = new Map(), count = new Map(), names = new Map();
   for (const w of ws) for (const e of w.exercises) {
     if (e.type === 'time') continue;
-    const v = Math.max(0, ...e.sets.filter((s) => working(s) && num(s.weight) > 0 && num(s.reps) > 0).map((s) => e1rm(num(s.weight), num(s.reps))));
+    const v = bestE1Of(e.sets);
     if (!(v > 0)) continue;
     if (!first.has(e.key)) first.set(e.key, v);
     best.set(e.key, Math.max(best.get(e.key) || 0, v));
@@ -234,14 +335,15 @@ function growthOf(ws) {
 
 // → [{ id, group, tier, max, value, next, pct, secret?, ...extra }]; tier 0 = zatím nic, next null = maxed
 // only: spočítat jen jeden milník (pro dohledání dat získání úrovní – volá se opakovaně)
-export function milestones(workouts, { goal = 3, groups = [], body = [], scale = 'standard', now = Date.now(), only = null } = {}) {
+export function milestones(workouts, { goal = 3, groups = [], body = [], scale = 'self', breaks = [], pinned = [], now = Date.now(), only = null } = {}) {
   const ws = chrono(workouts.filter((w) => w.startedAt <= now));
-  const sc = SCALES[scale] || SCALES.standard;
-  const want = (...ids) => !only || ids.includes(only);
-  const recs = want('prs', 'hot') ? recordsTimeline(ws) : new Map();
+  const mode = normScale(scale);
+  const sc = SCALES[mode] || null;
+  const want = (...ids) => !only || ids.includes(baseId(only));
+  const recs = want('prs') ? recordsTimeline(ws) : new Map();
   const out = [];
   const push = (id, value, tiers, extra = {}) => {
-    if (!want(id)) return;
+    if (!want(baseId(id)) || (only && isLiftId(only) && id !== only)) return;
     const tier = tierOf(value, tiers);
     const next = tier < tiers.length ? tiers[tier] : null;
     const prev = tier ? tiers[tier - 1] : 0;
@@ -252,8 +354,8 @@ export function milestones(workouts, { goal = 3, groups = [], body = [], scale =
   // Objem a konzistence
   push('workouts', ws.length, TIERS.workouts);
   push('tonnage', ws.reduce((s, w) => s + workoutVolume(w), 0) / 1000, TIERS.tonnage);
-  push('streak', bestStreak(ws, goal, now), TIERS.streak);
-  push('perfect', perfectMonths(ws, goal, now), TIERS.perfect);
+  if (want('streak')) push('streak', bestStreak(ws, goal, now, breaks), TIERS.streak);
+  if (want('perfect')) push('perfect', perfectMonths(ws, goal, now, breaks), TIERS.perfect);
   if (groups.some((g) => ws.some((w) => w.group === g))) push('balanced', balancedMonths(ws, groups, now), TIERS.balanced);
   push('explorer', new Set(ws.flatMap((w) => w.exercises.filter((e) => e.sets.length).map((e) => e.key))).size, TIERS.explorer);
   const first = ws[0]?.startedAt;
@@ -261,49 +363,64 @@ export function milestones(workouts, { goal = 3, groups = [], body = [], scale =
   push('anniversary', years, TIERS.anniversary, { first, nextDate: first ? new Date(first).setFullYear(new Date(first).getFullYear() + years + 1) : null });
 
   // Heat
-  const days = want('steady', 'forged', 'rekindled') ? dailyHeat(ws, goal, now) : [];
-  let run = 0, steady = 0, forged = 0, rekindled = 0, coldAt = null, warmedOnce = false;
-  for (let i = 0; i < days.length; i++) {
-    const h = days[i].h;
-    if (h >= 25) { run++; steady = Math.max(steady, run); warmedOnce = true; } else run = 0;
-    if (h >= 80) forged++;
-    if (h < 25 && warmedOnce) coldAt = i;
-    if (coldAt != null && h >= 50) { if (i - coldAt <= 7) rekindled++; coldAt = null; }
+  if (want('steady', 'forged')) {
+    const days = dailyHeat(ws, goal, now, breaks);
+    let run = 0, steady = 0, forged = 0;
+    for (const { h } of days) {
+      if (h >= 25) { run++; steady = Math.max(steady, run); } else run = 0;
+      if (h >= 80) forged++;
+    }
+    push('steady', steady, TIERS.steady, { current: run });
+    push('forged', forged, TIERS.forged);
   }
-  push('steady', steady, TIERS.steady, { current: run });
-  push('forged', forged, TIERS.forged);
-  push('rekindled', rekindled, TIERS.rekindled);
+  if (want('rekindled')) {
+    const units = heatUnits(ws, goal, breaks);
+    const backs = units.filter((x) => x.back);
+    push('rekindled', backs.length, TIERS.rekindled, { last: backs.length ? backs[backs.length - 1].t : null });
+  }
 
-  // Síla vůči tělesné váze
-  const latestBw = body.length ? [...body].sort((a, b) => b.date - a.date)[0].weight : null;
-  const kgs = {};
-  for (const id of ['bench', 'squat', 'deadlift', 'ohp']) {
-    const b = liftBests(ws, LIFTS[id], body);
-    kgs[id] = b.kg;
-    const bw = b.bw || latestBw;
-    const tiers = sc[id];
-    const tier = tierOf(b.ratio, tiers);
-    const next = tier < tiers.length ? tiers[tier] : null;
-    push(id, b.ratio, tiers, { kg: b.kg, best: b.best, lift: b.name, bwNow: latestBw, needKg: next != null && bw ? Math.max(0, Math.ceil((next * bw - b.kg) / 2.5) * 2.5) : null, nobody: !body.length });
+  // Síla vůči sobě
+  if (want('lift')) {
+    for (const x of selfLifts(ws, { pinned, now, onlyKey: only && isLiftId(only) ? only.slice(5) : null })) {
+      push('lift:' + x.key, x.pct, LIFT_TIERS, { lift: x.name, key: x.key, from: Math.round(x.first * 10) / 10, to: Math.round(x.best * 10) / 10, sessions: x.n, few: x.n < 3, bestDate: x.bestDate });
+    }
   }
-  // Big three: součet nejlepších vah benche, dřepu a mrtvého tahu vůči aktuální tělesné váze
-  const total = kgs.bench + kgs.squat + kgs.deadlift;
-  const all3 = kgs.bench > 0 && kgs.squat > 0 && kgs.deadlift > 0;
-  const tRatio = all3 && latestBw ? total / latestBw : 0;
-  const tTier = tierOf(tRatio, sc.total);
-  const tNext = tTier < sc.total.length ? sc.total[tTier] : null;
-  push('total', tRatio, sc.total, { kg: total, lifts: { ...kgs }, bwNow: latestBw, missing: !all3, nobody: !body.length, needKg: tNext != null && latestBw && all3 ? Math.max(0, Math.ceil((tNext * latestBw - total) / 2.5) * 2.5) : null });
-  const pu = liftBests(ws, LIFTS.pullups, body);
-  push('pullups', pu.reps, sc.pullups, { best: pu.bestReps, lift: pu.name });
+  // Volitelně: vůči tělesné váze (muži / ženy)
+  if (sc) {
+    const bwNow = body.length ? bodyAvg(body, now) : null;
+    const e1s = {};
+    for (const id of ['bench', 'squat', 'deadlift', 'ohp']) {
+      if (!want(id, 'total')) continue;
+      const b = liftBests(ws, LIFTS[id], body);
+      e1s[id] = b.e1;
+      if (!want(id)) continue;
+      const tiers = sc[id];
+      const tier = tierOf(b.ratio, tiers);
+      const next = tier < tiers.length ? tiers[tier] : null;
+      push(id, b.ratio, tiers, { kg: Math.round(b.e1 * 10) / 10, best: b.best, lift: b.name, bwNow, needKg: next != null && bwNow ? Math.max(0, Math.ceil((next * bwNow - b.e1) / 2.5) * 2.5) : null, nobody: !body.length, bench: true });
+    }
+    if (want('total')) {
+      // Big three: součet nejlepších e1RM benche, dřepu a mrtvého tahu vůči průměrné váze za 90 dní
+      const total = (e1s.bench || 0) + (e1s.squat || 0) + (e1s.deadlift || 0);
+      const all3 = e1s.bench > 0 && e1s.squat > 0 && e1s.deadlift > 0;
+      const tRatio = all3 && bwNow ? total / bwNow : 0;
+      const tTier = tierOf(tRatio, sc.total);
+      const tNext = tTier < sc.total.length ? sc.total[tTier] : null;
+      push('total', tRatio, sc.total, { kg: Math.round(total * 10) / 10, lifts: { bench: Math.round((e1s.bench || 0) * 10) / 10, squat: Math.round((e1s.squat || 0) * 10) / 10, deadlift: Math.round((e1s.deadlift || 0) * 10) / 10 }, bwNow, missing: !all3, nobody: !body.length, needKg: tNext != null && bwNow && all3 ? Math.max(0, Math.ceil((tNext * bwNow - total) / 2.5) * 2.5) : null, bench: true });
+    }
+    if (want('pullups')) {
+      const pu = pullupBests(ws);
+      push('pullups', pu.reps, sc.pullups, { best: pu.best, lift: pu.name, bench: true });
+    }
+  }
 
   // Progres a rekordy
   push('levelup', levelUps(ws), TIERS.levelup);
-  const g = growthOf(ws);
+  const g = want('growth') ? growthOf(ws) : { pct: 0 };
   push('growth', g.pct, TIERS.growth, { lift: g.name, from: g.from, to: g.to });
-  let prs = 0, hot = 0, hotW = null;
-  for (const w of ws) { const n = (recs.get(w.id) || []).length; prs += n; if (n > hot) { hot = n; hotW = { name: w.name, date: w.startedAt }; } }
+  let prs = 0;
+  for (const w of ws) prs += (recs.get(w.id) || []).length;
   push('prs', prs, TIERS.prs);
-  push('hot', hot, TIERS.hot, { best: hotW });
 
   // Tajné (zobrazí se až po získání)
   const dows = new Set(ws.map((w) => new Date(w.startedAt).getDay()));
@@ -311,17 +428,11 @@ export function milestones(workouts, { goal = 3, groups = [], body = [], scale =
   const monthsByYear = new Map();
   for (const w of ws) { const d = new Date(w.startedAt); const y = d.getFullYear(); if (!monthsByYear.has(y)) monthsByYear.set(y, new Set()); monthsByYear.get(y).add(d.getMonth()); }
   push('yearround', [...monthsByYear.values()].some((s) => s.size === 12) ? 1 : 0, TIERS.yearround);
-  push('newyear', ws.some((w) => { const d = new Date(w.startedAt); return d.getMonth() === 0 && d.getDate() === 1; }) ? 1 : 0, TIERS.newyear);
-  const trainedDays = [...new Set(ws.map((w) => dayStart(w.startedAt)))].sort((a, b) => a - b);
-  let triple = 0;
-  for (let i = 2; i < trainedDays.length; i++) {
-    const a = new Date(trainedDays[i - 2]); a.setDate(a.getDate() + 2);
-    if (a.getTime() === trainedDays[i]) { triple = 1; break; }
-  }
-  push('triple', triple, TIERS.triple);
+  // Nový začátek: trénink v prvním lednovém týdnu (1.–7. 1.)
+  push('newyear', ws.some((w) => { const d = new Date(w.startedAt); return d.getMonth() === 0 && d.getDate() <= 7; }) ? 1 : 0, TIERS.newyear);
 
   const groupOf = Object.fromEntries(MILESTONE_GROUPS.flatMap(([gr, ids]) => ids.map((id) => [id, gr])));
-  return out.map((m) => ({ ...m, group: groupOf[m.id] }));
+  return out.map((m) => ({ ...m, group: groupOf[baseId(m.id)] }));
 }
 
 // Kdy byla která úroveň milníku získána: binární hledání přes konce dní od prvního tréninku (hodnoty milníků
@@ -343,17 +454,22 @@ export function tierDates(workouts, id, opts = {}) {
   return out;
 }
 
-// Nejbližší další úroveň (nejvyšší rozpracovanost, ne maxed; bez tělesné váhy / tajné / jednorázové se přeskočí)
+// Nejbližší další úroveň (nejvyšší rozpracovanost, ne maxed). Benchmarky vůči tělesné váze se tu NIKDY neukazují –
+// „nejbližší cíl“ má být o pravidelnosti a vlastním pokroku, ne o kilech, která chybí do poměru.
 export function closestMilestone(list) {
   return list
-    .filter((m) => m.next != null && m.pct > 0 && m.pct < 1 && !m.nobody && !m.missing && !m.secret && m.max > 1 && m.id !== 'anniversary')
+    .filter((m) => m.next != null && m.pct > 0 && m.pct < 1 && !m.bench && !m.few && !m.secret && m.max > 1 && m.id !== 'anniversary')
     .sort((a, b) => b.pct - a.pct)[0] || null;
 }
 export const milestoneTiers = (list) => list.filter((m) => !m.secret || m.tier).reduce((s, m) => s + m.tier, 0);
 export const milestoneMax = (list) => list.filter((m) => !m.secret || m.tier).reduce((s, m) => s + m.max, 0);
 
 // ——— Within reach (aktivní trénink) ———
-// Map(key → { e1, repsAt: Map(váha → max opakování) }) z dokončených tréninků
+// Rekordy, které aplikace hlídá a oslavuje, jsou záměrně „rozumné“:
+//   e1   odhad 1RM jen ze sérií do 10 opakování (nad 10 je odhad nepřesný a rekord by padal z lehkých sérií)
+//   reps rekord pro daný počet opakování: nejtěžší váha na N opakování (N ≤ 12), ne „víc opakování s lehčí váhou“
+export const E1_REC_MAX = 10, RM_MAX = 12;
+// Map(key → { e1, rm: [_, w1, w2, …, w12] }) z dokončených tréninků; rm[r] = nejtěžší váha zvednutá aspoň r×
 export function liftStats(workouts) {
   const out = new Map();
   for (const w of workouts) for (const e of w.exercises) {
@@ -363,74 +479,72 @@ export function liftStats(workouts) {
       if (s.warm) continue;
       const wt = num(s.weight), r = num(s.reps);
       if (!(wt > 0) || !(r > 0) || num(s.time) > 0) continue;
-      if (!st) { st = { e1: 0, repsAt: new Map() }; out.set(e.key, st); }
-      st.e1 = Math.max(st.e1, e1rm(wt, r));
-      if (!(st.repsAt.get(wt) >= r)) st.repsAt.set(wt, r);
+      if (!st) { st = { e1: 0, rm: [] }; out.set(e.key, st); }
+      if (r <= E1_REC_MAX) st.e1 = Math.max(st.e1, e1rm(wt, r));
+      for (let k = 1; k <= Math.min(r, RM_MAX); k++) if (!(st.rm[k] >= wt)) st.rm[k] = wt;
     }
   }
   return out;
 }
 
-// Nejmenší krok k novému rekordu podle naplánované nejtěžší série (předvyplněné hodnoty).
-// → { kind: 'pb'|'e1'|'reps', weight, reps, plus? } nebo null
-export function reachHint(ex, pb, stat, step = 2.5) {
-  if (!ex || ex.type === 'time') return null;
+// Druh rekordu, který by série (váha × opakování) překonala, nebo null. pb = uložený rekord cviku (nejtěžší série).
+export function recordKind(wt, r, pb, stat) {
+  if (!(wt > 0) || !(r > 0)) return null;
+  if (pb && !(pb.time > 0) && better({ weight: wt, reps: r, time: 0 }, pb)) return 'pb';
+  if (!stat) return null;
+  if (stat.e1 > 0 && r <= E1_REC_MAX && e1rm(wt, r) > stat.e1 + 0.05) return 'e1';
+  if (r <= RM_MAX && stat.rm[r] > 0 && wt > stat.rm[r]) return 'reps';
+  return null;
+}
+
+// „Rekord na dosah“ – jen doplněk k cíli progrese, nikdy jeho náhrada:
+//  • žádná nápověda, když cíl říká držet / ubrat / lehký týden (target.hold nebo state)
+//  • jen stejná váha jako cíl: buď už cíl sám je rekord, nebo o 1 opakování víc (v rámci rozsahu) – žádné singly „× 1“
+// ex = cvik v tréninku, target = cíl nejtěžší série. → { kind, weight, reps, atTarget, setId } | null
+export function reachHint(ex, pb, stat, target, hi = Infinity) {
+  if (!ex || ex.type === 'time' || !target || target.hold || target.state || !(target.weight > 0)) return null;
   const open = ex.sets.filter((s) => !s.warm && !s.done && num(s.weight) > 0 && num(s.reps) > 0);
   if (!open.length) return null;
   const top = open.map((s) => ({ id: s.id, weight: num(s.weight), reps: num(s.reps) })).sort((a, b) => b.weight - a.weight || b.reps - a.reps)[0];
-  const hit = (h) => ({ ...h, setId: top.id }); // série, u které se tip ukáže
-  // 1) PB (nejtěžší série): stejná váha, o 1–2 opakování víc
-  if (pb && !(pb.time > 0) && num(pb.weight) > 0) {
-    const pw = num(pb.weight), pr = num(pb.reps);
-    if (top.weight > pw) return hit({ kind: 'pb', weight: top.weight, reps: 1 });
-    if (top.weight === pw && pr + 1 - top.reps <= 2) return hit({ kind: 'pb', weight: pw, reps: pr + 1 });
-  }
-  if (!stat) return null;
-  // 2) e1RM: o jedno opakování víc, nebo o jeden krok váhy
-  if (stat.e1 > 0) {
-    for (let r = top.reps; r <= Math.min(top.reps + 1, 12); r++) {
-      if (e1rm(top.weight, r) > stat.e1 + 0.05) return hit({ kind: 'e1', weight: top.weight, reps: r });
-    }
-    if (e1rm(top.weight + step, top.reps) > stat.e1 + 0.05) return hit({ kind: 'e1', weight: top.weight + step, reps: top.reps, plus: step });
-  }
-  // 3) Nejvíc opakování s touto váhou
-  const m = stat.repsAt.get(top.weight);
-  if (m != null && top.reps >= m) return hit({ kind: 'reps', weight: top.weight, reps: m + 1 });
-  return null;
+  if (top.weight !== target.weight) return null;
+  const at = recordKind(target.weight, target.reps, pb, stat);
+  if (at) return { kind: at, weight: target.weight, reps: target.reps, atTarget: true, setId: top.id };
+  const plus = target.reps + 1;
+  if (plus > hi) return null;
+  const k = recordKind(target.weight, plus, pb, stat);
+  return k ? { kind: k, weight: target.weight, reps: plus, atTarget: false, setId: top.id } : null;
 }
 
 // Druh rekordu, který odškrtnutá série překonala (vůči historii), nebo null
 export function setRecord(set, pb, stat, timed = false) {
   if (!set || set.warm) return null;
   const wt = num(set.weight), r = num(set.reps), tm = num(set.time);
-  if (pb && better({ weight: wt, reps: timed ? 0 : r, time: timed ? tm : 0 }, pb)) return 'pb';
-  if (timed || !(wt > 0) || !(r > 0) || !stat) return null;
-  if (stat.e1 > 0 && e1rm(wt, r) > stat.e1 + 0.05) return 'e1';
-  const m = stat.repsAt.get(wt);
-  if (m != null && r > m) return 'reps';
-  return null;
+  if (timed) return pb && better({ weight: wt, reps: 0, time: tm }, pb) ? 'pb' : null;
+  return recordKind(wt, r, pb, stat);
 }
 
 // ——— Monthly recap ———
-export function monthRecap(workouts, { month, goal = 3, groups = [], body = [], scale = 'standard' } = {}) {
+export function monthRecap(workouts, { month, goal = 3, groups = [], body = [], scale = 'self', breaks = [], pinned = [], now = Date.now() } = {}) {
   const start = monthStart(month), end = addMonths(start, 1);
   const ws = chrono(workouts.filter((w) => w.startedAt >= start && w.startedAt < end));
   const recs = recordsTimeline(workouts.filter((w) => w.startedAt < end));
   const records = ws.reduce((n, w) => n + (recs.get(w.id) || []).length, 0);
-  const counts = weekCounts(workouts);
-  const mons = mondaysIn(start, Math.min(end, Date.now()));
-  const weeksMet = mons.filter((d) => (counts.get(d) || 0) >= goal).length;
+  const st = new Map(weekStatuses(workouts.filter((w) => w.startedAt < end), goal, breaks, Math.min(now, end - 1)).map((w) => [w.mon, w.status]));
+  const mons = mondaysIn(start, Math.min(end, now));
+  const weeksMet = mons.filter((d) => ['met', 'deload'].includes(st.get(d))).length;
+  const weeksKept = mons.filter((d) => KEPT.has(st.get(d))).length;
+  const units = heatUnits(workouts, goal, breaks);
   const days = [];
   for (let d = new Date(start); d.getTime() < end; d.setDate(d.getDate() + 1)) {
     const at = d.getTime() + DAY - 1;
-    days.push(at > Date.now() ? null : heatAt(workouts, goal, at));
+    days.push(at > now ? null : heatFromUnits(units, goal, breaks, at));
   }
-  // Nejlepší zvednutí měsíce (nejvyšší e1RM série)
+  // Nejlepší zvednutí měsíce (nejvyšší e1RM série do 10 opakování)
   let best = null;
   for (const w of ws) for (const e of w.exercises) for (const s of e.sets) {
     if (s.warm || e.type === 'time') continue;
     const wt = num(s.weight), r = num(s.reps);
-    if (!(wt > 0) || !(r > 0)) continue;
+    if (!(wt > 0) || !(r > 0) || r > E1_MAX) continue;
     const v = e1rm(wt, r);
     if (!best || v > best.e1) best = { name: e.name, weight: wt, reps: r, e1: v };
   }
@@ -438,10 +552,10 @@ export function monthRecap(workouts, { month, goal = 3, groups = [], body = [], 
   const pre = liftStats(workouts.filter((w) => w.startedAt < start));
   const cur = liftStats(ws);
   let jump = null;
-  for (const [key, st] of cur) {
+  for (const [key, x] of cur) {
     const p = pre.get(key);
     if (!p?.e1) continue;
-    const d = st.e1 - p.e1;
+    const d = x.e1 - p.e1;
     if (d > 0.5 && (!jump || d > jump.delta)) {
       const name = ws.flatMap((w) => w.exercises).find((e) => e.key === key)?.name || key;
       jump = { name, delta: Math.round(d * 10) / 10 };
@@ -452,11 +566,11 @@ export function monthRecap(workouts, { month, goal = 3, groups = [], body = [], 
   for (const w of ws) if (w.group) gc.set(w.group, (gc.get(w.group) || 0) + 1);
   const top = [...gc].sort((a, b) => b[1] - a[1])[0];
   // Nové úrovně Milestones za měsíc
-  const opts = { goal, groups, body, scale };
-  const a = milestones(workouts, { ...opts, now: start - 1 }), b = milestones(workouts, { ...opts, now: end - 1 });
-  const gained = b.filter((m) => m.tier > (a.find((x) => x.id === m.id)?.tier || 0)).map((m) => ({ id: m.id, tier: m.tier }));
+  const opts = { goal, groups, body, scale, breaks, pinned };
+  const a = milestones(workouts, { ...opts, now: start - 1 }), b = milestones(workouts, { ...opts, now: Math.min(now, end - 1) });
+  const gained = b.filter((m) => m.tier > (a.find((x) => x.id === m.id)?.tier || 0)).map((m) => ({ id: m.id, tier: m.tier, lift: m.lift }));
   return {
-    month: start, workouts: ws.length, records, weeksMet, weeks: mons.length, heat: days,
+    month: start, workouts: ws.length, records, weeksMet, weeksKept, weeks: mons.length, heat: days,
     best, jump, topGroup: top ? { group: top[0], n: top[1] } : null, gained,
     volume: ws.reduce((s, w) => s + workoutVolume(w), 0),
   };

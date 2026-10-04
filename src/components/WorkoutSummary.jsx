@@ -33,6 +33,11 @@ export default function WorkoutSummary({ done, onClose, actions = null }) {
   const all = useMemo(() => (workouts.some((w) => w.id === done.id) ? workouts : [done, ...workouts]), [workouts, done]);
   const records = useMemo(() => recordsOf(all).get(done.id) || [], [all, done.id]);
   const prev = useMemo(() => previousSame(done, all), [done, all]);
+  // Návrat po ≥ 7 dnech bez tréninku → „Vítej zpátky“ (návrat je to nejdůležitější, ne výkon)
+  const back = useMemo(() => {
+    const before = all.filter((x) => x.id !== done.id && x.startedAt < done.startedAt).reduce((a, x) => Math.max(a, x.startedAt), 0);
+    return before > 0 && done.startedAt - before >= 7 * 864e5;
+  }, [all, done]);
   const m = metricsOf(all);
   const cur = m.get(done.id), pm = prev ? m.get(prev.id) : null;
   const sets = done.exercises.reduce((n, e) => n + e.sets.length, 0);
@@ -45,7 +50,7 @@ export default function WorkoutSummary({ done, onClose, actions = null }) {
   return (
     <div className="screen summary">
       <header className="screen-head">
-        <p className="label">{actions ? fmtDate(done.startedAt) : `${t('sum.eyebrow')} · ${fmtDate(done.startedAt)}`}</p>
+        <p className="label">{actions ? fmtDate(done.startedAt) : `${back ? t('sum.back') : t('sum.eyebrow')} · ${fmtDate(done.startedAt)}`}</p>
         <h1>{done.name}</h1>
       </header>
       <section className="card sum-stats">

@@ -11,7 +11,7 @@ import { XIcon } from '../components/Icons.jsx';
 import { markGuide } from '../lib/guide.js';
 
 export default function Progress({ go, tabs }) {
-  const { workouts, weeklyGoal } = useStore();
+  const { workouts, weeklyGoal, breaks } = useStore();
   const { desktop } = useViewMode();
   const recap = useRecapTeaser();
   const [recapOpen, setRecapOpen] = useState(false);
@@ -29,7 +29,7 @@ export default function Progress({ go, tabs }) {
       </div>
     </section>
   );
-  const heat = workouts.length > 0 && <HeatCard workouts={workouts} goal={weeklyGoal} />;
+  const heat = workouts.length > 0 && <HeatCard workouts={workouts} goal={weeklyGoal} breaks={breaks} />;
 
   return (
     <div className={'screen prog-screen' + (desktop ? ' screen-wide' : ' ms')}>

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { starterConfig, starterId } from '../../data/defaultTemplates.js';
 import { defaultTypeOf, EXERCISES } from '../../data/exercises.js';
 import { INFO_KEYS } from '../../data/infoKeys.js';
@@ -7,6 +7,9 @@ import { defaultStep, learnedSteps } from '../progress.js';
 import { t } from '../i18n.js';
 import { MAX_PINS, migrateTemplate, toLibEntry } from './model.js';
 import { defaultBw } from '../body.js';
+import { activeBreak, cleanBreaks, DELOAD_DAYS } from '../breaks.js';
+import { normScale } from '../gamify.js';
+import { CARDIO_GOALS } from './useAccountData.js';
 
 const cleanMainTpl = (x) => { const { builtin: _b, ...rest } = x; return rest; };
 
@@ -15,7 +18,7 @@ const cleanMainTpl = (x) => { const { builtin: _b, ...rest } = x; return rest; }
 export function useAccountActions({ api, fail, notify, remember, user, acc, workouts }) {
   const {
     custom, setCustom, library, setLibrary, mainCfg, setMainCfg, setStarter, appearance, setAppearanceState,
-    setWeeklyGoalState, pinnedLifts, setPinnedLifts, setStrengthScaleState, setGamifyState,
+    setWeeklyGoalState, pinnedLifts, setPinnedLifts, setStrengthScaleState, setGamifyState, breaks, setBreaks, setCardioGoalState,
   } = acc;
 
   // ——— Hlavní šablony (vlastní konfigurace účtu) ———
@@ -94,9 +97,9 @@ export function useAccountActions({ api, fail, notify, remember, user, acc, work
     return true;
   }, [pinnedLifts, api, user?.uid, notify, setPinnedLifts]);
 
-  // Milestones: škála síly vůči tělesné váze ('standard' | 'lighter')
+  // Milestones: síla vůči sobě ('self') nebo orientační benchmark vůči tělesné váze ('men' | 'women')
   const setStrengthScale = useCallback((v) => {
-    const next = v === 'lighter' ? 'lighter' : 'standard';
+    const next = normScale(v);
     setStrengthScaleState(next);
     api?.saveSettings({ strengthScale: next }).catch((e) => console.warn('settings', e));
   }, [api, setStrengthScaleState]);
@@ -105,6 +108,49 @@ export function useAccountActions({ api, fail, notify, remember, user, acc, work
     setGamifyState(Boolean(on));
     api?.saveSettings({ gamify: Boolean(on) }).catch((e) => console.warn('settings', e));
   }, [api, setGamifyState]);
+
+  // ——— Pauza a lehký týden (settings.breaks) ———
+  const breaksRef = useRef(breaks);
+  breaksRef.current = breaks;
+  const writeBreaks = useCallback((next) => {
+    const list = cleanBreaks(next);
+    breaksRef.current = list;
+    setBreaks(list);
+    api?.saveSettings({ breaks: list }).catch(fail('err.save'));
+  }, [api, fail, setBreaks]);
+  // Pauza (nemoc, dovolená, zranění): běží, dokud ji člověk neukončí (nebo dokud nezačne trénovat)
+  const startPause = useCallback(() => {
+    const now = Date.now();
+    if (activeBreak(breaksRef.current, 'pause', now)) return;
+    writeBreaks([...breaksRef.current, { kind: 'pause', from: now, to: null }]);
+  }, [writeBreaks]);
+  const endPause = useCallback((at = Date.now()) => {
+    writeBreaks(breaksRef.current.map((b) => (b.kind === 'pause' && b.to == null ? { ...b, to: Math.max(b.from, at) } : b)));
+  }, [writeBreaks]);
+  // Lehký týden: 7 dní od dneška (méně sérií, stejné váhy); ukončit jde dřív
+  const startDeload = useCallback(() => {
+    const d = new Date(); d.setHours(0, 0, 0, 0);
+    const from = d.getTime();
+    if (activeBreak(breaksRef.current, 'deload')) return;
+    writeBreaks([...breaksRef.current, { kind: 'deload', from, to: from + DELOAD_DAYS * 864e5 }]);
+  }, [writeBreaks]);
+  const endDeload = useCallback(() => {
+    const now = Date.now();
+    writeBreaks(breaksRef.current.map((b) => (b.kind === 'deload' && b.from <= now && (b.to == null || b.to > now) ? { ...b, to: now } : b)));
+  }, [writeBreaks]);
+  // Trénink během pauzy pauzu ukončí (začátkem tréninku)
+  useEffect(() => {
+    const p = activeBreak(breaks, 'pause');
+    if (!p) return;
+    const after = workouts.filter((x) => x.startedAt > p.from).map((x) => x.startedAt);
+    if (after.length) endPause(Math.min(...after));
+  }, [breaks, workouts, endPause]);
+  // Týdenní cíl kardia (minuty; 0 = jen sledovat)
+  const setCardioGoal = useCallback((v) => {
+    const next = CARDIO_GOALS.includes(v) ? v : 150;
+    setCardioGoalState(next);
+    api?.saveSettings({ cardioGoal: next }).catch((e) => console.warn('settings', e));
+  }, [api, setCardioGoalState]);
 
   // ——— Knihovna: vyhledávání ———
   const libMap = useMemo(() => new Map(library.map((e) => [exKey(e.name), e])), [library]);
@@ -177,7 +223,9 @@ export function useAccountActions({ api, fail, notify, remember, user, acc, work
     main, templates, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, chooseStarter,
     saveTemplate, deleteTemplate, setAppearance, setWeeklyGoal, togglePin, setStrengthScale, setGamify,
     typeOf, catOf, stepOf, stepIsManual, infoOf, saveLibrary, addToLibrary, resetLibrary, setStep, bwOf, setBw,
+    startPause, endPause, startDeload, endDeload, setCardioGoal,
   }), [main, templates, groupLabel, groupSub, saveMainTemplate, deleteMainTemplate, renameGroup, chooseStarter,
     saveTemplate, deleteTemplate, setAppearance, setWeeklyGoal, togglePin, setStrengthScale, setGamify,
-    typeOf, catOf, stepOf, stepIsManual, infoOf, saveLibrary, addToLibrary, resetLibrary, setStep, bwOf, setBw]);
+    typeOf, catOf, stepOf, stepIsManual, infoOf, saveLibrary, addToLibrary, resetLibrary, setStep, bwOf, setBw,
+    startPause, endPause, startDeload, endDeload, setCardioGoal]);
 }

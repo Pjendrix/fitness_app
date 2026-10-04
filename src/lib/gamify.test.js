@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  bestStreak, closestMilestone, coolDays, heatAt, heatInfo, heatState, liftStats, milestones, monday, monthRecap,
-  perfectMonths, reachHint, setRecord,
+  bestStreak, closestMilestone, heatAt, heatInfo, heatState, heatUnits, liftStats, milestones, monday, monthRecap,
+  perfectMonths, reachHint, setRecord, streaks, weekStatuses,
 } from './gamify.js';
 import { generateDemo } from './demoData.js';
 
@@ -12,26 +12,47 @@ const W = (daysAgo, ex = [], extra = {}) => ({
   id: 'w' + n++, name: 'W', group: 'PUSH', startedAt: NOW - daysAgo * DAY, finishedAt: NOW - daysAgo * DAY + 3600e3,
   exercises: ex.map(([key, sets, more]) => ({ key, name: key, sets: sets.map(([weight, reps, time]) => ({ weight, reps, time })), ...more })), ...extra,
 });
+// Tréninky v pevné dny týdne (0 = pondělí) po `weeks` týdnů končící tímto týdnem
+const weekly = (days, weeks) => {
+  const mon = monday(NOW), out = [];
+  for (let w = weeks - 1; w >= 0; w--) for (const d of days) {
+    const t = mon - w * 7 * DAY + d * DAY + 18 * 3600e3;
+    if (t <= NOW) out.push({ id: 'k' + n++, name: 'W', startedAt: t, finishedAt: t + 1, exercises: [] });
+  }
+  return out;
+};
 
 describe('heat', () => {
   it('no workouts → 0, cold', () => {
     expect(heatAt([], 3, NOW)).toBe(0);
     expect(heatState(0).id).toBe('cold');
   });
-  it('training at the weekly goal pace holds glowing', () => {
-    const ws = Array.from({ length: 30 }, (_, i) => W(i * (7 / 3)));
-    const h = heatAt(ws, 3, NOW + DAY);
-    expect(h).toBeGreaterThanOrEqual(50);
-    expect(h).toBeLessThan(90);
+  it('training at your own goal pace keeps you White-hot', () => {
+    expect(heatAt(weekly([0, 2, 4], 10), 3, NOW)).toBeGreaterThanOrEqual(80);
   });
-  it('cools down without training', () => {
-    const ws = Array.from({ length: 30 }, (_, i) => W(10 + i * (7 / 3)));
-    expect(heatAt(ws, 3, NOW)).toBeLessThan(heatAt(ws, 3, NOW - 9 * DAY));
+  it('training above the goal does not add Heat (weekly cap)', () => {
+    const atGoal = heatAt(weekly([0, 2, 4], 10), 3, NOW);
+    const above = heatAt(weekly([0, 1, 2, 3, 4], 10), 3, NOW);
+    expect(above).toBeLessThanOrEqual(atGoal);
+    const u = heatUnits(weekly([0, 1, 2, 3, 4], 2), 3);
+    expect(u).toHaveLength(10);
+    expect(u.filter((x) => x.u > 0)).toHaveLength(6); // počítají se jen 3 za týden
   });
-  it('capped at 100', () => expect(heatAt(Array.from({ length: 40 }, (_, i) => W(i * 0.5)), 3, NOW)).toBe(100));
-  it('coolDays: days until below the current state', () => {
-    expect(coolDays(0)).toBeNull();
-    expect(coolDays(72)).toBe(Math.ceil(Math.log(72 / 50) * 7));
+  it('two workouts on one day count once', () => {
+    const a = heatAt([W(1), W(5)], 3, NOW);
+    const b = heatAt([W(1), { ...W(1), id: 'dup' }, W(5)], 3, NOW);
+    expect(b).toBe(a);
+  });
+  it('comeback after 7+ days counts double', () => {
+    const units = heatUnits([W(20), W(10)], 3);
+    expect(units[1]).toMatchObject({ back: true, u: 2 });
+  });
+  it('a pause freezes Heat', () => {
+    const ws = weekly([0, 2, 4], 6).filter((w) => w.startedAt < NOW - 14 * DAY);
+    const before = heatAt(ws, 3, NOW - 14 * DAY + DAY);
+    const breaks = [{ kind: 'pause', from: NOW - 14 * DAY + DAY, to: null }];
+    expect(heatAt(ws, 3, NOW, breaks)).toBe(before);
+    expect(heatAt(ws, 3, NOW)).toBeLessThan(before);
   });
   it('heatInfo bars: 28 days, today last with the current value', () => {
     const info = heatInfo([W(0), W(3)], 3, NOW);
@@ -42,14 +63,24 @@ describe('heat', () => {
   });
 });
 
-describe('streaks and months', () => {
-  it('best streak counts goal weeks in a row', () => {
-    const mon = monday(NOW);
-    const at = (weeksAgo, d) => ({ ...W(0), startedAt: mon - weeksAgo * 7 * DAY + d * DAY + 3600e3 });
-    const ws = [at(5, 0), at(5, 2), at(4, 0), at(4, 1), at(2, 0), at(2, 2), at(1, 0), at(1, 3), at(0, 0)];
-    expect(bestStreak(ws, 2, NOW)).toBe(2);
+describe('weeks, streaks and months', () => {
+  const mon = monday(NOW);
+  const at = (weeksAgo, d) => ({ ...W(0), startedAt: mon - weeksAgo * 7 * DAY + d * DAY + 3600e3 });
+  it('one missed week is forgiven (joker), the second within 4 weeks breaks the streak', () => {
+    const ws = [at(6, 0), at(6, 2), at(5, 0), at(5, 2), /* 4: miss */ at(3, 0), at(3, 2), /* 2: miss */ at(1, 0), at(1, 2), at(0, 0)];
+    const st = weekStatuses(ws, 2, [], NOW).map((w) => w.status);
+    expect(st).toEqual(['met', 'met', 'joker', 'met', 'miss', 'met', 'open']);
+    expect(streaks(weekStatuses(ws, 2, [], NOW))).toEqual({ current: 1, best: 3 });
+    expect(bestStreak(ws, 2, NOW)).toBe(3);
   });
-  it('perfect month needs every week of a completed month', () => {
+  it('pause and light week keep the streak', () => {
+    const ws = [at(3, 0), at(3, 2), at(2, 0), at(0, 0), at(0, 1)];
+    const breaks = [{ kind: 'pause', from: mon - 1 * 7 * DAY, to: mon - 1 * 7 * DAY + 5 * DAY }, { kind: 'deload', from: mon - 2 * 7 * DAY, to: mon - 2 * 7 * DAY + 7 * DAY }];
+    const st = weekStatuses(ws, 2, breaks, NOW);
+    expect(st.map((w) => w.status)).toEqual(['met', 'deload', 'pause', 'met']);
+    expect(streaks(st).current).toBe(3);
+  });
+  it('perfect month: no missed week (jokers count), at least one met', () => {
     const ws = [];
     for (let d = new Date(2026, 8, 1); d.getMonth() === 8; d.setDate(d.getDate() + 1)) if (d.getDay() % 2) ws.push({ ...W(0), startedAt: d.getTime() + 10 * 3600e3 });
     expect(perfectMonths(ws, 2, NOW)).toBe(1);
@@ -59,26 +90,44 @@ describe('streaks and months', () => {
 
 describe('milestones', () => {
   const body = [{ id: 'x', date: NOW - 30 * DAY, weight: 80 }];
-  it('bench vs bodyweight with both scales', () => {
-    const ws = [W(1, [['bench-press-barbell', [[80, 3], [85, 1]]]])];
-    const std = milestones(ws, { body, now: NOW }).find((m) => m.id === 'bench');
-    expect(std.tier).toBe(3); // 85/80 = 1,06 → I 0,5 · II 0,75 · III 1
-    expect(std.next).toBe(1.25);
-    expect(std.needKg).toBe(15); // 100 kg − 85 kg
-    const light = milestones(ws, { body, now: NOW, scale: 'lighter' }).find((m) => m.id === 'bench');
-    expect(light.tier).toBe(5);
-    expect(light.next).toBeNull();
+  it('strength is self-relative by default: e1RM growth on the lifts you train', () => {
+    const ws = [W(30, [['hip-thrust', [[60, 10]]]]), W(20, [['hip-thrust', [[70, 10]]]]), W(10, [['hip-thrust', [[80, 10]]]])];
+    const list = milestones(ws, { now: NOW });
+    const lift = list.find((m) => m.id === 'lift:hip-thrust');
+    expect(lift).toMatchObject({ group: 'strength', lift: 'hip-thrust', tier: 2 }); // +33 % → I 10 · II 25
+    expect(list.find((m) => m.id === 'bench')).toBeUndefined(); // poměr k váze jen na přání
+  });
+  it('self lifts: starred first, at most 4, need 3 sessions to count', () => {
+    const ex = (k) => [k, [[40, 8]]];
+    const ws = [W(9, ['a', 'b', 'c', 'd', 'e'].map(ex)), W(5, ['a', 'b', 'c', 'd', 'e'].map(ex))];
+    const lifts = milestones(ws, { now: NOW, pinned: ['e'] }).filter((m) => m.id.startsWith('lift:'));
+    expect(lifts).toHaveLength(4);
+    expect(lifts[0].id).toBe('lift:e');
+    expect(lifts[0].few).toBe(true);
+  });
+  it('bodyweight benchmark (opt-in): e1RM up to 10 reps vs 90-day average, men vs women', () => {
+    const ws = [W(1, [['bench-press-barbell', [[75, 5], [100, 1]]]])];
+    const men = milestones(ws, { body, now: NOW, scale: 'men' }).find((m) => m.id === 'bench');
+    expect(men.value).toBeCloseTo(100 / 80); // single 100 = e1RM 100 > 75 × 5 (87,5)
+    expect(men.tier).toBe(4);
+    const women = milestones(ws, { body, now: NOW, scale: 'women' }).find((m) => m.id === 'bench');
+    expect(women.tier).toBe(5);
+  });
+  it('weight loss does not raise the benchmark (90-day average)', () => {
+    const ws = [W(1, [['bench-press-barbell', [[80, 3]]]])];
+    const b1 = [{ date: NOW - 60 * DAY, weight: 90 }, { date: NOW - 2 * DAY, weight: 70 }];
+    const m = milestones(ws, { body: b1, now: NOW, scale: 'men' }).find((x) => x.id === 'bench');
+    expect(m.best.bw).toBeCloseTo(80); // průměr, ne poslední zápis 70
   });
   it('warm-up sets do not count', () => {
     const ws = [{ ...W(1), exercises: [{ key: 'squat', name: 'Squat', sets: [{ weight: 200, reps: 1, warm: true }, { weight: 50, reps: 5 }] }] }];
-    expect(milestones(ws, { body, now: NOW }).find((m) => m.id === 'squat').tier).toBe(0);
+    expect(milestones(ws, { body, now: NOW, scale: 'men' }).find((m) => m.id === 'squat').tier).toBe(0);
   });
-  it('no body weight → flagged, not offered as closest', () => {
-    const list = milestones([W(1, [['bench-press-barbell', [[60, 5]]]])], { now: NOW });
-    expect(list.find((m) => m.id === 'bench').nobody).toBe(true);
+  it('bodyweight benchmarks are never offered as the closest milestone', () => {
+    const list = milestones([W(1, [['bench-press-barbell', [[60, 5]]]])], { now: NOW, body, scale: 'men' });
     expect(closestMilestone(list)?.id).not.toBe('bench');
   });
-  it('workouts, records, level ups, explorer', () => {
+  it('workouts, records, level ups, explorer; no “hot session”', () => {
     const ws = [
       W(40, [['a', [[50, 5]]], ['b', [[20, 8]]], ['c', [[10, 10]]]], { startedAt: new Date(2026, 7, 20, 6, 30).getTime() }),
       W(2, [['a', [[55, 5]]], ['b', [[22, 8]]], ['c', [[12, 10]]]]),
@@ -86,16 +135,16 @@ describe('milestones', () => {
     const by = Object.fromEntries(milestones(ws, { now: NOW }).map((m) => [m.id, m]));
     expect(by.workouts.value).toBe(2);
     expect(by.prs.value).toBe(3);
-    expect(by.hot.value).toBe(3);
+    expect(by.hot).toBeUndefined();
     expect(by.levelup.value).toBe(3);
     expect(by.explorer.value).toBe(3);
   });
-  it('big three total vs bodyweight, flagged when a lift is missing', () => {
+  it('big three total vs 90-day average bodyweight, flagged when a lift is missing', () => {
     const ws = [W(2, [['bench-press-barbell', [[80, 1]]], ['squat', [[100, 1]]], ['deadlift', [[140, 1]]]])];
-    const t = milestones(ws, { body, now: NOW }).find((m) => m.id === 'total');
+    const t = milestones(ws, { body, now: NOW, scale: 'men' }).find((m) => m.id === 'total');
     expect(t.value).toBeCloseTo(4); // 320 / 80
     expect(t.tier).toBe(4);
-    expect(milestones([W(2, [['squat', [[100, 1]]]])], { body, now: NOW }).find((m) => m.id === 'total').missing).toBe(true);
+    expect(milestones([W(2, [['squat', [[100, 1]]]])], { body, now: NOW, scale: 'men' }).find((m) => m.id === 'total').missing).toBe(true);
   });
   it('growth: e1RM % vs first session, needs 3 sessions', () => {
     const ws = [W(30, [['row', [[50, 10]]]]), W(20, [['row', [[55, 10]]]]), W(10, [['row', [[60, 10]]]])];
@@ -104,49 +153,62 @@ describe('milestones', () => {
     expect(g.lift).toBe('row');
     expect(milestones(ws.slice(0, 2), { now: NOW }).find((m) => m.id === 'growth').value).toBe(0);
   });
-  it('heat milestones: steady flame and forged from regular training', () => {
-    const ws = Array.from({ length: 60 }, (_, i) => W(i * 1.5));
+  it('heat milestones: steady flame and forged from training at the goal', () => {
+    const ws = weekly([0, 2, 4], 20);
     const by = Object.fromEntries(milestones(ws, { now: NOW, goal: 3 }).map((m) => [m.id, m]));
     expect(by.steady.value).toBeGreaterThanOrEqual(80);
-    expect(by.forged.value).toBeGreaterThan(0);
+    expect(by.forged.value).toBeGreaterThan(60);
     expect(by.rekindled.value).toBe(0);
   });
-  it('rekindled: back from cold to glowing within a week', () => {
-    const ws = [...Array.from({ length: 10 }, (_, i) => W(60 + i * 2)), ...Array.from({ length: 6 }, (_, i) => W(6 - i))];
-    expect(milestones(ws, { now: NOW, goal: 3 }).find((m) => m.id === 'rekindled').tier).toBe(1);
+  it('comeback: every return after 7+ days', () => {
+    const ws = [W(60), W(58), W(40), W(39), W(20)];
+    expect(milestones(ws, { now: NOW, goal: 3 }).find((m) => m.id === 'rekindled').value).toBe(2);
+    // pauza se do mezery nepočítá
+    const breaks = [{ kind: 'pause', from: NOW - 38 * DAY, to: NOW - 21 * DAY }];
+    expect(milestones(ws, { now: NOW, goal: 3, breaks }).find((m) => m.id === 'rekindled').value).toBe(1);
   });
-  it('secret milestones: three in a row, full week', () => {
-    const ws = [W(1), W(2), W(3)];
-    const by = Object.fromEntries(milestones(ws, { now: NOW }).map((m) => [m.id, m]));
-    expect(by.triple).toMatchObject({ tier: 1, secret: true });
+  it('secret milestones: no “three in a row”, full week, fresh start', () => {
+    const by = Object.fromEntries(milestones([W(1), W(2), W(3)], { now: NOW }).map((m) => [m.id, m]));
+    expect(by.triple).toBeUndefined();
     expect(by.fullweek.tier).toBe(0);
-    expect(by.fullweek.tier + milestones(Array.from({ length: 7 }, (_, i) => W(i)), { now: NOW }).find((m) => m.id === 'fullweek').tier).toBe(1);
+    expect(milestones(Array.from({ length: 7 }, (_, i) => W(i)), { now: NOW }).find((m) => m.id === 'fullweek').tier).toBe(1);
+    const jan = { ...W(0), startedAt: new Date(2026, 0, 5, 18).getTime() };
+    expect(milestones([jan], { now: NOW }).find((m) => m.id === 'newyear')).toMatchObject({ tier: 1, secret: true });
   });
   it('demo data produce sensible milestones', () => {
     const d = generateDemo(NOW);
     const list = milestones(d.workouts, { body: d.body, groups: ['PUSH', 'PULL', 'LEGS'], goal: 3, now: NOW });
     expect(list.find((m) => m.id === 'workouts').tier).toBeGreaterThanOrEqual(1);
+    expect(list.some((m) => m.id.startsWith('lift:'))).toBe(true);
     expect(list.every((m) => m.pct >= 0 && m.pct <= 1)).toBe(true);
   });
 });
 
-describe('within reach', () => {
+describe('records and “within reach”', () => {
   const hist = [W(5, [['bench', [[80, 8], [85, 6]]]])];
   const st = liftStats(hist).get('bench');
   const pb = { weight: 85, reps: 6 };
-  const ex = (sets) => ({ key: 'bench', sets: sets.map(([weight, reps, done]) => ({ weight, reps, done })) });
-  it('one rep to PB', () => expect(reachHint(ex([[85, 6]]), pb, st)).toEqual({ kind: 'pb', weight: 85, reps: 7 }));
-  it('heavier than PB → any rep is a PB', () => expect(reachHint(ex([[87.5, 3]]), pb, st)).toMatchObject({ kind: 'pb', weight: 87.5 }));
-  it('e1RM within one rep at a lighter weight', () => {
-    // best e1 = 85 × (1 + 6/30) = 102; 80 × 9 = 104
-    expect(reachHint(ex([[80, 8]]), pb, st)).toEqual({ kind: 'e1', weight: 80, reps: 9 });
+  const ex = (sets) => ({ key: 'bench', sets: sets.map(([weight, reps, done], i) => ({ id: 's' + i, weight, reps, done })) });
+  it('target itself is a record → hint “record” at the target', () => {
+    expect(reachHint(ex([[85, 7]]), pb, st, { weight: 85, reps: 7 })).toMatchObject({ kind: 'pb', weight: 85, reps: 7, atTarget: true });
   });
-  it('nothing open → null', () => expect(reachHint(ex([[85, 6, true]]), pb, st)).toBeNull());
-  it('setRecord kinds', () => {
+  it('+1 rep over the target', () => {
+    // e1 = 85 × 1,2 = 102; 80 × 9 = 104 → +1 nad cíl 80 × 8
+    expect(reachHint(ex([[80, 8]]), pb, { ...st, rm: [] }, { weight: 80, reps: 8 })).toMatchObject({ kind: 'e1', reps: 9, atTarget: false });
+  });
+  it('never a hint when the target says hold / reset / light week, never a heavier single', () => {
+    expect(reachHint(ex([[85, 6]]), pb, st, { weight: 85, reps: 6, hold: true })).toBeNull();
+    expect(reachHint(ex([[76.5, 6]]), pb, st, { weight: 76.5, reps: 6, state: 'reset' })).toBeNull();
+    expect(reachHint(ex([[90, 1]]), pb, st, { weight: 85, reps: 7 })).toBeNull(); // naťukaná vyšší váha ≠ cíl
+  });
+  it('nothing open → null', () => expect(reachHint(ex([[85, 6, true]]), pb, st, { weight: 85, reps: 7 })).toBeNull());
+  it('setRecord kinds: e1 only up to 10 reps, rep record = heavier for the same reps', () => {
     expect(setRecord({ weight: 85, reps: 7 }, pb, st)).toBe('pb');
     expect(setRecord({ weight: 80, reps: 9 }, pb, st)).toBe('e1');
-    expect(setRecord({ weight: 70, reps: 8 }, pb, { e1: 200, repsAt: new Map([[70, 7]]) })).toBe('reps');
-    expect(setRecord({ weight: 60, reps: 5 }, pb, st)).toBeNull();
+    expect(setRecord({ weight: 70, reps: 15 }, pb, st)).toBeNull(); // e1 z 15 opakování se nepočítá
+    const st2 = liftStats([W(5, [['x', [[60, 12], [100, 3]]]])]).get('x');
+    expect(setRecord({ weight: 62.5, reps: 12 }, { weight: 100, reps: 3 }, st2)).toBe('reps');
+    expect(setRecord({ weight: 50, reps: 12 }, { weight: 100, reps: 3 }, st2)).toBeNull(); // víc opakování s lehčí váhou už rekord není
     expect(setRecord({ weight: 90, reps: 5, warm: true }, pb, st)).toBeNull();
   });
 });
@@ -155,12 +217,13 @@ describe('month recap', () => {
   it('counts the month and finds the best lift and jump', () => {
     const sep = (d, w) => ({ ...W(0), startedAt: new Date(2026, 8, d, 18).getTime(), exercises: [{ key: 'squat', name: 'Squat', sets: [{ weight: w, reps: 5 }] }] });
     const ws = [{ ...sep(1, 0), startedAt: new Date(2026, 7, 25, 18).getTime(), exercises: [{ key: 'squat', name: 'Squat', sets: [{ weight: 100, reps: 5 }] }] }, sep(3, 105), sep(10, 110)];
-    const r = monthRecap(ws, { month: new Date(2026, 8, 15).getTime(), goal: 1 });
+    const r = monthRecap(ws, { month: new Date(2026, 8, 15).getTime(), goal: 1, now: NOW });
     expect(r.workouts).toBe(2);
     expect(r.records).toBe(2);
     expect(r.best).toMatchObject({ name: 'Squat', weight: 110, reps: 5 });
     expect(r.jump.name).toBe('Squat');
     expect(r.heat).toHaveLength(30);
+    expect(r.weeksKept).toBeGreaterThanOrEqual(r.weeksMet);
   });
 });
 
@@ -174,9 +237,13 @@ describe('milestone detail', () => {
     const tenth = new Date(ws[9].startedAt); tenth.setHours(0, 0, 0, 0);
     expect(d[0]).toBe(tenth.getTime());
   });
-  it('only: computes a single milestone', () => {
-    const list = milestones([W(1, [['bench-press-barbell', [[80, 3]]]])], { now: NOW, only: 'bench', body: [{ date: NOW - 5 * DAY, weight: 80 }] });
+  it('only: computes a single milestone (also a self lift)', () => {
+    const list = milestones([W(1, [['bench-press-barbell', [[80, 3]]]])], { now: NOW, only: 'bench', scale: 'men', body: [{ date: NOW - 5 * DAY, weight: 80 }] });
     expect(list).toHaveLength(1);
     expect(list[0]).toMatchObject({ id: 'bench', best: { kg: 80, reps: 3, bw: 80 } });
+    const ws = [W(30, [['row', [[50, 10]]]]), W(20, [['row', [[55, 10]]]]), W(10, [['row', [[60, 10]]]])];
+    const one = milestones(ws, { now: NOW, only: 'lift:row' });
+    expect(one).toHaveLength(1);
+    expect(one[0].id).toBe('lift:row');
   });
 });

@@ -1,18 +1,22 @@
 import { useMemo, useState } from 'react';
-import { heatInfo, heatState, HEAT_STATES } from '../lib/gamify.js';
+import { heatInfo, heatState } from '../lib/gamify.js';
+import { activeBreak } from '../lib/breaks.js';
 import { locale, t } from '../lib/i18n.js';
 import { InfoIcon } from './Icons.jsx';
 
 // Forge Heat: žhnutí místo tvrdé série. Ember bars = jeden sloupek na den za 4 týdny,
 // výška = Heat ten večer, plný sloupek = trénink, vybledlý = den volna (chladne), dnešek orámovaný.
-export default function HeatCard({ workouts, goal }) {
+export default function HeatCard({ workouts, goal, breaks = [] }) {
   const [help, setHelp] = useState(false);
-  const info = useMemo(() => heatInfo(workouts, goal), [workouts, goal]);
-  const { heat, state, cool, bars } = info;
-  const lower = HEAT_STATES[Math.max(0, HEAT_STATES.findIndex((s) => s.id === state) - 1)].id;
+  const info = useMemo(() => heatInfo(workouts, goal, Date.now(), 28, breaks), [workouts, goal, breaks]);
+  const { heat, state, bars } = info;
+  const paused = Boolean(activeBreak(breaks, 'pause'));
+  // Žádný odpočet „za N dní klesne“ – volno k tréninku patří, Heat hlídá pravidelnost vůči vlastnímu cíli
   const sub = !workouts.length ? t('heat.subEmpty')
+    : paused ? t('heat.subPaused')
     : state === 'cold' ? t('heat.subCold')
-    : t('heat.subCool', { s: t('heat.' + lower), n: cool });
+    : state === 'hot' ? t('heat.subHot', { g: goal })
+    : t('heat.subRest');
   const fmt = (ms) => new Date(ms).toLocaleDateString(locale(), { day: 'numeric', month: 'numeric' });
   const trainedN = bars.filter((b) => b.on).length;
 

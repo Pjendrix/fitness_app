@@ -24,7 +24,7 @@ export default function Analytics({ go, tabs = null }) {
   useEffect(() => { markGuide('stats'); }, []);
   // Na mobilu se sem jde z mobilních statistik → odkaz zpět
   const back = !desktop && go ? <button className="back-link" onClick={() => go('stats')}><ArrowIcon width={14} height={14} /> {t('ms.title')}</button> : null;
-  const { workouts, prs, catOf, weeklyGoal, setWeeklyGoal, main } = useStore();
+  const { workouts, prs, catOf, weeklyGoal, setWeeklyGoal, main, breaks } = useStore();
   const [range, setRange] = useState(12);
 
   const inRange = useMemo(() => {
@@ -166,7 +166,7 @@ export default function Analytics({ go, tabs = null }) {
         <section className="card"><div className="card-head"><h2>{t('an.weeklyVol')}</h2><span className="label">kg</span></div><BarChart label={t('an.weeklyVol')} data={weekly.vol} unit=" kg" format={(v) => (v >= 1000 ? fmtNum(Math.round(v / 100) / 10) + 'k' : fmtNum(Math.round(v)))} /></section>
         <section className="card"><div className="card-head"><h2>{t('an.weeklyN')}</h2></div><BarChart label={t('an.weeklyN')} data={weekly.n} format={(v) => fmtNum(Math.round(v * 10) / 10)} /></section>
         <section className="card"><div className="card-head"><h2>{t('an.muscles')}</h2></div><HBars data={muscles} /></section>
-        <WeeklyGoal workouts={workouts} goal={weeklyGoal} setGoal={setWeeklyGoal} groups={main.groups} />
+        <WeeklyGoal workouts={workouts} goal={weeklyGoal} setGoal={setWeeklyGoal} groups={main.groups} breaks={breaks} />
         <BodyChart weeks={range} />
 
         <section className="card span-2">

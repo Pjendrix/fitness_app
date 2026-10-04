@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSession, useStore } from '../lib/store.jsx';
 import { countUnchecked, uid, DECIMAL_INPUT, fmtClock, fmtDuration, fmtNum, fmtSet, INT_INPUT, isDone, num } from '../lib/util.js';
 import NumField, { oneStep, weightStep } from '../components/NumField.jsx';
@@ -8,7 +8,7 @@ import Sheet from '../components/Sheet.jsx';
 import PlateCalc from '../components/PlateCalc.jsx';
 import ExerciseSheet from '../components/ExerciseSheet.jsx';
 import WorkoutSummary from '../components/WorkoutSummary.jsx';
-import { exerciseTargets } from '../lib/progress.js';
+import { exerciseTargets, recentSessions, rirTarget } from '../lib/progress.js';
 import { templateDiffers } from '../lib/templateSync.js';
 import { markGuide } from '../lib/guide.js';
 import { usePref } from '../lib/prefs.js';
@@ -20,10 +20,15 @@ import { locale, t } from '../lib/i18n.js';
 import { fmtRest, lastSetAt, STALE_FINISH_MS } from '../lib/body.js';
 import { reachHint, setRecord } from '../lib/gamify.js';
 import { liftStatsOf } from '../lib/derived.js';
+import { inBreak } from '../lib/breaks.js';
 
 // Druh rekordu → štítek u odškrtnuté série
 const REC_LABEL = { pb: 'wo.newPb', e1: 'reach.newE1', reps: 'reach.newReps' };
-const reachText = (h) => (h.plus ? t('reach.plus', { s: fmtNum(h.plus) }) : t('reach.set', { w: fmtNum(h.weight), r: h.reps })) + ' → ' + t('reach.kind.' + h.kind);
+// Rekord na dosah: krátký doplněk za cílem („· rekord“ / „· +1 → rekord“)
+const reachText = (h) => (h.atTarget ? t('reach.atGoal') : t('reach.plusOne'));
+// Popisek cíle podle stavu progrese
+const TARGET_LABEL = { up: 'wo.tgt.up', verify: 'wo.tgt.verify', reset: 'wo.tgt.reset', easy: 'wo.hold', cap: 'wo.hold', deload: 'wo.tgt.deload' };
+const targetText = (tg) => (tg.state === 'load' ? t('wo.tgt.load') : `${t(TARGET_LABEL[tg.state] || (tg.hold ? 'wo.hold' : 'wo.goal'))} ${fmtSet(tg.weight, tg.reps)}`);
 
 // Časovač tréninku jako samostatná komponenta – tik každou sekundu nepřekresluje série.
 function Elapsed({ since }) {
@@ -112,10 +117,13 @@ const SetRow = memo(function SetRow({ exId, set, n, timed, pb, stat, reach, prev
       {!quickOpen && !warm && !(set.rpe || set.note) && (showPrev || target || reach) && (
         <span className="set-sub">
           {showPrev ? <span>{t('wo.last')} {fmtSet(prev.weight, prev.reps, prev.time)}{prev.rpe ? ` @${prev.rpe}` : ''}</span> : <span />}
-          {/* Within reach nahrazuje u „své“ série cíl – jedna informace na správném místě */}
-          {reach
-            ? <span className="set-reach"><i aria-hidden="true" />{reachText(reach)}</span>
-            : target && <span className={hit ? 'is-hit' : ''}>{hit ? '✓ ' : ''}{target.hold ? t('wo.hold') : t('wo.goal')} {fmtSet(target.weight, target.reps)}</span>}
+          {/* Cíl progrese má vždy přednost; „rekord na dosah“ je jen doplněk za ním */}
+          {target && (
+            <span className={'set-target' + (hit ? ' is-hit' : '') + (target.state ? ' is-' + target.state : '')}>
+              {hit ? '✓ ' : ''}{targetText(target)}
+              {reach && <span className="set-reach"><i aria-hidden="true" />{reachText(reach)}</span>}
+            </span>
+          )}
         </span>
       )}
       {warm && <span className="set-sub"><span>{t('wo.warmNote')}</span></span>}
@@ -123,20 +131,26 @@ const SetRow = memo(function SetRow({ exId, set, n, timed, pb, stat, reach, prev
   );
 });
 
-const ExerciseCard = memo(function ExerciseCard({ ex, pb, stat, reach, ssLabel, ssEnd, step, handlers, quick, swipe }) {
+const ExerciseCard = memo(function ExerciseCard({ ex, pb, stat, reach, ssLabel, ssEnd, step, handlers, quick, swipe, recent, deload }) {
   const timed = ex.type === 'time';
-  // Cíle pro celý cvik: váha až když všechny série dosáhly horní hranice rozsahu
+  // Cíle pro celý cvik: váha až když všechny série dosáhly horní hranice rozsahu; brzda při RPE 10, stagnaci a v lehkém týdnu
   const working = ex.prev || [];
-  const targets = !timed && working.length ? exerciseTargets(working, { specs: ex.specs, spec: ex.spec, to: ex.specTo, step }) : [];
+  const targets = !timed && working.length ? exerciseTargets(working, { specs: ex.specs, spec: ex.spec, to: ex.specTo, step, recent, deload }) : [];
   let j = -1; // pořadí pracovní série (rozcvičky se nečíslují)
-  const hint = reach ? reachHint(ex, pb, stat, step) : null; // Within reach: nejmenší krok k novému rekordu (jen s Forge Heat)
+  // Rekord na dosah (jen s Forge Heat, ne v lehkém týdnu): podle cíle nejtěžší otevřené série
+  let hint = null;
+  if (reach && !deload && targets.length) {
+    const open = ex.sets.filter((s) => !s.warm);
+    const top = open.map((s, i) => ({ s, i })).filter(({ s }) => !s.done && num(s.weight) > 0).sort((a, b) => num(b.s.weight) - num(a.s.weight) || num(b.s.reps) - num(a.s.reps))[0];
+    if (top) hint = reachHint(ex, pb, stat, targets[top.i] || null, 12);
+  }
   return (
     <section id={'ex-' + ex.id} className={'card ex' + (ex.ss ? ' in-ss' : '') + (ex.ss && !ssEnd ? ' ss-open' : '')}>
       {ssLabel && <span className="ss-tag">{t('ss.label', { l: ssLabel })}</span>}
       <div className="ex-head">
         <div className="ex-title">
           <h2><button className="ex-name" onClick={() => handlers.detail(ex.key)}>{ex.name}</button> <InfoButton name={ex.name} /></h2>
-          <p className="muted small">{[ex.plan, ex.rest && t('wo.restIs', { t: fmtRest(ex.rest) }), ex.hint && t('wo.recommended', { w: ex.hint }), ex.note].filter(Boolean).join(' · ')}</p>
+          <p className="muted small">{[ex.plan, !timed && (deload ? t('wo.rirDeload') : t('wo.rir', { r: rirTarget(ex.name) })), ex.rest && t('wo.restIs', { t: fmtRest(ex.rest) }), ex.hint && t('wo.recommended', { w: ex.hint }), ex.note].filter(Boolean).join(' · ')}</p>
         </div>
         {pb && <span className="pb" title={t('wo.pb')}>{t('rec.max')} {fmtSet(pb.weight, pb.reps, pb.time)}</span>}
       </div>
@@ -198,8 +212,11 @@ function ExerciseMenu({ ex, index, count, next, view, onClose, act }) {
 
 export default function Workout({ go }) {
   const { active, patchActive, prs, finishWorkout, discardWorkout, notify, addExerciseToActive, replaceExerciseInActive, startRest, stopRest } = useSession();
-  const { templates, syncTemplate, stepOf, stepIsManual, setStep, workouts, gamify } = useStore();
+  const { templates, syncTemplate, stepOf, stepIsManual, setStep, workouts, gamify, breaks } = useStore();
   const stats = liftStatsOf(workouts);
+  // Poslední tréninky každého cviku pro stagnaci (tréninky z lehkého týdne se nepočítají)
+  const recent = useMemo(() => recentSessions(workouts, 4, (w) => inBreak(breaks, w.startedAt, 'deload')), [workouts, breaks]);
+  const celebrated = useRef(false); // výrazná oslava jen u prvního rekordu tréninku
   const recRef = useRef({ prs, stats });
   recRef.current = { prs, stats };
   const dialog = useDialog();
@@ -236,7 +253,9 @@ export default function Workout({ go }) {
     // Rekord = výraznější dvojitá haptika (Android; iOS Safari vibraci nepodporuje)
     const exNow = activeRef.current?.exercises.find((e) => e.id === exId);
     const isRec = !set.done && exNow && setRecord(set, recRef.current.prs[exNow.key], recRef.current.stats.get(exNow.key), timed);
-    navigator.vibrate?.(isRec ? [14, 70, 32] : 12);
+    const big = isRec && !celebrated.current;
+    if (big) celebrated.current = true;
+    navigator.vibrate?.(big ? [14, 70, 32] : 12);
     primeAudio();
     patchSet(exId, set.id, { done: !set.done, at: set.done ? undefined : Date.now() }); // E1: čas odškrtnutí
     if (set.done) return stopRest();
@@ -391,7 +410,7 @@ export default function Workout({ go }) {
     // W4: změnila se struktura oproti šabloně → nabídnout aktualizaci
     const tpl = templates.find((x) => x.id === active.templateId);
     let sync = false;
-    if (tpl && templateDiffers(tpl, active)) {
+    if (tpl && !active.deload && templateDiffers(tpl, active)) { // lehký týden šablonu nezkracuje
       const c = await dialog.choose({
         title: t('wo.syncTitle', { name: tpl.name }),
         message: t('wo.syncMsg'),
@@ -428,12 +447,13 @@ export default function Workout({ go }) {
         <button className="btn btn-finish" onClick={finish}>{t('wo.finish')}</button>
       </header>
       <div className="progress" aria-hidden="true"><i style={{ width: `${total ? (doneCount / total) * 100 : 0}%` }} /></div>
+      {active.deload && <p className="card deload-note small"><b>{t('dl.woTitle')}</b> {t('dl.woText')}</p>}
       {active.exercises.length > 0 && workouts.length < 5 && <p className="muted small swipe-hint">{t(swipe ? 'wo.swipeHint2' : 'wo.swipeHint')}</p>}
 
       {active.exercises.map((e, ei) => {
         const prevEx = active.exercises[ei - 1], nextEx = active.exercises[ei + 1];
         const first = e.ss && prevEx?.ss !== e.ss;
-        return <ExerciseCard key={e.id} ex={e} step={stepOf(e.name)} pb={prs[e.key]} stat={stats.get(e.key)} reach={gamify} ssLabel={first ? ssLetter(active, e.ss) : ''} ssEnd={!e.ss || nextEx?.ss !== e.ss} handlers={handlers}
+        return <ExerciseCard key={e.id} ex={e} step={stepOf(e.name)} pb={prs[e.key]} stat={stats.get(e.key)} reach={gamify} recent={recent.get(e.key)} deload={Boolean(active.deload)} ssLabel={first ? ssLetter(active, e.ss) : ''} ssEnd={!e.ss || nextEx?.ss !== e.ss} handlers={handlers}
           quick={quick?.exId === e.id ? quick.setId : null} swipe={swipe} />;
       })}
 

@@ -7,7 +7,8 @@ import { ArrowIcon, StarIcon } from './Icons.jsx';
 import { e1rm } from '../lib/metrics.js';
 import { fmtDate, fmtNum, fmtSet, num } from '../lib/util.js';
 import { locale, t } from '../lib/i18n.js';
-import { exerciseRecords, exerciseTargets, specFromTemplates } from '../lib/progress.js';
+import { exerciseRecords, exerciseTargets, recentSessions, specFromTemplates } from '../lib/progress.js';
+import { inBreak } from '../lib/breaks.js';
 import { useBackClose } from '../lib/nav.js';
 
 export const signed = (n, unit = '') => (n > 0 ? '+' : n < 0 ? '−' : '±') + fmtNum(Math.round(Math.abs(n) * 10) / 10) + unit;
@@ -21,7 +22,7 @@ export function sessionsOf(workouts, key) {
     const w = workouts[i];
     const e = w.exercises.find((x) => x.key === key);
     if (!e || !e.sets.length) continue;
-    const sets = e.sets.map((s) => ({ weight: num(s.weight), reps: num(s.reps), time: num(s.time) }));
+    const sets = e.sets.map((s) => ({ weight: num(s.weight), reps: num(s.reps), time: num(s.time), ...(num(s.rpe) > 0 ? { rpe: num(s.rpe) } : {}) }));
     const top = sets.reduce((a, s) => (s.time > a.time || (s.time === a.time && (s.weight > a.weight || (s.weight === a.weight && s.reps > a.reps))) ? s : a), sets[0]);
     out.push({
       t: w.startedAt, name: e.name, sets, top,
@@ -41,7 +42,8 @@ export function BackLink({ label, onClick }) {
 }
 
 export function ExerciseDetail({ exKey, onBack, embedded = false }) {
-  const { workouts, prs, catOf, pinnedLifts, togglePin, templates, stepOf } = useStore();
+  const { workouts, prs, catOf, pinnedLifts, togglePin, templates, stepOf, breaks, deload } = useStore();
+  const recent = useMemo(() => recentSessions(workouts.filter((w) => w.exercises.some((e) => e.key === exKey)), 4, (w) => inBreak(breaks, w.startedAt, 'deload')).get(exKey), [workouts, exKey, breaks]);
   const recs = useMemo(() => exerciseRecords(workouts, exKey), [workouts, exKey]);
   const { list, kind } = useMemo(() => sessionsOf(workouts, exKey), [workouts, exKey]);
   const options = kind === 'e1' ? ['e1', 'top', 'vol'] : [kind];
@@ -62,10 +64,11 @@ export function ExerciseDetail({ exKey, onBack, embedded = false }) {
 
   // Cíl podle stejného pravidla jako v tréninku (celý poslední trénink, rozsah ze šablony, krok váhy cviku)
   const range = specFromTemplates(templates, exKey);
-  const tgs = kind === 'time' ? [] : exerciseTargets(last.sets, { spec: range.spec, to: range.to, step: stepOf(name) });
+  const tgs = kind === 'time' ? [] : exerciseTargets(last.sets, { spec: range.spec, to: range.to, step: stepOf(name), recent, deload });
   const topI = last.sets.reduce((bi, x, i, a) => (x.weight > a[bi].weight || (x.weight === a[bi].weight && x.reps > a[bi].reps) ? i : bi), 0);
   const tg = tgs[topI];
-  const target = { main: tg ? fmtSet(tg.weight, tg.reps) : '–', alt: null };
+  const TG_SUB = { up: 'wo.tgt.up', verify: 'wo.tgt.verify', reset: 'wo.tgt.reset', easy: 'wo.hold', cap: 'wo.hold', deload: 'wo.tgt.deload', load: 'wo.tgt.load' };
+  const target = { main: tg ? (tg.state === 'load' ? t('wo.tgt.load') : fmtSet(tg.weight, tg.reps)) : '–', sub: tg?.state && tg.state !== 'load' ? t(TG_SUB[tg.state]) : t('ms.targetSub') };
   const pb = prs[exKey];
 
   return (
@@ -96,7 +99,7 @@ export function ExerciseDetail({ exKey, onBack, embedded = false }) {
 
       <section className="kpis">
         <div className="card kpi"><span className="label">{t('an.pb')}</span><span className="num ms-set">{pb ? fmtSet(pb.weight, pb.reps, pb.time) : '–'}</span><span className="muted small">{pb ? shortDate(pb.date) : ''}</span></div>
-        <div className="card kpi"><span className="label">{t('ms.target')}</span><span className="num ms-set">{target.main}</span><span className="muted small">{t('ms.targetSub')}</span></div>
+        <div className="card kpi"><span className="label">{t('ms.target')}</span><span className="num ms-set">{target.main}</span><span className="muted small">{target.sub}</span></div>
       </section>
 
       {(recs.e1 || recs.reps.length > 0) && (

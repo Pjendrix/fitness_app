@@ -8,15 +8,17 @@ import ErrorLogCard from '../components/ErrorLogCard.jsx';
 import { ContactSheet } from '../components/DemoBar.jsx';
 import { isAdmin } from '../lib/access.js';
 import { backend } from '../lib/backend.js';
-import { t, useLang } from '../lib/i18n.js';
+import { locale, t, useLang } from '../lib/i18n.js';
 import { useDialog } from '../components/Dialog.jsx';
 import { useTheme } from '../lib/theme.js';
 import { getRestDefault, REST_OPTIONS, setRestDefault } from '../lib/rest.js';
 import { useRef, useState } from 'react';
 import { setPref, usePref } from '../lib/prefs.js';
+import { activeBreak } from '../lib/breaks.js';
+import { CARDIO_GOALS } from '../lib/state/useAccountData.js';
 
 export default function Settings({ go }) {
-  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, deleteAccount, notify, starter, chooseStarter, resetDemo, endTrial, importData, importBody, body, online, sync, strengthScale, setStrengthScale, gamify, setGamify } = useStore();
+  const { user, mode, workouts, prs, templates, library, resetLibrary, signOut, deleteAccount, notify, starter, chooseStarter, resetDemo, endTrial, importData, importBody, body, online, sync, strengthScale, setStrengthScale, gamify, setGamify, breaks, startPause, endPause, startDeload, endDeload, cardioGoal, setCardioGoal, activities } = useStore();
   const trial = mode === 'trial';
   const demo = mode === 'demo' || trial; // lokální režimy: bez serveru, bez mazání účtu
   const [requesting, setRequesting] = useState(false);
@@ -27,9 +29,11 @@ export default function Settings({ go }) {
   const swipeSet = usePref('swipeSet');
   const [showAccess, setShowAccess] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
+  const paused = activeBreak(breaks, 'pause');
+  const deloading = activeBreak(breaks, 'deload');
 
   const exportData = () => {
-    download('forge-export.json', JSON.stringify({ exportedAt: new Date().toISOString(), workouts, prs, templates: templates.filter((x) => !x.builtin), library, body }, null, 2), 'application/json');
+    download('forge-export.json', JSON.stringify({ exportedAt: new Date().toISOString(), workouts, prs, templates: templates.filter((x) => !x.builtin), library, body, activities }, null, 2), 'application/json');
     notify(t('set.exported'));
   };
   // S3: import zálohy – sloučí se s existujícími daty
@@ -118,11 +122,24 @@ export default function Settings({ go }) {
           <div className="row row-stack">
             <span>{t('scale.title')}</span>
             <div className="seg seg-sm" role="radiogroup" aria-label={t('scale.title')}>
-              {['standard', 'lighter'].map((id) => <button key={id} role="radio" aria-checked={strengthScale === id} className={strengthScale === id ? 'is-on' : ''} onClick={() => setStrengthScale(id)}>{t('scale.' + id)}</button>)}
+              {['self', 'men', 'women'].map((id) => <button key={id} role="radio" aria-checked={strengthScale === id} className={strengthScale === id ? 'is-on' : ''} onClick={() => setStrengthScale(id)}>{t('scale.' + id)}</button>)}
             </div>
             <span className="muted small">{t('scale.sub.' + strengthScale)}</span>
           </div>
         )}
+        <div className="row"><span>{t('brk.pause')}<span className="muted small row-sub">{paused ? t('brk.pauseOn', { d: new Date(paused.from).toLocaleDateString(locale()) }) : t('brk.pauseHelp')}</span></span>
+          <button type="button" className="switch" role="switch" aria-checked={Boolean(paused)} aria-label={t('brk.pause')} onClick={() => (paused ? endPause() : startPause())} />
+        </div>
+        <div className="row"><span>{t('brk.deload')}<span className="muted small row-sub">{deloading ? t('brk.deloadOn', { d: new Date(deloading.to - 1).toLocaleDateString(locale()) }) : t('brk.deloadHelp')}</span></span>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => (deloading ? endDeload() : startDeload())}>{deloading ? t('brk.end') : t('brk.start')}</button>
+        </div>
+        <div className="row row-stack">
+          <span>{t('cardio.goal')}</span>
+          <div className="seg seg-sm" role="radiogroup" aria-label={t('cardio.goal')}>
+            {CARDIO_GOALS.map((g) => <button key={g} role="radio" aria-checked={cardioGoal === g} className={cardioGoal === g ? 'is-on' : ''} onClick={() => setCardioGoal(g)}>{g ? `${g}` : t('cardio.goalOff')}</button>)}
+          </div>
+          <span className="muted small">{t('cardio.goalHelp')}</span>
+        </div>
       </section>
 
       <h2 className="set-sec">{t('look.title')}</h2>

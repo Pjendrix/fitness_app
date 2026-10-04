@@ -15,4 +15,4 @@ const memo = (fn) => {
 
 export const metricsOf = memo(computeMetrics); // Map(id → metriky tréninku)
 export const recordsOf = memo(recordsTimeline); // Map(id → rekordy překonané v tréninku)
-export const liftStatsOf = memo(liftStats); // Map(key → { e1, repsAt }) pro „Within reach“
+export const liftStatsOf = memo(liftStats); // Map(key → { e1, rm }) pro „Within reach“

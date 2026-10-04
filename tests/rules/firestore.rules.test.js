@@ -95,6 +95,12 @@ describe('validace', () => {
     await assertFails(setDoc(doc(d, 'users/friend/meta/settings'), { strengthScale: 'heavy' }));
     await assertSucceeds(setDoc(doc(d, 'users/friend/meta/settings'), { gamify: false }));
     await assertFails(setDoc(doc(d, 'users/friend/meta/settings'), { gamify: 'no' }));
+    // 5.12: síla vůči sobě / benchmark, pauzy a lehké týdny, cíl kardia
+    await assertSucceeds(setDoc(doc(d, 'users/friend/meta/settings'), { strengthScale: 'women' }));
+    await assertSucceeds(setDoc(doc(d, 'users/friend/meta/settings'), { breaks: [{ kind: 'pause', from: 1790503200000, to: null }] }));
+    await assertFails(setDoc(doc(d, 'users/friend/meta/settings'), { breaks: 'pause' }));
+    await assertSucceeds(setDoc(doc(d, 'users/friend/meta/settings'), { cardioGoal: 150 }));
+    await assertFails(setDoc(doc(d, 'users/friend/meta/settings'), { cardioGoal: 1000 }));
     await assertFails(setDoc(doc(d, 'users/friend/meta/other'), { a: 1 }));
   });
 });
@@ -108,6 +114,17 @@ describe('tělesná váha (E3)', () => {
     await assertFails(setDoc(doc(d, 'users/friend/body/2026-09-27'), { date: 1, weight: 82, note: 'x' }));
     await assertFails(getDoc(doc(db(STRANGER), 'users/friend/body/2026-09-27')));
     await assertSucceeds(deleteDoc(doc(d, 'users/friend/body/2026-09-27')));
+  });
+
+  it('kardio aktivity: tvar, rozsah minut, jen vlastník', async () => {
+    const d = db(FRIEND);
+    await assertSucceeds(setDoc(doc(d, 'users/friend/activities/a1'), { id: 'a1', date: 1790503200000, kind: 'run', minutes: 30, vigorous: true }));
+    await assertFails(setDoc(doc(d, 'users/friend/activities/a2'), { id: 'a2', date: 1790503200000, kind: 'run', minutes: 0 }));
+    await assertFails(setDoc(doc(d, 'users/friend/activities/a3'), { id: 'a3', date: 1790503200000, kind: 'yoga', minutes: 30 }));
+    await assertFails(setDoc(doc(d, 'users/friend/activities/a4'), { id: 'x', date: 1790503200000, kind: 'run', minutes: 30 }));
+    await assertFails(setDoc(doc(d, 'users/friend/activities/a5'), { id: 'a5', date: 1790503200000, kind: 'run', minutes: 30, kcal: 300 }));
+    await assertFails(getDoc(doc(db(STRANGER), 'users/friend/activities/a1')));
+    await assertSucceeds(deleteDoc(doc(d, 'users/friend/activities/a1')));
   });
 });
 

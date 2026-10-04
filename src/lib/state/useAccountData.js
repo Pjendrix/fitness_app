@@ -2,6 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { starterConfig, starterId } from '../../data/defaultTemplates.js';
 import { EXERCISES } from '../../data/exercises.js';
 import { LEGACY_PINK, loadLibrary, MAX_PINS, migratePrs, migrateTemplate } from './model.js';
+import { cleanBreaks } from '../breaks.js';
+import { normScale } from '../gamify.js';
+
+export const CARDIO_GOALS = [0, 75, 150, 300];
+export const DEFAULT_CARDIO_GOAL = 150;
 
 // Stav účtu ze Firestore: vlastní šablony, rekordy, knihovna, hlavní šablony, vzhled, týdenní cíl, připnuté cviky, škála síly.
 // Odebírá se živě (D1) – cache hned, server a změny z jiných zařízení průběžně.
@@ -18,7 +23,9 @@ export function useAccountData(api, user, fail) {
   const [appearance, setAppearanceState] = useState(null); // {tint, strength, accent}
   const [weeklyGoal, setWeeklyGoalState] = useState(3);
   const [pinnedLifts, setPinnedLifts] = useState([]);
-  const [strengthScale, setStrengthScaleState] = useState('standard'); // Milestones: síla vůči tělesné váze
+  const [strengthScale, setStrengthScaleState] = useState('self'); // Milestones: síla vůči sobě / benchmark muži / ženy
+  const [breaks, setBreaks] = useState([]); // pauzy a lehké týdny
+  const [cardioGoal, setCardioGoalState] = useState(DEFAULT_CARDIO_GOAL); // minut kardia týdně (0 = bez cíle)
   const [gamify, setGamifyState] = useState(true); // Forge Heat (Progress, Within reach, řádek na Home) – vypínatelné
 
   useEffect(() => {
@@ -58,7 +65,9 @@ export function useAccountData(api, user, fail) {
       setWeeklyGoalState(d.settings?.weeklyGoal || cached || 3);
       let pins = d.settings?.pinnedLifts;
       if (!Array.isArray(pins)) { try { pins = JSON.parse(localStorage.getItem(`forge:pins:${user.uid}`)); } catch { pins = null; } }
-      setStrengthScaleState(d.settings?.strengthScale === 'lighter' ? 'lighter' : 'standard');
+      setStrengthScaleState(normScale(d.settings?.strengthScale));
+      setBreaks(cleanBreaks(d.settings?.breaks));
+      setCardioGoalState(CARDIO_GOALS.includes(d.settings?.cardioGoal) ? d.settings.cardioGoal : DEFAULT_CARDIO_GOAL);
       setGamifyState(d.settings?.gamify !== false);
       setPinnedLifts(Array.isArray(pins) ? pins.filter((k) => typeof k === 'string').slice(0, MAX_PINS) : []);
       if (first) { first = false; setMetaReady(true); setMetaLoading(false); }
@@ -67,11 +76,12 @@ export function useAccountData(api, user, fail) {
   }, [api, fail]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const resetAccount = useCallback(() => {
-    setCustom([]); setPrs({}); setLibrary(EXERCISES); setStarter(null); setMainCfg(null); setAppearanceState(null); setPinnedLifts([]); setStrengthScaleState('standard'); setGamifyState(true);
+    setCustom([]); setPrs({}); setLibrary(EXERCISES); setStarter(null); setMainCfg(null); setAppearanceState(null); setPinnedLifts([]); setStrengthScaleState('self'); setBreaks([]); setCardioGoalState(DEFAULT_CARDIO_GOAL); setGamifyState(true);
   }, []);
 
   return {
     metaLoading, metaReady, custom, setCustom, prs, setPrs, library, setLibrary, starter, setStarter, mainCfg, setMainCfg,
     appearance, setAppearanceState, weeklyGoal, setWeeklyGoalState, pinnedLifts, setPinnedLifts, strengthScale, setStrengthScaleState, gamify, setGamifyState, resetAccount,
+    breaks, setBreaks, cardioGoal, setCardioGoalState,
   };
 }

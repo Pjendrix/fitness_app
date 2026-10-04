@@ -4,6 +4,7 @@ import { useStore } from '../lib/store.jsx';
 import { addMonths, monthRecap, monthStart, ROMAN } from '../lib/gamify.js';
 import { locale, t } from '../lib/i18n.js';
 import { fmtNum, fmtSet } from '../lib/util.js';
+import { mileName } from '../lib/mileName.js';
 
 const monthName = (ms, opts = { month: 'long' }) => new Date(ms).toLocaleDateString(locale(), opts);
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -23,7 +24,7 @@ export function useRecapTeaser() {
 const barColor = (h) => (h >= 80 ? '#fb923c' : h >= 50 ? '#ea580c' : h >= 25 ? '#9a3412' : '#525252');
 
 function headline(r, goal) {
-  if (r.weeks > 0 && r.weeksMet === r.weeks) return t('recap.h.perfect');
+  if (r.weeks > 0 && r.weeksMet > 0 && r.weeksKept === r.weeks) return t('recap.h.perfect');
   if (r.workouts >= goal * r.weeks * 0.75) return t('recap.h.strong');
   return t('recap.h.steady');
 }
@@ -32,7 +33,7 @@ function highlights(r, groupLabel) {
   const out = [];
   if (r.best) out.push([t('recap.best'), `${r.best.name} · ${fmtSet(r.best.weight, r.best.reps)}`]);
   if (r.jump) out.push([t('recap.jump'), t('recap.jumpV', { ex: r.jump.name, v: fmtNum(r.jump.delta) })]);
-  if (r.gained.length) out.push([t('recap.gained'), r.gained.slice(0, 3).map((g) => `${t('mile.' + g.id)} ${ROMAN[g.tier]}`).join(' · ')]);
+  if (r.gained.length) out.push([t('recap.gained'), r.gained.slice(0, 3).map((g) => `${mileName(g)} ${ROMAN[g.tier]}`).join(' · ')]);
   if (r.topGroup) out.push([t('recap.top'), `${groupLabel(r.topGroup.group)} · ${r.topGroup.n}×`]);
   out.push([t('recap.volume'), `${fmtNum(Math.round(r.volume / 100) / 10)} t`]);
   return out;
@@ -85,13 +86,13 @@ async function drawImage(r, { title, month, stats, rows, heatLabel }) {
 
 // Měsíční kapitola: shrnutí měsíce, průběh Heatu, highlights, uložení jako obrázek
 export default function MonthlyRecap({ month, onClose }) {
-  const { workouts, weeklyGoal, main, body, strengthScale, groupLabel, notify } = useStore();
+  const { workouts, weeklyGoal, main, body, strengthScale, groupLabel, notify, breaks, pinnedLifts } = useStore();
   const groups = useMemo(() => main.groups.map((g) => g.id), [main]);
-  const r = useMemo(() => monthRecap(workouts, { month, goal: weeklyGoal, groups, body, scale: strengthScale }), [workouts, month, weeklyGoal, groups, body, strengthScale]);
+  const r = useMemo(() => monthRecap(workouts, { month, goal: weeklyGoal, groups, body, scale: strengthScale, breaks, pinned: pinnedLifts }), [workouts, month, weeklyGoal, groups, body, strengthScale, breaks, pinnedLifts]);
   const [busy, setBusy] = useState(false);
   const title = headline(r, weeklyGoal);
   const label = cap(monthName(month, { month: 'long', year: 'numeric' }));
-  const stats = [[String(r.workouts), t('recap.workouts')], [String(r.records), t('recap.records')], [`${r.weeksMet}/${r.weeks}`, t('recap.weeks')]];
+  const stats = [[String(r.workouts), t('recap.workouts')], [String(r.records), t('recap.records')], [`${r.weeksKept}/${r.weeks}`, t('recap.weeks')]];
   const rows = highlights(r, groupLabel);
 
   const save = async () => {

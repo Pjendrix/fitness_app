@@ -6,7 +6,8 @@
 //   users/{uid}/prs/{exerciseKey} osobní rekord: {name, weight, reps, time?, date}
 //   users/{uid}/meta/main         hlavní šablony účtu: {own: {groups, templates}} (+ starší {krystof|chiara} jako záloha)
 //   users/{uid}/meta/profile      startovní split: {id: 'ppl' | 'ul' | 'fb'} (dříve 'krystof' | 'chiara')
-//   users/{uid}/meta/settings     týdenní cíl, připnuté cviky, vzhled {tint, strength, accent}
+//   users/{uid}/meta/settings     týdenní cíl, připnuté cviky, vzhled {tint, strength, accent}, pauzy/lehké týdny, cíl kardia
+//   users/{uid}/activities/{id}   kardio mimo posilovnu: {id, date, kind, minutes, vigorous}
 //   access/{email}                povolené účty navíc k FOUNDERS (spravuje admin)
 //   users/{uid}/meta/exercises    knihovna cviků: {list: [{name, cat}], v: 2}
 import { deleteUser, getRedirectResult, onAuthStateChanged, reauthenticateWithPopup, signInWithPopup, signInWithRedirect, signOut as fbSignOut } from 'firebase/auth';
@@ -18,6 +19,7 @@ import { generateDemo } from './demoData.js';
 
 export const HISTORY_LIMIT = 1000;
 export const BODY_LIMIT = 800;
+export const ACTIVITY_LIMIT = 500;
 const BATCH_OPS = 15;
 // Jen pole, která rules u šablony povolí (starší zálohy / verze mohly nést další – zápis by pak selhal)
 const TEMPLATE_KEYS = ['id', 'name', 'color', 'group', 'variant', 'exercises'];
@@ -171,8 +173,8 @@ const firebaseBackend = {
       applyPrChanges: (changes) => commitOps(prOps(changes)),
       // F2: smazání všech dat účtu (tréninky, rekordy, šablony, nastavení). Přihlašovací účet maže deleteAccount.
       async deleteAllData() {
-        const [w, p, t, b] = await Promise.all([getDocs(col('workouts')), getDocs(col('prs')), getDocs(col('templates')), getDocs(col('body'))]);
-        const docs = [...w.docs, ...p.docs, ...t.docs, ...b.docs].map((d) => ({ ref: d.ref, del: true }));
+        const [w, p, t, b, a] = await Promise.all([getDocs(col('workouts')), getDocs(col('prs')), getDocs(col('templates')), getDocs(col('body')), getDocs(col('activities')).catch(() => ({ docs: [] }))]);
+        const docs = [...w.docs, ...p.docs, ...t.docs, ...b.docs, ...a.docs].map((d) => ({ ref: d.ref, del: true }));
         const meta = ['exercises', 'profile', 'main', 'settings'].map((id) => ({ ref: ref('meta', id), del: true }));
         await commitOps([...docs, ...meta]);
       },
@@ -187,6 +189,13 @@ const firebaseBackend = {
       saveBody: (e) => setDoc(ref('body', e.id), { date: e.date, weight: e.weight }),
       deleteBody: (id) => deleteDoc(ref('body', id)),
       saveBodies: (list) => commitOps(list.map((e) => ({ ref: ref('body', e.id), data: { date: e.date, weight: e.weight } }))),
+      // Kardio mimo posilovnu – users/{uid}/activities/{id}, živě (posledních ~500 záznamů)
+      subscribeActivities(cb, onError) {
+        const q = query(col('activities'), orderBy('date', 'desc'), limit(ACTIVITY_LIMIT));
+        return onSnapshot(q, (snap) => cb(snap.docs.map((d) => d.data())), onError);
+      },
+      saveActivity: (a) => setDoc(ref('activities', a.id), { id: a.id, date: a.date, kind: a.kind, minutes: a.minutes, vigorous: a.vigorous }),
+      deleteActivity: (id) => deleteDoc(ref('activities', id)),
       // Hlavní šablony účtu (klíč own); starší klíče krystof/chiara zůstávají jako záloha
       saveMain: (cfg) => setDoc(ref('meta', 'main'), { own: cfg ? clean(cfg) : deleteField() }, { merge: true }),
     };
@@ -197,7 +206,7 @@ const firebaseBackend = {
 // Stejné úložiště pro dva režimy: demo (ukázková data) a trial (prázdný vlastní účet na zkoušku). Liší se jen klíčem.
 export const DEMO_KEY = 'forge:demo', TRIAL_KEY = 'forge:trial';
 let LS = DEMO_KEY;
-const empty = () => ({ templates: [], workouts: [], prs: {}, exercises: [], body: [] });
+const empty = () => ({ templates: [], workouts: [], prs: {}, exercises: [], body: [], activities: [] });
 const readLS = () => { try { return JSON.parse(localStorage.getItem(LS)) || empty(); } catch { return empty(); } };
 const writeLS = (d) => localStorage.setItem(LS, JSON.stringify(d));
 const DEMO_USER = { uid: 'demo', name: 'Demo', email: '', photo: '' };
@@ -206,6 +215,8 @@ const listeners = new Set();
 const emit = () => { const w = [...readLS().workouts].sort((a, b) => b.startedAt - a.startedAt); listeners.forEach((f) => f(w, { pending: false, fromCache: false })); };
 const bodyListeners = new Set();
 const emitBody = () => { const b = [...(readLS().body || [])].sort((x, y) => y.date - x.date); bodyListeners.forEach((f) => f(b)); };
+const actListeners = new Set();
+const emitActs = () => { const a = [...(readLS().activities || [])].sort((x, y) => y.date - x.date); actListeners.forEach((f) => f(a)); };
 const edit = (fn) => { const d = readLS(); fn(d); writeLS(d); };
 const putDemoPrs = (d, changes) => { for (const [k, v] of Object.entries(changes)) { if (v) d.prs[k] = v; else delete d.prs[k]; } };
 
@@ -243,7 +254,10 @@ const demoBackend = {
         emit();
       },
       async applyPrChanges(ch) { edit((d) => { putDemoPrs(d, ch); }); },
-      async deleteAllData() { writeLS(empty()); emit(); emitBody(); },
+      async deleteAllData() { writeLS(empty()); emit(); emitBody(); emitActs(); },
+      subscribeActivities(cb) { actListeners.add(cb); emitActs(); return () => actListeners.delete(cb); },
+      async saveActivity(a) { edit((d) => { d.activities = [...(d.activities || []).filter((x) => x.id !== a.id), a]; }); emitActs(); },
+      async deleteActivity(id) { edit((d) => { d.activities = (d.activities || []).filter((x) => x.id !== id); }); emitActs(); },
       subscribeBody(cb) { bodyListeners.add(cb); emitBody(); return () => bodyListeners.delete(cb); },
       async saveBody(e) { edit((d) => { d.body = [...(d.body || []).filter((x) => x.id !== e.id), { id: e.id, date: e.date, weight: e.weight }]; }); emitBody(); },
       async deleteBody(id) { edit((d) => { d.body = (d.body || []).filter((x) => x.id !== id); }); emitBody(); },

@@ -26,7 +26,10 @@ const loadDraft = (u) => {
 };
 
 // Aktivní trénink: draft, pauza, zápis sérií, dokončení. Psaní v tréninku mění jen tenhle stav (SessionCtx).
-export function useActiveWorkout({ user, api, notify, prs, setPrs, workouts, setWorkouts, typeOf, bwOf, body, templates, saveMainTemplate, saveTemplate }) {
+// Lehký týden: ~60 % sérií (zaokrouhleno, aspoň 1), stejné váhy – cíle progrese se drží (exerciseTargets deload)
+export const deloadSets = (n) => Math.max(1, Math.round(n * 0.6));
+
+export function useActiveWorkout({ user, api, notify, prs, setPrs, workouts, setWorkouts, typeOf, bwOf, body, templates, saveMainTemplate, saveTemplate, deload = false }) {
   const [active, setActive] = useState(null);
   const [rest, setRest] = useState(null); // {until, total}
 
@@ -78,7 +81,8 @@ export function useActiveWorkout({ user, api, notify, prs, setPrs, workouts, set
       const key = exKey(e.name);
       const last = lastSets(key);
       // Předvyplnění: 1) poslední trénink 2) plán série 3) výchozí váha/opakování šablony
-      const sets = Array.from({ length: e.sets }, (_, i) => {
+      const count = deload && e.type !== 'time' && typeOf(e.name) !== 'time' ? deloadSets(e.sets) : e.sets;
+      const sets = Array.from({ length: count }, (_, i) => {
         const src = last ? last[Math.min(i, last.length - 1)] : null;
         if (src) return newSet(src);
         const p = e.plan?.[i];
@@ -95,14 +99,14 @@ export function useActiveWorkout({ user, api, notify, prs, setPrs, workouts, set
     });
     setRest(null);
     markGuide('start');
-    setActive({ id: uid(), templateId: tpl.id, name: tpl.name, group: tpl.group || '', variant: tpl.variant || '', startedAt: Date.now(), exercises });
-  }, [lastSets, typeOf, bwOf]);
+    setActive({ id: uid(), templateId: tpl.id, name: tpl.name, group: tpl.group || '', variant: tpl.variant || '', startedAt: Date.now(), exercises, ...(deload ? { deload: true } : {}) });
+  }, [lastSets, typeOf, bwOf, deload]);
 
   const startEmptyWorkout = useCallback(() => {
     setRest(null);
     markGuide('start');
-    setActive({ id: uid(), templateId: '', name: t('wo.emptyName'), group: '', variant: '', startedAt: Date.now(), exercises: [] });
-  }, []);
+    setActive({ id: uid(), templateId: '', name: t('wo.emptyName'), group: '', variant: '', startedAt: Date.now(), exercises: [], ...(deload ? { deload: true } : {}) });
+  }, [deload]);
   const discardWorkout = useCallback(() => { setActive(null); setRest(null); }, []);
 
   // finishedAt: vlastní konec (E1 – zapomenuté „Dokončit“ → konec po poslední sérii); jinak teď

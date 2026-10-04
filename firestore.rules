@@ -119,6 +119,21 @@ service cloud.firestore {
         && num(request.resource.data.weight, 20, 400);
     }
 
+    // ——— Kardio mimo posilovnu (5.12): id = náhodné, minuty 1–600 ———
+    match /users/{uid}/activities/{id} {
+      allow read, delete: if owner(uid);
+      allow create, update: if owner(uid) && validActivity(request.resource.data, id);
+    }
+    function validActivity(d, id) {
+      return d.keys().hasOnly(['id', 'date', 'kind', 'minutes', 'vigorous'])
+        && d.keys().hasAll(['id', 'date', 'kind', 'minutes'])
+        && d.id == id && str(id, 60)
+        && d.date is int
+        && d.kind in ['run', 'bike', 'walk', 'swim', 'machine', 'other']
+        && d.minutes is int && d.minutes >= 1 && d.minutes <= 600
+        && (!('vigorous' in d) || d.vigorous is bool);
+    }
+
     // ——— Vlastní šablony ———
     match /users/{uid}/templates/{id} {
       allow read, delete: if owner(uid);
@@ -164,12 +179,15 @@ service cloud.firestore {
           && firstIsMap(d.own.templates, ['id', 'exercises'])));
     }
     function validSettings(d) {
-      return d.keys().hasOnly(['weeklyGoal', 'pinnedLifts', 'appearance', 'strengthScale', 'gamify'])
+      return d.keys().hasOnly(['weeklyGoal', 'pinnedLifts', 'appearance', 'strengthScale', 'gamify', 'breaks', 'cardioGoal'])
         && (!('appearance' in d) || validLook(d.appearance))
         && (!('weeklyGoal' in d) || (d.weeklyGoal is int && d.weeklyGoal >= 1 && d.weeklyGoal <= 7))
         && (!('pinnedLifts' in d) || (d.pinnedLifts is list && d.pinnedLifts.size() <= 5))
-        && (!('strengthScale' in d) || d.strengthScale in ['standard', 'lighter'])
-        && (!('gamify' in d) || d.gamify is bool);
+        && (!('strengthScale' in d) || d.strengthScale in ['standard', 'lighter', 'self', 'men', 'women'])
+        && (!('gamify' in d) || d.gamify is bool)
+        // 5.12: pauzy a lehké týdny [{kind, from, to}] + týdenní cíl kardia (min)
+        && (!('breaks' in d) || (d.breaks is list && d.breaks.size() <= 24 && firstIsMap(d.breaks, ['kind', 'from'])))
+        && (!('cardioGoal' in d) || d.cardioGoal in [0, 75, 150, 300]);
     }
   }
 }

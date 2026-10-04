@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react';
 import { t } from '../lib/i18n.js';
+import { streaks, weekStatuses } from '../lib/gamify.js';
 
 const DAY = 864e5, WEEK = 7 * DAY, WEEKS = 12, MAX_GOAL = 7;
+// Týdenní cíl 6–7 = bez dne volna → jemné upozornění (1–2 volné dny týdně pomáhají regeneraci)
 const monday = (ms) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); };
 const dm = (ms) => { const d = new Date(ms); return `${d.getDate()}. ${d.getMonth() + 1}.`; };
 
 // Týdenní cíl: plnění tento týden, série splněných týdnů, 12 týdnů ve sloupcích a rozložení splitu.
-export default function WeeklyGoal({ workouts, goal, setGoal, groups }) {
+export default function WeeklyGoal({ workouts, goal, setGoal, groups, breaks = [] }) {
   const [sel, setSel] = useState(WEEKS - 1);
 
   const weeks = useMemo(() => {
@@ -19,15 +21,10 @@ export default function WeeklyGoal({ workouts, goal, setGoal, groups }) {
     return counts.map((n, i) => ({ n, start: cur - (WEEKS - 1 - i) * WEEK }));
   }, [workouts]);
 
-  // Série: splněné týdny v řadě; aktuální týden se počítá, jen když už je splněný
-  const streak = useMemo(() => {
-    const cur = monday(Date.now());
-    const byWeek = new Map();
-    for (const w of workouts) { const m = monday(w.startedAt); byWeek.set(m, (byWeek.get(m) || 0) + 1); }
-    let s = (byWeek.get(cur) || 0) >= goal ? 1 : 0;
-    for (let m = monday(cur - DAY); (byWeek.get(m) || 0) >= goal; m = monday(m - DAY)) s++;
-    return s;
-  }, [workouts, goal]);
+  // Stav týdnů (splněno / lehký týden / pauza / joker / nesplněno) a série – stejně jako milníky a statistiky
+  const statuses = useMemo(() => weekStatuses(workouts, goal, breaks), [workouts, goal, breaks]);
+  const statusOf = useMemo(() => new Map(statuses.map((w) => [w.mon, w.status])), [statuses]);
+  const streak = useMemo(() => streaks(statuses).current, [statuses]);
 
   const split = useMemo(() => {
     const from = Date.now() - 30 * DAY;
@@ -81,7 +78,8 @@ export default function WeeklyGoal({ workouts, goal, setGoal, groups }) {
       <div className="wg-bars" role="list">
         <i className="wg-line" style={{ bottom: `calc(${(goal / top) * 100}% * 0.82 + 18px)` }} aria-hidden="true" />
         {weeks.map((w, i) => {
-          const cls = i === WEEKS - 1 ? 'cur' : w.n >= goal ? 'met' : '';
+          const st = statusOf.get(w.start);
+          const cls = i === WEEKS - 1 ? 'cur' : w.n >= goal ? 'met' : st && st !== 'miss' ? 'kept' : '';
           const d = new Date(w.start);
           return (
             <button key={w.start} role="listitem" className={`wg-bar ${cls}${i === sel ? ' sel' : ''}`} onClick={() => setSel(i)}
@@ -93,8 +91,9 @@ export default function WeeklyGoal({ workouts, goal, setGoal, groups }) {
         })}
       </div>
       <p className="muted small wg-detail">
-        {dm(s.start)} – {dm(s.start + 6 * DAY)} · {t('count.workouts', { n: s.n })} · {sel === WEEKS - 1 ? t('wg.running') : s.n >= goal ? t('wg.met') : t('wg.missed')}
+        {dm(s.start)} – {dm(s.start + 6 * DAY)} · {t('count.workouts', { n: s.n })} · {t('wg.st.' + (sel === WEEKS - 1 && s.n < goal ? 'open' : statusOf.get(s.start) || (s.n >= goal ? 'met' : 'none')), { n: s.n, g: goal })}
       </p>
+      {goal >= 6 && <p className="small wg-warn">{t('wg.restWarn')}</p>}
 
       {split.total > 0 && (
         <div className="wg-split">

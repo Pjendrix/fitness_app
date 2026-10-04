@@ -6,6 +6,7 @@ import { guideState, hideGuide } from '../lib/guide.js';
 import { useStartTour } from '../components/Tour.jsx';
 import ProfileBadge from '../components/ProfileBadge.jsx';
 import WeekCard from '../components/WeekCard.jsx';
+import DeloadCard from '../components/DeloadCard.jsx';
 import { setStatsTab } from '../lib/statsTab.js';
 import { colorHex, STARTER_IDS } from '../data/defaultTemplates.js';
 import { t } from '../lib/i18n.js';
@@ -98,6 +99,7 @@ export default function Home({ go }) {
       )}
 
       {!needsSetup && <WeekCard onOpen={openStats} />}
+      {!needsSetup && !active && <DeloadCard />}
 
       {!active && (
         <>

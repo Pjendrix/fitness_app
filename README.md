@@ -88,3 +88,13 @@ Otevři nasazenou URL → Safari: *Sdílet → Přidat na plochu* / Chrome: *Nai
 - **Tělesná váha (E3):** `users/{uid}/body/{YYYY-MM-DD}` = `{date, weight}`; dlaždice na Domů, graf ve statistikách.
   Cviky s vlastní vahou (knihovna `bw` = podíl tělesné váhy) ukládají `bw` (kg) do tréninku a objem ho započítá.
 - Verze z `package.json` dole na obrazovce (`import.meta.env.APP_VERSION`).
+
+## 5.12 – zdravější motivace a kardio
+Revize z pohledu trenéra (ACSM 2026, WHO 2020, výzkum návyků). Aplikace teď umí i „brzdit“, ne jen tlačit.
+- **Progrese s brzdou:** cíl RIR u každého cviku (základní cviky 2–3, izolace 0–2), RPE z minula se využívá (RPE 10 → drž, horní hranice + RPE ≥ 9,5 → ověř), stagnace 3 tréninky → reset −10 %, u lehkých vah se nejdřív přidávají opakování, „max“ a vlastní váha mají strop. Pyramidy rozhoduje nejtěžší série.
+- **Lehký týden (deload):** 7 dní, ~60 % sérií, stejné váhy, žádné rekordní tipy; návrh na Domů po 8 týdnech bez přestávky nebo při poklesu výkonu. Týden se počítá jako splněný.
+- **Rekord na dosah** je jen doplněk za cílem (nikdy místo „udržet“, žádné singly). e1RM rekordy jen ze sérií do 10 opakování, rekord opakování = těžší váha na stejný počet opakování. Výrazná oslava jen u prvního rekordu tréninku.
+- **Síla vůči sobě:** silové milníky = růst e1RM na cvicích, které opravdu děláš (připnuté, pak nejčastější). Poměr k tělesné váze je volitelný benchmark (muži / ženy) z e1RM a 90denního průměru váhy.
+- **Odpuštění:** Heat se počítá vůči vlastnímu cíli (max. 1 trénink denně a cíl za týden), návrat po 7+ dnech přitopí 2×, pauza (nemoc/dovolená) Heat i sérii zmrazí, 1 nesplněný týden za 4 týdny = joker. Nový milník Návrat, zrušeno „Tři dny po sobě“ a „Hot session“.
+- **Kardio:** rychlý záznam (druh, minuty, intenzita) na kartě týdne, minuty podle WHO (intenzivní × 2) + kardio cviky z tréninků; cíl 150 min (nastavitelný). Do cíle tréninků ani Heatu se nepočítá.
+- **Nutné nasadit `firestore.rules`** (nové nastavení `breaks`, `cardioGoal`, nové hodnoty `strengthScale` a kolekce `users/{uid}/activities`).

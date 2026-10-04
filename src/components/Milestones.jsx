@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
-import { addMonths, closestMilestone, milestoneMax, milestones, milestoneTiers, MILESTONE_GROUPS, monthStart, ROMAN } from '../lib/gamify.js';
+import { addMonths, baseId, closestMilestone, isLiftId, milestoneMax, milestones, milestoneTiers, MILESTONE_GROUPS, monthStart, ROMAN } from '../lib/gamify.js';
+import { mileName } from '../lib/mileName.js';
 import { locale, t } from '../lib/i18n.js';
 import { fmtDate, fmtNum } from '../lib/util.js';
 import MonthlyRecap from './MonthlyRecap.jsx';
@@ -14,6 +15,7 @@ const r2 = (v) => (Math.round(v * 100) / 100).toLocaleString(locale()); // 1,25�
 export function nextText(m) {
   if (m.next == null) return m.max === 1 ? t('mile.d.' + m.id) : t('mile.maxed');
   const r = ROMAN[m.tier + 1];
+  if (isLiftId(m.id)) return m.few ? t('mile.n.liftFew', { r, next: m.next }) : t('mile.n.lift', { r, next: m.next, v: Math.round(m.value) });
   switch (m.id) {
     case 'workouts': return t('mile.n.workouts', { r, next: m.next, v: m.value });
     case 'tonnage': return t('mile.n.tonnage', { r, next: fmtNum(m.next), v: r1(m.value) });
@@ -22,21 +24,21 @@ export function nextText(m) {
     case 'explorer': return t('mile.n.explorer', { r, next: m.next, v: m.value });
     case 'steady': return t('mile.n.steady', { r, next: m.next, v: m.value });
     case 'forged': return t('mile.n.forged', { r, next: m.next, v: m.value });
-    case 'rekindled': return t('mile.n.rekindled');
+    case 'rekindled': return t('mile.n.rekindled', { r, next: m.next, v: m.value });
     case 'anniversary': return m.nextDate ? t('mile.n.anniversary', { r, d: fmtDate(m.nextDate) }) : t('mile.n.anniversaryNone');
+    // Benchmark vůči tělesné váze: v přehledu bez „chybí X kg“ (to je jen v detailu)
     case 'bench': case 'squat': case 'deadlift': case 'ohp':
       if (m.nobody) return t('mile.n.nobody');
       if (!m.kg) return t('mile.n.bwNone', { r, next: r2(m.next) });
-      return t('mile.n.bw', { r, next: r2(m.next), kg: r1(m.needKg ?? 0) });
+      return t('mile.n.bw', { r, next: r2(m.next), v: r2(m.value) });
     case 'total':
       if (m.nobody) return t('mile.n.nobody');
       if (m.missing) return t('mile.n.totalMissing', { r, next: r2(m.next) });
-      return t('mile.n.total', { r, next: r2(m.next), v: r1(m.kg), kg: r1(m.needKg ?? 0) });
+      return t('mile.n.total', { r, next: r2(m.next), v: r2(m.value) });
     case 'levelup': return t('mile.n.levelup', { r, next: m.next, v: m.value });
     case 'growth': return m.lift ? t('mile.n.growth', { r, next: m.next, v: Math.round(m.value), ex: m.lift }) : t('mile.n.growthNone', { r, next: m.next });
     case 'pullups': return t('mile.n.pullups', { r, next: m.next, v: m.value });
     case 'prs': return t('mile.n.prs', { r, next: m.next, v: m.value });
-    case 'hot': return t('mile.n.hot', { r, next: m.next, v: m.value });
     default: return '';
   }
 }
@@ -44,11 +46,11 @@ export function nextText(m) {
 function Row({ m, onOpen }) {
   const cls = 'mile-row' + (m.tier ? ' is-earned' : '') + (m.next == null && m.max > 1 ? ' is-max' : '');
   return (
-    <button className={cls} onClick={() => onOpen(m)} aria-label={t('mile.d.open', { name: t('mile.' + m.id) })}>
+    <button className={cls} onClick={() => onOpen(m)} aria-label={t('mile.d.open', { name: mileName(m) })}>
       <span className="mile-disc mono" aria-hidden="true">{ROMAN[m.tier]}</span>
       <div className="mile-body">
         <div className="mile-top">
-          <span className="mile-name">{t('mile.' + m.id)}</span>
+          <span className="mile-name">{mileName(m)}</span>
           <span className="mile-pips" role="img" aria-label={t('mile.tierAria', { n: m.tier, max: m.max })}>
             {Array.from({ length: m.max }, (_, i) => <i key={i} className={i < m.tier ? 'is-on' : ''} />)}
           </span>
@@ -64,9 +66,9 @@ function Row({ m, onOpen }) {
 // Milestones: karty s úrovněmi I–V, nahoře nejbližší další úroveň, dole měsíční kapitoly
 // part: 'all' (mobil) | 'side' (souhrn + kapitoly) | 'list' (skupiny karet) – desktop je skládá do dvou sloupců
 export default function Milestones({ go, part = 'all' }) {
-  const { workouts, weeklyGoal, main, body, strengthScale } = useStore();
+  const { workouts, weeklyGoal, main, body, strengthScale, breaks, pinnedLifts } = useStore();
   const groups = useMemo(() => main.groups.map((g) => g.id), [main]);
-  const list = useMemo(() => milestones(workouts, { goal: weeklyGoal, groups, body, scale: strengthScale }), [workouts, weeklyGoal, groups, body, strengthScale]);
+  const list = useMemo(() => milestones(workouts, { goal: weeklyGoal, groups, body, scale: strengthScale, breaks, pinned: pinnedLifts }), [workouts, weeklyGoal, groups, body, strengthScale, breaks, pinnedLifts]);
   const closest = closestMilestone(list);
   const earned = milestoneTiers(list);
   const hidden = list.filter((m) => m.secret && !m.tier).length; // tajné: vidět až po získání
@@ -98,7 +100,7 @@ export default function Milestones({ go, part = 'all' }) {
       {closest && (
         <section className="card card-hero mile-closest">
           <span className="label mile-eyebrow">{t('mile.closest')}</span>
-          <div className="row-between"><span className="big-ish">{t('mile.' + closest.id)} · {ROMAN[closest.tier + 1]}</span><span className="mono small">{Math.round(closest.pct * 100)} %</span></div>
+          <div className="row-between"><span className="big-ish">{mileName(closest)} · {ROMAN[closest.tier + 1]}</span><span className="mono small">{Math.round(closest.pct * 100)} %</span></div>
           <i className="mile-bar is-near"><i style={{ width: `${Math.round(closest.pct * 100)}%` }} /></i>
           <span className="small mile-closest-sub">{nextText(closest)}</span>
         </section>
@@ -106,7 +108,7 @@ export default function Milestones({ go, part = 'all' }) {
     </>
   );
   const groupsView = MILESTONE_GROUPS.map(([g, ids]) => {
-    const rows = list.filter((m) => ids.includes(m.id) && (!m.secret || m.tier));
+    const rows = list.filter((m) => ids.includes(baseId(m.id)) && (!m.secret || m.tier));
     if (g === 'secret') return (
       <section key={g} className="mile-group">
         <h3 className="label mile-group-title">{t('mile.g.secret')}</h3>
@@ -114,13 +116,13 @@ export default function Milestones({ go, part = 'all' }) {
         {hidden > 0 && <p className="muted small mile-note mile-hidden">{t('mile.hidden', { n: hidden })}</p>}
       </section>
     );
-    if (!rows.length) return null;
+    if (!rows.length && g !== 'strength') return null;
     return (
       <section key={g} className="mile-group">
         <h3 className="label mile-group-title">{t('mile.g.' + g)}</h3>
-        <div className="card mile-list">{rows.map((m) => <Row key={m.id} m={m} onOpen={setOpen} />)}</div>
+        {rows.length > 0 ? <div className="card mile-list">{rows.map((m) => <Row key={m.id} m={m} onOpen={setOpen} />)}</div> : <p className="muted small mile-note">{t('mile.liftNone')}</p>}
         {g === 'strength' && (
-          <p className="muted small mile-note">{t('mile.scaleNote', { s: t('scale.' + strengthScale) })} <button className="link" onClick={() => go('settings')}>{t('mile.scaleChange')}</button></p>
+          <p className="muted small mile-note">{t(strengthScale === 'self' ? 'mile.selfNote' : 'mile.scaleNote', { s: t('scale.' + strengthScale) })} <button className="link" onClick={() => go('settings')}>{t('mile.scaleChange')}</button></p>
         )}
       </section>
     );

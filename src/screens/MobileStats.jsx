@@ -5,6 +5,7 @@ import { ArrowIcon, MonitorIcon, SearchIcon, StarIcon } from '../components/Icon
 import { CATEGORIES } from '../data/exercises.js';
 import { fmtDate, fmtDuration, fmtNum, fmtSet, groupTags, startOfWeek, workoutVolume } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
+import { streaks, weekStatuses } from '../lib/gamify.js';
 import { BodyChart } from '../components/BodyWeight.jsx';
 import Sheet from '../components/Sheet.jsx';
 import { markGuide } from '../lib/guide.js';
@@ -32,7 +33,7 @@ export default function MobileStats({ go, tabs = null }) {
 }
 
 function Overview({ go, open, tabs }) {
-  const { workouts, prs, catOf, weeklyGoal, main, groupLabel, pinnedLifts } = useStore();
+  const { workouts, prs, catOf, weeklyGoal, main, groupLabel, pinnedLifts, breaks } = useStore();
   const [range, setRange] = useState(12);
   const [mMode, setMMode] = useState('sets');
   const [allOpen, setAllOpen] = useState(false);
@@ -54,18 +55,14 @@ function Overview({ go, open, tabs }) {
     const prevVol = prev.reduce((s, w) => s + workoutVolume(w), 0);
     const avg = inRange.length ? inRange.reduce((s, w) => s + (w.finishedAt - w.startedAt), 0) / inRange.length : 0;
 
-    // Série splněných týdnů (aktuální týden se počítá, jen když už je splněný) – stejně jako WeeklyGoal
-    const byWeek = new Map();
-    for (const w of workouts) { const m = monday(w.startedAt); byWeek.set(m, (byWeek.get(m) || 0) + 1); }
-    const cur = monday(now);
-    let streak = (byWeek.get(cur) || 0) >= weeklyGoal ? 1 : 0;
-    for (let m = monday(cur - DAY); (byWeek.get(m) || 0) >= weeklyGoal; m = monday(m - DAY)) streak++;
+    // Série splněných týdnů (pauza a joker ji drží) – stejně jako WeeklyGoal a milníky
+    const streak = streaks(weekStatuses(workouts, weeklyGoal, breaks, now)).current;
 
     return {
       from, inRange,
       kpi: { count: inRange.length, perWeek: inRange.length / range, vol, volDelta: prevVol ? Math.round(((vol - prevVol) / prevVol) * 100) : null, avg, streak },
     };
-  }, [workouts, range, weeklyGoal]);
+  }, [workouts, range, weeklyGoal, breaks]);
 
   // Tento týden po dnech + další skupina v rotaci
   const week = useMemo(() => {

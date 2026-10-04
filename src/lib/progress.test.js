@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultStep, exerciseTargets, learnedSteps, recordsTimeline, repRange } from './progress.js';
+import { defaultStep, deloadAdvice, exerciseTargets, isStalled, learnedSteps, recordsTimeline, repRange, rirTarget, widenRange } from './progress.js';
 import { templateDiffers, templateFromActive } from './templateSync.js';
 import { platesFor } from '../components/PlateCalc.jsx';
 
@@ -11,28 +11,85 @@ describe('repRange', () => {
   it('max / pyramid → null', () => { expect(repRange('max')).toBeNull(); expect(repRange('pyramid')).toBeNull(); });
 });
 
-describe('exerciseTargets (double progression)', () => {
-  const prev = (list) => list.map(([weight, reps]) => ({ weight, reps }));
-  it('machine 3× 8: at 10 reps → +1 rep, same weight (no 21 kg)', () => {
+describe('exerciseTargets (double progression with brakes)', () => {
+  const prev = (list) => list.map(([weight, reps, rpe]) => ({ weight, reps, ...(rpe ? { rpe } : {}) }));
+  it('machine 3× 8 with a big relative step: +1 rep, range widened (no jump yet)', () => {
     expect(exerciseTargets(prev([[10, 10], [15, 10], [20, 10]]), { spec: '8', step: 5 }))
       .toEqual([{ weight: 10, reps: 11 }, { weight: 15, reps: 11 }, { weight: 20, reps: 11 }]);
   });
   it('sets at the top hold while others catch up', () => {
-    expect(exerciseTargets(prev([[20, 12], [20, 10]]), { spec: '8', step: 5 }))
-      .toEqual([{ weight: 20, reps: 12, hold: true }, { weight: 20, reps: 11 }]);
+    expect(exerciseTargets(prev([[60, 12], [60, 10]]), { spec: '8', step: 2.5 }))
+      .toEqual([{ weight: 60, reps: 12, hold: true }, { weight: 60, reps: 11 }]);
   });
   it('all sets at the top → + step, back to the bottom', () => {
-    expect(exerciseTargets(prev([[20, 12], [20, 12]]), { spec: '8', step: 5 }))
-      .toEqual([{ weight: 25, reps: 8 }, { weight: 25, reps: 8 }]);
+    expect(exerciseTargets(prev([[60, 12], [60, 12]]), { spec: '8', step: 2.5 }))
+      .toEqual([{ weight: 62.5, reps: 8, state: 'up' }, { weight: 62.5, reps: 8, state: 'up' }]);
   });
   it('barbell 4× 6 → 6–8, step 2.5', () => {
-    expect(exerciseTargets(prev([[85, 8], [85, 8]]), { spec: '6', step: 2.5 })).toEqual([{ weight: 87.5, reps: 6 }, { weight: 87.5, reps: 6 }]);
+    expect(exerciseTargets(prev([[85, 8], [85, 8]]), { spec: '6', step: 2.5 })).toEqual([{ weight: 87.5, reps: 6, state: 'up' }, { weight: 87.5, reps: 6, state: 'up' }]);
   });
-  it('bodyweight / max → +1 rep', () => {
+  it('light dumbbells: step > 25 % of the weight → more reps first (12 → 18)', () => {
+    expect(widenRange({ lo: 8, hi: 12 }, 3, 2)).toEqual({ lo: 8, hi: 18, wide: true });
+    expect(widenRange({ lo: 8, hi: 12 }, 12, 2)).toEqual({ lo: 8, hi: 15, wide: true });
+    expect(widenRange({ lo: 8, hi: 12 }, 60, 2.5)).toEqual({ lo: 8, hi: 12 });
+    expect(exerciseTargets(prev([[3, 12], [3, 12]]), { spec: '8', step: 2 })).toEqual([{ weight: 3, reps: 13 }, { weight: 3, reps: 13 }]);
+  });
+  it('top of the range but RPE 10 → hold and confirm before adding weight', () => {
+    expect(exerciseTargets(prev([[60, 12, 10], [60, 12]]), { spec: '8', step: 2.5 })[0]).toMatchObject({ weight: 60, reps: 12, hold: true, state: 'verify' });
+  });
+  it('last time RPE 10 below the top → hold (no +1)', () => {
+    expect(exerciseTargets(prev([[60, 9, 10], [60, 8]]), { spec: '8', step: 2.5 })).toEqual([
+      { weight: 60, reps: 9, hold: true, state: 'easy' }, { weight: 60, reps: 8, hold: true, state: 'easy' },
+    ]);
+  });
+  it('stalled 3 sessions → reset about −10 %', () => {
+    const s = prev([[60, 8], [60, 8]]);
+    const t = exerciseTargets(s, { spec: '8', step: 2.5, recent: [s, s, s, s] });
+    expect(t[0]).toMatchObject({ weight: 55, reps: 8, state: 'reset' });
+    expect(isStalled([s, s, s])).toBe(false); // potřeba 4 tréninky
+  });
+  it('light week → same weights and reps, no progression', () => {
+    expect(exerciseTargets(prev([[60, 12], [60, 12]]), { spec: '8', step: 2.5, deload: true })).toEqual([
+      { weight: 60, reps: 12, hold: true, state: 'deload' }, { weight: 60, reps: 12, hold: true, state: 'deload' },
+    ]);
+  });
+  it('pyramid with a final “max” set: the heaviest ranged set decides, max does not block', () => {
+    const t = exerciseTargets(prev([[60, 14], [70, 12], [80, 8], [85, 9]]), { specs: [10, 8, 6, 'max'], step: 2.5 });
+    expect(t.slice(0, 3).every((x) => x.state === 'up')).toBe(true);
+    expect(t[3]).toEqual({ weight: 85, reps: 10 });
+  });
+  it('bodyweight / max → +1 rep, with a cap', () => {
     expect(exerciseTargets(prev([[0, 10]]), { spec: '8' })).toEqual([{ weight: 0, reps: 11 }]);
+    expect(exerciseTargets(prev([[0, 20]]), { spec: '8' })).toEqual([{ weight: 0, reps: 20, hold: true, state: 'load' }]);
     expect(exerciseTargets(prev([[20, 10]]), { spec: 'max' })).toEqual([{ weight: 20, reps: 11 }]);
+    expect(exerciseTargets(prev([[20, 15]]), { spec: 'max' })).toEqual([{ weight: 20, reps: 15, hold: true, state: 'cap' }]);
   });
   it('timed → none', () => expect(exerciseTargets([{ weight: 0, reps: 0, time: 5 }], { spec: '' })).toEqual([null]));
+  it('RIR target by exercise type', () => {
+    expect(rirTarget('Bench Press (Barbell)')).toBe('2–3');
+    expect(rirTarget('Lat Pulldown (Cable)')).toBe('2–3');
+    expect(rirTarget('Lateral Raise (Dumbbell)')).toBe('0–2');
+    expect(rirTarget('Leg Extension (Machine)')).toBe('0–2');
+  });
+});
+
+describe('deloadAdvice', () => {
+  const DAY = 864e5, NOW = new Date(2026, 9, 3, 18).getTime();
+  const w = (daysAgo, ex = []) => ({ id: 'd' + daysAgo, startedAt: NOW - daysAgo * DAY, exercises: ex });
+  it('8+ weeks of steady training without a break → suggest', () => {
+    const ws = Array.from({ length: 30 }, (_, i) => w(i * 2 + 1));
+    expect(deloadAdvice(ws, { goal: 3, now: NOW })).toMatchObject({ reason: 'weeks' });
+    expect(deloadAdvice(ws, { goal: 3, now: NOW, breaks: [{ kind: 'deload', from: NOW - 20 * DAY, to: NOW - 13 * DAY }] })).toBeNull();
+  });
+  it('performance drop on 2 exercises in the last 2 workouts → suggest', () => {
+    const ex = (a, b) => [{ key: 'a', sets: [{ weight: a, reps: 5 }] }, { key: 'b', sets: [{ weight: b, reps: 5 }] }];
+    const ws = [w(9, ex(100, 50)), w(5, ex(90, 50)), w(2, ex(90, 44))];
+    expect(deloadAdvice(ws, { goal: 3, now: NOW })).toEqual({ reason: 'drop', n: 2 });
+  });
+  it('nothing while paused', () => {
+    const ws = Array.from({ length: 30 }, (_, i) => w(i * 2 + 1));
+    expect(deloadAdvice(ws, { goal: 3, now: NOW, breaks: [{ kind: 'pause', from: NOW - DAY, to: null }] })).toBeNull();
+  });
 });
 
 describe('weight steps', () => {
@@ -56,11 +113,15 @@ describe('recordsTimeline', () => {
       w('b', 2, [{ weight: 85, reps: 3 }]),
       w('c', 3, [{ weight: 80, reps: 8 }]),
       w('d', 4, [{ weight: 70, reps: 5 }]),
+      w('e', 5, [{ weight: 50, reps: 20 }]), // e1 z 20 opakování se nepočítá
+      w('f', 6, [{ weight: 82.5, reps: 5 }]), // těžší na 5 opakování → rekord opakování
     ]);
     expect(r.get('a')).toBeUndefined();
     expect(r.get('b')[0].kind).toBe('pb');
     expect(r.get('c')[0].kind).toBe('e1');
     expect(r.get('d')).toBeUndefined();
+    expect(r.get('e')).toBeUndefined();
+    expect(r.get('f')[0].kind).toBe('reps');
   });
 });
 
