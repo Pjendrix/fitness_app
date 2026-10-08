@@ -1221,3 +1221,7 @@ html:not(.desktop) .why-side { position: static; }
 .why-gloss dt { font-weight: 500; }
 .why-gloss dd { margin: 0; color: var(--charcoal); line-height: 1.5; }
 html:not(.desktop) .why-gloss-row { grid-template-columns: 1fr; gap: 2px; }
+/* 5.18: krátké panely se při delším obsahu scrollují (malé telefony, otevřená klávesnice); Uložit u kardia vždy vidět */
+.sheet-short { overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.cardio-sheet { max-height: 88dvh; }
+.cardio-actions { position: sticky; bottom: calc(-12px - env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 6px; margin: 4px -16px 0; padding: 10px 16px calc(env(safe-area-inset-bottom) + 12px); background: var(--white); box-shadow: 0 -1px 0 var(--hairline); }

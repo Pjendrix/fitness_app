@@ -51,7 +51,7 @@ export default function CardioSheet({ start = 'list', week, mon, onClose }) {
           </div>
           <label className="cardio-min">
             <span className="label">{t('cardio.minutes')}</span>
-            <input className="input" inputMode="numeric" pattern="[0-9]*" maxLength={3} value={minutes} onChange={(e) => /^\d{0,3}$/.test(e.target.value) && setMinutes(e.target.value)} data-autofocus />
+            <input className="input" inputMode="numeric" pattern="[0-9]*" maxLength={3} value={minutes} onChange={(e) => /^\d{0,3}$/.test(e.target.value) && setMinutes(e.target.value)} />
           </label>
           <div className="rpe-chips" aria-hidden="false">
             {QUICK.map((q) => <button key={q} type="button" className={'chip' + (min === q ? ' is-on' : '')} onClick={() => setMinutes(String(q))}>{q}</button>)}
@@ -65,8 +65,11 @@ export default function CardioSheet({ start = 'list', week, mon, onClose }) {
           <div className="seg seg-sm" role="radiogroup" aria-label={t('cardio.day')}>
             {[0, 1, 2].map((d) => <button key={d} role="radio" aria-checked={day === d} className={day === d ? 'is-on' : ''} onClick={() => setDay(d)}>{d === 0 ? t('week.today') : d === 1 ? t('week.yesterday') : dayLabel(Date.now() - 2 * DAY)}</button>)}
           </div>
-          <button className="btn btn-primary btn-block" disabled={!valid} onClick={save}>{t('cardio.save')}</button>
-          {start !== 'add' && <button className="btn btn-ghost btn-block" onClick={() => setAdding(false)}>{t('dlg.cancel')}</button>}
+          {/* Uložit je přilepené dole – na menším telefonu jinak skončí pod okrajem panelu */}
+          <div className="cardio-actions">
+            <button className="btn btn-primary btn-block" disabled={!valid} onClick={save}>{t('cardio.save')}</button>
+            {start !== 'add' && <button className="btn btn-ghost btn-block" onClick={() => setAdding(false)}>{t('dlg.cancel')}</button>}
+          </div>
         </div>
       ) : (
         <>

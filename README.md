@@ -112,3 +112,4 @@ Revize z pohledu trenéra (ACSM 2026, WHO 2020, výzkum návyků). Aplikace teď
 - Proč to funguje: nové zdroje, 7 nových pravidel, kapitola „Jak funguje Heat“ a slovníček.
 - 5.16: silové milníky = opakovatelná „nová maxima“ (odhad 1RM ≥ +2,5 % nad dosavadním nejlepším), stupně 1/3/6/10/15, cíl v kg v detailu.
 - 5.17: automatický návrh lehkého týdne odstraněn – lehký týden se zapíná jen ručně v Nastavení.
+- 5.18: kardio panel – tlačítko Uložit vždy viditelné (přilepené dole), krátké panely se scrollují, bez automatického otevření klávesnice.
